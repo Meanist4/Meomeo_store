@@ -5,29 +5,38 @@ import java.sql.*;
 import java.util.*;
 
 public class OrderRepository {
+
     public static class OrderRow {
+
         public int id;
         public Timestamp orderDate;
         public String cashierName;
+        public String customerName;
+        public String customerPhone;
         public double totalAmount;
-        public int isDeleted;   // 0: PAID, 1: CANCELED
+        public String status;
     }
 
     public List<OrderRow> findTodayOrders() {
         List<OrderRow> result = new ArrayList<>();
-        String sql = "SELECT o.id, o.order_date, e.full_name, o.total_amount, o.is_deleted "
-                + "FROM orders o JOIN employees e ON o.employee_id = e.id "
-                + "WHERE DATE(o.order_date) = CURDATE() ORDER BY o.order_date DESC";
-        try (Connection conn = DatabaseConnection.getConnection();
-                Statement st = conn.createStatement();
-                ResultSet rs = st.executeQuery(sql)) {
+        String sql = "SELECT o.id, o.order_date, c.full_name AS customer_name, c.phone, o.total_amount, o.status "
+                + "FROM orders o "
+                + "LEFT JOIN customers c ON o.customer_id = c.id "
+                + "WHERE DATE(o.order_date) = CURDATE() "
+                + "ORDER BY o.order_date DESC"; // Giữ ORDER BY để đơn hàng mới nhất lên đầu
+
+        try (Connection conn = DatabaseConnection.getConnection(); Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(sql)) {
+
             while (rs.next()) {
                 OrderRow row = new OrderRow();
                 row.id = rs.getInt("id");
                 row.orderDate = rs.getTimestamp("order_date");
-                row.cashierName = rs.getString("full_name");
+                row.customerName = rs.getString("customer_name") != null ? rs.getString("customer_name") : "Khách vãng lai";
+                row.customerPhone = rs.getString("phone") != null ? rs.getString("phone") : "";
+
                 row.totalAmount = rs.getDouble("total_amount");
-                row.isDeleted = rs.getInt("is_deleted");
+                row.status = rs.getString("status");
+
                 result.add(row);
             }
         } catch (SQLException e) {
@@ -36,15 +45,17 @@ public class OrderRepository {
         }
         return result;
     }
+
     public int cancelOrders(List<Integer> orderIds) {
-        if (orderIds == null || orderIds.isEmpty()) return 0;
+        if (orderIds == null || orderIds.isEmpty()) {
+            return 0;
+        }
         StringBuilder placeholders = new StringBuilder();
         for (int i = 0; i < orderIds.size(); i++) {
             placeholders.append(i == 0 ? "?" : ",?");
         }
         String sql = "UPDATE orders SET is_deleted = 1 WHERE id IN (" + placeholders + ")";
-        try (Connection conn = DatabaseConnection.getConnection();
-                PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (Connection conn = DatabaseConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
             for (int i = 0; i < orderIds.size(); i++) {
                 ps.setInt(i + 1, orderIds.get(i));
             }
@@ -57,6 +68,7 @@ public class OrderRepository {
     }
 
     public static class OrderHistoryRow {
+
         public int id;
         public Timestamp orderDate;
         public String cashierName;
@@ -70,25 +82,36 @@ public class OrderRepository {
         StringBuilder sql = new StringBuilder(
                 "SELECT o.id, o.order_date, e.full_name, o.payment_method, o.total_amount, o.is_deleted "
                 + "FROM orders o JOIN employees e ON o.employee_id = e.id WHERE 1=1 ");
-        if ("PAID".equals(status))     sql.append("AND o.is_deleted = 0 ");
-        if ("CANCELED".equals(status)) sql.append("AND o.is_deleted = 1 ");
-        if (startDate != null) sql.append("AND o.order_date >= ? ");
-        if (endDate   != null) sql.append("AND o.order_date <= ? ");
+        if ("PAID".equals(status)) {
+            sql.append("AND o.is_deleted = 0 ");
+        }
+        if ("CANCELED".equals(status)) {
+            sql.append("AND o.is_deleted = 1 ");
+        }
+        if (startDate != null) {
+            sql.append("AND o.order_date >= ? ");
+        }
+        if (endDate != null) {
+            sql.append("AND o.order_date <= ? ");
+        }
         sql.append("ORDER BY o.order_date DESC");
 
-        try (Connection conn = DatabaseConnection.getConnection();
-                PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+        try (Connection conn = DatabaseConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql.toString())) {
             int idx = 1;
             if (startDate != null) {
                 Calendar cal = Calendar.getInstance();
                 cal.setTime(startDate);
-                cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0); cal.set(Calendar.SECOND, 0);
+                cal.set(Calendar.HOUR_OF_DAY, 0);
+                cal.set(Calendar.MINUTE, 0);
+                cal.set(Calendar.SECOND, 0);
                 ps.setTimestamp(idx++, new Timestamp(cal.getTimeInMillis()));
             }
             if (endDate != null) {
                 Calendar cal = Calendar.getInstance();
                 cal.setTime(endDate);
-                cal.set(Calendar.HOUR_OF_DAY, 23); cal.set(Calendar.MINUTE, 59); cal.set(Calendar.SECOND, 59);
+                cal.set(Calendar.HOUR_OF_DAY, 23);
+                cal.set(Calendar.MINUTE, 59);
+                cal.set(Calendar.SECOND, 59);
                 ps.setTimestamp(idx++, new Timestamp(cal.getTimeInMillis()));
             }
             try (ResultSet rs = ps.executeQuery()) {
@@ -111,6 +134,7 @@ public class OrderRepository {
     }
 
     public static class OrderOverview {
+
         public double totalRevenue;
         public int paidCount;
         public int canceledCount;
@@ -123,14 +147,17 @@ public class OrderRepository {
                 + "COUNT(CASE WHEN is_deleted = 0 THEN 1 END) AS paid_count, "
                 + "COUNT(CASE WHEN is_deleted = 1 THEN 1 END) AS canceled_count "
                 + "FROM orders WHERE order_date >= ? AND order_date <= ?";
-        try (Connection conn = DatabaseConnection.getConnection();
-                PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (Connection conn = DatabaseConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
             Calendar cal = Calendar.getInstance();
             cal.setTime(startDate != null ? startDate : new java.util.Date(0));
-            cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0); cal.set(Calendar.SECOND, 0);
+            cal.set(Calendar.HOUR_OF_DAY, 0);
+            cal.set(Calendar.MINUTE, 0);
+            cal.set(Calendar.SECOND, 0);
             ps.setTimestamp(1, new Timestamp(cal.getTimeInMillis()));
             cal.setTime(endDate != null ? endDate : new java.util.Date());
-            cal.set(Calendar.HOUR_OF_DAY, 23); cal.set(Calendar.MINUTE, 59); cal.set(Calendar.SECOND, 59);
+            cal.set(Calendar.HOUR_OF_DAY, 23);
+            cal.set(Calendar.MINUTE, 59);
+            cal.set(Calendar.SECOND, 59);
             ps.setTimestamp(2, new Timestamp(cal.getTimeInMillis()));
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
@@ -147,9 +174,41 @@ public class OrderRepository {
     }
 
     public static class DailyOrderStats {
+
         public double revenue;
         public int activeOrders;
         public int canceledOrders;
+    }
+
+    public double getDailyRevenue() {
+        String sql = """
+        SELECT COALESCE(SUM(total_amount), 0)
+        FROM orders
+        WHERE status = 'PAID'
+          AND DATE(order_date) = CURRENT_DATE
+        """;
+        try (var conn = DatabaseConnection.getConnection(); var ps = conn.prepareStatement(sql); var rs = ps.executeQuery()) {
+            return rs.next() ? rs.getDouble(1) : 0;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return 0;
+        }
+    }
+
+    public double getMonthlyRevenue() {
+        String sql = """
+        SELECT COALESCE(SUM(total_amount), 0)
+        FROM orders
+        WHERE status = 'PAID'
+          AND MONTH(order_date) = MONTH(CURRENT_DATE)
+          AND YEAR(order_date)  = YEAR(CURRENT_DATE)
+        """;
+        try (var conn = DatabaseConnection.getConnection(); var ps = conn.prepareStatement(sql); var rs = ps.executeQuery()) {
+            return rs.next() ? rs.getDouble(1) : 0;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return 0;
+        }
     }
 
     public DailyOrderStats getDailyOrderStats() {
@@ -159,9 +218,7 @@ public class OrderRepository {
                 + "COUNT(CASE WHEN is_deleted = 0 THEN 1 END) AS active_orders, "
                 + "COUNT(CASE WHEN is_deleted = 1 THEN 1 END) AS canceled_orders "
                 + "FROM orders WHERE DATE(order_date) = CURDATE()";
-        try (Connection conn = DatabaseConnection.getConnection();
-                Statement st = conn.createStatement();
-                ResultSet rs = st.executeQuery(sql)) {
+        try (Connection conn = DatabaseConnection.getConnection(); Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(sql)) {
             if (rs.next()) {
                 stats.revenue = rs.getDouble("revenue");
                 stats.activeOrders = rs.getInt("active_orders");
@@ -172,5 +229,130 @@ public class OrderRepository {
             e.printStackTrace();
         }
         return stats;
+    }
+
+    public long[] getRevenueByWeek() {
+        java.util.LinkedHashMap<java.time.LocalDate, Long> map = new java.util.LinkedHashMap<>();
+        java.time.LocalDate today = java.time.LocalDate.now();
+        for (int i = 6; i >= 0; i--) {
+            map.put(today.minusDays(i), 0L);
+        }
+
+        String sqlWeek = "SELECT DATE(order_date) AS ngay, "
+                + "COALESCE(SUM(total_amount), 0) AS doanh_thu "
+                + "FROM orders "
+                + "WHERE status = 'PAID' " // ← sửa ở đây
+                + "  AND DATE(order_date) >= CURDATE() - INTERVAL 6 DAY "
+                + "GROUP BY DATE(order_date) "
+                + "ORDER BY ngay ASC";
+
+        try (Connection conn = DatabaseConnection.getConnection(); Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(sqlWeek)) {
+            while (rs.next()) {
+                java.time.LocalDate d = rs.getDate("ngay").toLocalDate();
+                if (map.containsKey(d)) {
+                    map.put(d, rs.getLong("doanh_thu"));
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Lỗi getRevenueByWeek: " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        return map.values().stream().mapToLong(Long::longValue).toArray();
+    }
+
+    public long[] getRevenueByMonth() {
+        long[] result = new long[12]; // index 0 = tháng 1
+
+        String sql = "SELECT MONTH(order_date) AS thang, "
+                + "COALESCE(SUM(total_amount), 0) AS doanh_thu "
+                + "FROM orders "
+                + "WHERE status = 'PAID' "
+                + "  AND YEAR(order_date) = YEAR(CURDATE()) "
+                + "GROUP BY MONTH(order_date) "
+                + "ORDER BY thang ASC";
+
+        try (Connection conn = DatabaseConnection.getConnection(); Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(sql)) {
+            while (rs.next()) {
+                int thang = rs.getInt("thang");
+                if (thang >= 1 && thang <= 12) {
+                    result[thang - 1] = rs.getLong("doanh_thu");
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Lỗi getRevenueByMonth: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return result;
+    }
+
+    public static class TopProductRow {
+
+        public String productName;
+        public int quantitySold;
+        public int stock; // quantity còn trong kho
+    }
+
+    public List<TopProductRow> getTopProductsToday(int limit) {
+        List<TopProductRow> result = new ArrayList<>();
+        String sql = "SELECT p.product_name, "
+                + "  SUM(od.quantity) AS qty_sold, "
+                + "  p.quantity AS stock "
+                + "FROM order_details od "
+                + "JOIN orders o  ON od.order_id  = o.id "
+                + "JOIN products p ON od.product_id = p.id "
+                + "WHERE o.status = 'PAID' "
+                + "  AND DATE(o.order_date) = CURDATE() "
+                + "GROUP BY p.id, p.product_name, p.quantity "
+                + "ORDER BY qty_sold DESC "
+                + "LIMIT ?";
+        try (Connection conn = DatabaseConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, limit);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    TopProductRow row = new TopProductRow();
+                    row.productName = rs.getString("product_name");
+                    row.quantitySold = rs.getInt("qty_sold");
+                    row.stock = rs.getInt("stock");
+                    result.add(row);
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Lỗi getTopProductsToday: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return result;
+    }
+
+    public List<TopProductRow> getTopProductsThisMonth(int limit) {
+        List<TopProductRow> result = new ArrayList<>();
+        String sql = "SELECT p.product_name, "
+                + "  SUM(od.quantity) AS qty_sold, "
+                + "  p.quantity AS stock "
+                + "FROM order_details od "
+                + "JOIN orders o  ON od.order_id  = o.id "
+                + "JOIN products p ON od.product_id = p.id "
+                + "WHERE o.status = 'PAID' "
+                + "  AND MONTH(o.order_date) = MONTH(CURDATE()) "
+                + "  AND YEAR(o.order_date)  = YEAR(CURDATE()) "
+                + "GROUP BY p.id, p.product_name, p.quantity "
+                + "ORDER BY qty_sold DESC "
+                + "LIMIT ?";
+        try (Connection conn = DatabaseConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, limit);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    TopProductRow row = new TopProductRow();
+                    row.productName = rs.getString("product_name");
+                    row.quantitySold = rs.getInt("qty_sold");
+                    row.stock = rs.getInt("stock");
+                    result.add(row);
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Lỗi getTopProductsThisMonth: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return result;
     }
 }

@@ -14,15 +14,15 @@ import javax.swing.table.DefaultTableCellRenderer;
 
 public class OrderTableRenderer extends DefaultTableCellRenderer {
 
-    private static final Color PAID_FG           = new Color(34, 197, 94);
-    private static final String PAID_BADGE_STYLE  = "background: #DCFCE7; arc: 999; border: 4,12,4,12;";
+    private static final Color PAID_FG = new Color(34, 197, 94);
+    private static final String PAID_BADGE_STYLE = "background: #DCFCE7; arc: 999; border: 4,12,4,12;";
 
-    private static final Color CANCELED_FG            = new Color(239, 68, 68);
-    private static final String CANCELED_BADGE_STYLE   = "background: #FEE2E2; arc: 999; border: 4,12,4,12;";
+    private static final Color CANCELED_FG = new Color(239, 68, 68);
+    private static final String CANCELED_BADGE_STYLE = "background: #FEE2E2; arc: 999; border: 4,12,4,12;";
 
-    private static final Color COLOR_BOLD   = new Color(15, 23, 42);
+    private static final Color COLOR_BOLD = new Color(15, 23, 42);
     private static final Color COLOR_NORMAL = new Color(71, 85, 105);
-    private static final Color COLOR_MUTED  = new Color(148, 163, 184);
+    private static final Color COLOR_MUTED = new Color(148, 163, 184);
 
     @Override
     public Component getTableCellRendererComponent(JTable table, Object value,
@@ -51,12 +51,15 @@ public class OrderTableRenderer extends DefaultTableCellRenderer {
         // Cột 1–4
         Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
         if (c instanceof JLabel label) {
-            label.setBorder(BorderFactory.createEmptyBorder(0, 10, 0, 10));
+            label.setVerticalAlignment(SwingConstants.CENTER);
+            label.setHorizontalAlignment(SwingConstants.CENTER);
+            label.setBorder(BorderFactory.createEmptyBorder(0, 5, 0, 5));
+
             if (isCanceled) {
                 label.setForeground(COLOR_MUTED);
-                String text = label.getText();
+                String text = String.valueOf(value);
                 if (!text.startsWith("<html>")) {
-                    label.setText("<html><s>" + text + "</s></html>");
+                    label.setText("<html><body style='margin:0; padding:0; text-align:center;'><span style='text-decoration:line-through;'>" + text + "</span></body></html>");
                 }
                 label.setFont(table.getFont());
             } else {
