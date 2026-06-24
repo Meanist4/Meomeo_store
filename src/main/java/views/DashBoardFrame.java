@@ -81,7 +81,8 @@ public class DashBoardFrame extends javax.swing.JFrame {
                 + "innerFocusWidth: 0; "
                 + "hoverBackground: #EDF2F7;";
 
-        javax.swing.JButton[] menuButtons = {btnDashBoard, btnProductInventory, btnOrderHistory, btnHumanResources};
+        javax.swing.JButton[] menuButtons = {btnDashBoard, btnProductInventory,
+            btnOrderHistory, btnHumanResources, btnBackToSaleCounter, btnCustomerManagement};
         for (javax.swing.JButton btn : menuButtons) {
             btn.setContentAreaFilled(true);
             btn.setFocusPainted(false);
@@ -97,10 +98,13 @@ public class DashBoardFrame extends javax.swing.JFrame {
         btnProductInventory.setIcon(ui.MenuIcons.inventory());
         btnOrderHistory.setIcon(ui.MenuIcons.history());
         btnHumanResources.setIcon(ui.MenuIcons.humanResources());
+        btnBackToSaleCounter.setIcon(ui.MenuIcons.backToSaleCounter());
+        btnCustomerManagement.setIcon(ui.MenuIcons.customerManagement());
         btnDashBoard.putClientProperty("cardName", "CardDashboard");
         btnProductInventory.putClientProperty("cardName", "CardProduct");
         btnOrderHistory.putClientProperty("cardName", "CardOrder");
         btnHumanResources.putClientProperty("cardName", "CardAttendance");
+        btnCustomerManagement.putClientProperty("cardName", "CardCustomer");
 
         java.awt.CardLayout cardLayout = (java.awt.CardLayout) panelContent.getLayout();
         cardLayout.show(panelContent, "CardDashboard");
@@ -855,8 +859,6 @@ public class DashBoardFrame extends javax.swing.JFrame {
         javax.swing.table.DefaultTableModel model
                 = (javax.swing.table.DefaultTableModel) tableAttendance.getModel();
         model.setRowCount(0);
-
-        // Đọc filter trên EDT trước khi vào background thread
         int targetMonth = java.time.LocalDate.now().getMonthValue();
         int targetYear = java.time.LocalDate.now().getYear();
 
@@ -1077,7 +1079,6 @@ public class DashBoardFrame extends javax.swing.JFrame {
             setActiveHRTabStyle(btnSchedule);
         });
 
-        // Mặc định khi vào HR, hiện Attendance Log trước
         hrCardLayout.show(panelEmployeeMain, "cardAttendance");
         setActiveHRTabStyle(btnAttendance);
     }
@@ -1118,6 +1119,8 @@ public class DashBoardFrame extends javax.swing.JFrame {
         btnProductInventory = new javax.swing.JButton();
         btnOrderHistory = new javax.swing.JButton();
         btnHumanResources = new javax.swing.JButton();
+        btnBackToSaleCounter = new javax.swing.JButton();
+        btnCustomerManagement = new javax.swing.JButton();
         panelContent = new javax.swing.JPanel();
         panelDashboard = new javax.swing.JPanel();
         jPanel1 = new javax.swing.JPanel();
@@ -1215,6 +1218,13 @@ public class DashBoardFrame extends javax.swing.JFrame {
         jPanel5 = new javax.swing.JPanel();
         jScrollPane6 = new javax.swing.JScrollPane();
         tableSchedule = new javax.swing.JTable();
+        panelCustomer = new javax.swing.JPanel();
+        panelCustomerHeader = new javax.swing.JPanel();
+        jLabel24 = new javax.swing.JLabel();
+        jLabel25 = new javax.swing.JLabel();
+        jPanel7 = new javax.swing.JPanel();
+        jScrollPane7 = new javax.swing.JScrollPane();
+        jTable1 = new javax.swing.JTable();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 
@@ -1283,6 +1293,18 @@ public class DashBoardFrame extends javax.swing.JFrame {
         btnHumanResources.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
         btnHumanResources.addActionListener(this::btnHumanResourcesActionPerformed);
 
+        btnBackToSaleCounter.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
+        btnBackToSaleCounter.setText("Back to POS");
+        btnBackToSaleCounter.setBorder(null);
+        btnBackToSaleCounter.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
+        btnBackToSaleCounter.addActionListener(this::btnBackToSaleCounterActionPerformed);
+
+        btnCustomerManagement.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
+        btnCustomerManagement.setText("Customer Care");
+        btnCustomerManagement.setBorder(null);
+        btnCustomerManagement.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
+        btnCustomerManagement.addActionListener(this::btnCustomerManagementActionPerformed);
+
         javax.swing.GroupLayout panelMenuLayout = new javax.swing.GroupLayout(panelMenu);
         panelMenu.setLayout(panelMenuLayout);
         panelMenuLayout.setHorizontalGroup(
@@ -1291,6 +1313,8 @@ public class DashBoardFrame extends javax.swing.JFrame {
             .addGroup(panelMenuLayout.createSequentialGroup()
                 .addGap(15, 15, 15)
                 .addGroup(panelMenuLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addComponent(btnCustomerManagement, javax.swing.GroupLayout.PREFERRED_SIZE, 212, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(btnBackToSaleCounter, javax.swing.GroupLayout.PREFERRED_SIZE, 212, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(btnHumanResources, javax.swing.GroupLayout.PREFERRED_SIZE, 212, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(btnOrderHistory, javax.swing.GroupLayout.PREFERRED_SIZE, 212, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(btnProductInventory, javax.swing.GroupLayout.PREFERRED_SIZE, 212, javax.swing.GroupLayout.PREFERRED_SIZE)
@@ -1309,7 +1333,11 @@ public class DashBoardFrame extends javax.swing.JFrame {
                 .addComponent(btnOrderHistory, javax.swing.GroupLayout.PREFERRED_SIZE, 47, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(18, 18, 18)
                 .addComponent(btnHumanResources, javax.swing.GroupLayout.PREFERRED_SIZE, 47, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(0, 0, Short.MAX_VALUE))
+                .addGap(18, 18, 18)
+                .addComponent(btnCustomerManagement, javax.swing.GroupLayout.PREFERRED_SIZE, 47, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(btnBackToSaleCounter, javax.swing.GroupLayout.PREFERRED_SIZE, 47, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(26, 26, 26))
         );
 
         panelContent.setPreferredSize(new java.awt.Dimension(100, 500));
@@ -1507,15 +1535,15 @@ public class DashBoardFrame extends javax.swing.JFrame {
         panelOrderManagementLayout.setHorizontalGroup(
             panelOrderManagementLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(panelOrderManagementLayout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(jScrollPane1)
-                .addContainerGap())
-            .addGroup(panelOrderManagementLayout.createSequentialGroup()
                 .addGap(33, 33, 33)
                 .addComponent(jLabel19)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addComponent(btnCancelOrder, javax.swing.GroupLayout.PREFERRED_SIZE, 247, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(24, 24, 24))
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelOrderManagementLayout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(jScrollPane1)
+                .addContainerGap())
         );
         panelOrderManagementLayout.setVerticalGroup(
             panelOrderManagementLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -2356,6 +2384,90 @@ public class DashBoardFrame extends javax.swing.JFrame {
 
         panelContent.add(panelHRMain, "CardAttendance");
 
+        panelCustomerHeader.setBackground(new java.awt.Color(255, 255, 255));
+
+        jLabel24.setBackground(new java.awt.Color(122, 67, 29));
+        jLabel24.setFont(new java.awt.Font("Segoe UI", 0, 24)); // NOI18N
+        jLabel24.setForeground(new java.awt.Color(122, 67, 29));
+        jLabel24.setText("Customer Management");
+
+        jLabel25.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
+        jLabel25.setForeground(new java.awt.Color(102, 102, 102));
+        jLabel25.setText("Management the customer information");
+
+        javax.swing.GroupLayout panelCustomerHeaderLayout = new javax.swing.GroupLayout(panelCustomerHeader);
+        panelCustomerHeader.setLayout(panelCustomerHeaderLayout);
+        panelCustomerHeaderLayout.setHorizontalGroup(
+            panelCustomerHeaderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(panelCustomerHeaderLayout.createSequentialGroup()
+                .addGap(30, 30, 30)
+                .addGroup(panelCustomerHeaderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(jLabel25)
+                    .addComponent(jLabel24))
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+        );
+        panelCustomerHeaderLayout.setVerticalGroup(
+            panelCustomerHeaderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(panelCustomerHeaderLayout.createSequentialGroup()
+                .addGap(24, 24, 24)
+                .addComponent(jLabel24)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jLabel25)
+                .addContainerGap(24, Short.MAX_VALUE))
+        );
+
+        jPanel7.setBackground(new java.awt.Color(255, 255, 255));
+        jPanel7.setForeground(new java.awt.Color(255, 255, 255));
+
+        jTable1.setModel(new javax.swing.table.DefaultTableModel(
+            new Object [][] {
+                {null, null, null, null},
+                {null, null, null, null},
+                {null, null, null, null},
+                {null, null, null, null}
+            },
+            new String [] {
+                "Title 1", "Title 2", "Title 3", "Title 4"
+            }
+        ));
+        jScrollPane7.setViewportView(jTable1);
+
+        javax.swing.GroupLayout jPanel7Layout = new javax.swing.GroupLayout(jPanel7);
+        jPanel7.setLayout(jPanel7Layout);
+        jPanel7Layout.setHorizontalGroup(
+            jPanel7Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addComponent(jScrollPane7, javax.swing.GroupLayout.DEFAULT_SIZE, 951, Short.MAX_VALUE)
+        );
+        jPanel7Layout.setVerticalGroup(
+            jPanel7Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel7Layout.createSequentialGroup()
+                .addComponent(jScrollPane7, javax.swing.GroupLayout.PREFERRED_SIZE, 510, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(0, 0, Short.MAX_VALUE))
+        );
+
+        javax.swing.GroupLayout panelCustomerLayout = new javax.swing.GroupLayout(panelCustomer);
+        panelCustomer.setLayout(panelCustomerLayout);
+        panelCustomerLayout.setHorizontalGroup(
+            panelCustomerLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelCustomerLayout.createSequentialGroup()
+                .addComponent(panelCustomerHeader, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addContainerGap())
+            .addGroup(panelCustomerLayout.createSequentialGroup()
+                .addGap(19, 19, 19)
+                .addComponent(jPanel7, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap(22, Short.MAX_VALUE))
+        );
+        panelCustomerLayout.setVerticalGroup(
+            panelCustomerLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(panelCustomerLayout.createSequentialGroup()
+                .addComponent(panelCustomerHeader, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(100, 100, 100)
+                .addComponent(jPanel7, javax.swing.GroupLayout.PREFERRED_SIZE, 487, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(0, 30, Short.MAX_VALUE))
+        );
+
+        panelContent.add(panelCustomer, "CardCustomer");
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
@@ -2386,6 +2498,14 @@ public class DashBoardFrame extends javax.swing.JFrame {
         // TODO add your handling code here:
     }//GEN-LAST:event_cbMonthActionPerformed
 
+    private void btnBackToSaleCounterActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnBackToSaleCounterActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_btnBackToSaleCounterActionPerformed
+
+    private void btnCustomerManagementActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnCustomerManagementActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_btnCustomerManagementActionPerformed
+
     public static void main(String args[]) {
         com.formdev.flatlaf.FlatLightLaf.setup();
         java.awt.EventQueue.invokeLater(() -> {
@@ -2396,7 +2516,9 @@ public class DashBoardFrame extends javax.swing.JFrame {
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton btnAddProduct;
     private javax.swing.JButton btnAttendance;
+    private javax.swing.JButton btnBackToSaleCounter;
     private javax.swing.JButton btnCancelOrder;
+    private javax.swing.JButton btnCustomerManagement;
     private javax.swing.JButton btnDashBoard;
     private javax.swing.JButton btnEmployeeManagement;
     private javax.swing.JButton btnHumanResources;
@@ -2429,6 +2551,8 @@ public class DashBoardFrame extends javax.swing.JFrame {
     private javax.swing.JLabel jLabel21;
     private javax.swing.JLabel jLabel22;
     private javax.swing.JLabel jLabel23;
+    private javax.swing.JLabel jLabel24;
+    private javax.swing.JLabel jLabel25;
     private javax.swing.JLabel jLabel27;
     private javax.swing.JLabel jLabel3;
     private javax.swing.JLabel jLabel4;
@@ -2442,12 +2566,15 @@ public class DashBoardFrame extends javax.swing.JFrame {
     private javax.swing.JPanel jPanel4;
     private javax.swing.JPanel jPanel5;
     private javax.swing.JPanel jPanel6;
+    private javax.swing.JPanel jPanel7;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JScrollPane jScrollPane2;
     private javax.swing.JScrollPane jScrollPane3;
     private javax.swing.JScrollPane jScrollPane4;
     private javax.swing.JScrollPane jScrollPane5;
     private javax.swing.JScrollPane jScrollPane6;
+    private javax.swing.JScrollPane jScrollPane7;
+    private javax.swing.JTable jTable1;
     private javax.swing.JLabel lbAvatarShop;
     private javax.swing.JLabel lblAbsentCount;
     private javax.swing.JLabel lblActiveEmployees;
@@ -2473,6 +2600,8 @@ public class DashBoardFrame extends javax.swing.JFrame {
     private javax.swing.JPanel panelCanceledOrder;
     private javax.swing.JPanel panelCanceledOrders;
     private javax.swing.JPanel panelContent;
+    private javax.swing.JPanel panelCustomer;
+    private javax.swing.JPanel panelCustomerHeader;
     private javax.swing.JPanel panelDashboard;
     private javax.swing.JPanel panelDate;
     private javax.swing.JPanel panelEmployeeMain;

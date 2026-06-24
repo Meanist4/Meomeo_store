@@ -17,6 +17,42 @@ public class MenuIcons {
         };
     }
 
+    public static Icon backToSaleCounter() {
+        return new SimpleIcon(16, 16) {
+            @Override
+            protected void draw(Graphics2D g2, int x, int y) {
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
+                g2.setStroke(new BasicStroke(1.2f,
+                        BasicStroke.CAP_ROUND,
+                        BasicStroke.JOIN_ROUND));
+                g2.drawLine(x + 5, y + 4, x + 1, y + 8);
+                g2.drawLine(x + 1, y + 8, x + 5, y + 12);
+                g2.drawLine(x + 1, y + 8, x + 7, y + 8);
+                g2.drawLine(x + 8, y + 12, x + 14, y + 12);
+                g2.drawRoundRect(x + 9, y + 6, 5, 5, 1, 1);
+                g2.drawLine(x + 12, y + 5, x + 12, y + 4);
+            }
+        };
+    }
+
+    public static Icon customerManagement() {
+        return new SimpleIcon(16, 16) {
+            @Override
+            protected void draw(Graphics2D g2, int x, int y) {
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.fillOval(x + 9, y + 2, 4, 4);
+                g2.fillRoundRect(x + 7, y + 7, 8, 7, 3, 3);
+                g2.setColor(g2.getColor());
+                g2.fillOval(x + 2, y + 3, 6, 6);
+                g2.fillRect(x + 1, y + 10, 10, 6);
+                g2.setColor(g2.getColor());
+                g2.fillOval(x + 3, y + 4, 4, 4);
+                g2.fillRoundRect(x + 1, y + 9, 8, 6, 3, 3);
+            }
+        };
+    }
+
     public static Icon inventory() {
         return new SimpleIcon(16, 16) {
             @Override
