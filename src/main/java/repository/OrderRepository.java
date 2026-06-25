@@ -54,7 +54,7 @@ public class OrderRepository {
         for (int i = 0; i < orderIds.size(); i++) {
             placeholders.append(i == 0 ? "?" : ",?");
         }
-        String sql = "UPDATE orders SET is_deleted = 1 WHERE id IN (" + placeholders + ")";
+        String sql = "UPDATE orders SET status = 'CANCELLED' WHERE id IN (" + placeholders + ")";
         try (Connection conn = DatabaseConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
             for (int i = 0; i < orderIds.size(); i++) {
                 ps.setInt(i + 1, orderIds.get(i));
@@ -72,21 +72,33 @@ public class OrderRepository {
         public int id;
         public Timestamp orderDate;
         public String cashierName;
+        public String customerName;
         public String paymentMethod;
         public double totalAmount;
+        public String status;
         public int isDeleted;
     }
 
     public List<OrderHistoryRow> findOrderHistory(String status, java.util.Date startDate, java.util.Date endDate) {
         List<OrderHistoryRow> result = new ArrayList<>();
         StringBuilder sql = new StringBuilder(
-                "SELECT o.id, o.order_date, e.full_name, o.payment_method, o.total_amount, o.is_deleted "
-                + "FROM orders o JOIN employees e ON o.employee_id = e.id WHERE 1=1 ");
-        if ("PAID".equals(status)) {
-            sql.append("AND o.is_deleted = 0 ");
+                "SELECT o.id, o.order_date, e.full_name AS cashier_name, "
+                + "COALESCE(c.full_name, 'Walk-in customer') AS customer_name, "
+                + "o.payment_method, o.total_amount, o.status AS order_status "
+                + "FROM orders o "
+                + "JOIN employees e ON o.employee_id = e.id "
+                + "LEFT JOIN customers c ON o.customer_id = c.id "
+                + "WHERE 1=1 ");
+
+        String normalizedStatus = normalizeFilterStatus(status);
+        if ("PAID".equals(normalizedStatus)) {
+            sql.append("AND UPPER(COALESCE(o.status, 'PENDING')) = 'PAID' ");
         }
-        if ("CANCELED".equals(status)) {
-            sql.append("AND o.is_deleted = 1 ");
+        if ("PENDING".equals(normalizedStatus)) {
+            sql.append("AND UPPER(COALESCE(o.status, 'PENDING')) = 'PENDING' ");
+        }
+        if ("CANCELLED".equals(normalizedStatus)) {
+            sql.append("AND UPPER(COALESCE(o.status, 'PENDING')) = 'CANCELLED' ");
         }
         if (startDate != null) {
             sql.append("AND o.order_date >= ? ");
@@ -119,10 +131,12 @@ public class OrderRepository {
                     OrderHistoryRow row = new OrderHistoryRow();
                     row.id = rs.getInt("id");
                     row.orderDate = rs.getTimestamp("order_date");
-                    row.cashierName = rs.getString("full_name");
+                    row.cashierName = rs.getString("cashier_name");
+                    row.customerName = rs.getString("customer_name");
                     row.paymentMethod = rs.getString("payment_method");
                     row.totalAmount = rs.getDouble("total_amount");
-                    row.isDeleted = rs.getInt("is_deleted");
+                    row.status = normalizeHistoryStatus(rs.getString("order_status"));
+                    row.isDeleted = "CANCELLED".equals(row.status) ? 1 : 0;
                     result.add(row);
                 }
             }
@@ -131,6 +145,32 @@ public class OrderRepository {
             e.printStackTrace();
         }
         return result;
+    }
+
+    private String normalizeFilterStatus(String rawStatus) {
+        if (rawStatus == null || rawStatus.isBlank()) {
+            return "ALL";
+        }
+
+        String normalized = rawStatus.trim().toUpperCase(Locale.ROOT);
+        return switch (normalized) {
+            case "CANCELED", "CANCELLED" -> "CANCELLED";
+            case "PENDING", "PAID", "ALL" -> normalized;
+            default -> normalized;
+        };
+    }
+
+    private String normalizeHistoryStatus(String rawStatus) {
+        if (rawStatus == null || rawStatus.isBlank()) {
+            return "PENDING";
+        }
+
+        String normalized = rawStatus.trim().toUpperCase(Locale.ROOT);
+        return switch (normalized) {
+            case "CANCELED", "CANCELLED" -> "CANCELLED";
+            case "PENDING", "PAID" -> normalized;
+            default -> normalized;
+        };
     }
 
     public static class OrderOverview {
@@ -143,9 +183,9 @@ public class OrderRepository {
     public OrderOverview getOrderOverview(java.util.Date startDate, java.util.Date endDate) {
         OrderOverview overview = new OrderOverview();
         String sql = "SELECT "
-                + "SUM(CASE WHEN is_deleted = 0 THEN total_amount ELSE 0 END) AS total_revenue, "
-                + "COUNT(CASE WHEN is_deleted = 0 THEN 1 END) AS paid_count, "
-                + "COUNT(CASE WHEN is_deleted = 1 THEN 1 END) AS canceled_count "
+                + "COALESCE(SUM(CASE WHEN UPPER(COALESCE(status, 'PENDING')) = 'PAID' THEN total_amount ELSE 0 END), 0) AS total_revenue, "
+                + "COALESCE(SUM(CASE WHEN UPPER(COALESCE(status, 'PENDING')) = 'PAID' THEN 1 ELSE 0 END), 0) AS paid_count, "
+                + "COALESCE(SUM(CASE WHEN UPPER(COALESCE(status, 'PENDING')) IN ('CANCELED', 'CANCELLED') THEN 1 ELSE 0 END), 0) AS canceled_count "
                 + "FROM orders WHERE order_date >= ? AND order_date <= ?";
         try (Connection conn = DatabaseConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
             Calendar cal = Calendar.getInstance();
@@ -214,9 +254,9 @@ public class OrderRepository {
     public DailyOrderStats getDailyOrderStats() {
         DailyOrderStats stats = new DailyOrderStats();
         String sql = "SELECT "
-                + "COALESCE(SUM(CASE WHEN is_deleted = 0 THEN total_amount ELSE 0 END), 0) AS revenue, "
-                + "COUNT(CASE WHEN is_deleted = 0 THEN 1 END) AS active_orders, "
-                + "COUNT(CASE WHEN is_deleted = 1 THEN 1 END) AS canceled_orders "
+                + "COALESCE(SUM(CASE WHEN UPPER(COALESCE(status, 'PENDING')) = 'PAID' THEN total_amount ELSE 0 END), 0) AS revenue, "
+                + "COALESCE(SUM(CASE WHEN UPPER(COALESCE(status, 'PENDING')) IN ('PAID', 'PENDING') THEN 1 ELSE 0 END), 0) AS active_orders, "
+                + "COALESCE(SUM(CASE WHEN UPPER(COALESCE(status, 'PENDING')) IN ('CANCELED', 'CANCELLED') THEN 1 ELSE 0 END), 0) AS canceled_orders "
                 + "FROM orders WHERE DATE(order_date) = CURDATE()";
         try (Connection conn = DatabaseConnection.getConnection(); Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(sql)) {
             if (rs.next()) {
@@ -229,6 +269,24 @@ public class OrderRepository {
             e.printStackTrace();
         }
         return stats;
+    }
+
+    public List<String> findDistinctPaymentMethods() {
+        List<String> result = new ArrayList<>();
+        String sql = "SELECT DISTINCT payment_method "
+                + "FROM orders "
+                + "WHERE payment_method IS NOT NULL AND TRIM(payment_method) <> '' "
+                + "ORDER BY payment_method ASC";
+
+        try (Connection conn = DatabaseConnection.getConnection(); Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(sql)) {
+            while (rs.next()) {
+                result.add(rs.getString("payment_method"));
+            }
+        } catch (SQLException e) {
+            System.err.println("Lỗi nạp danh sách phương thức thanh toán: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return result;
     }
 
     public long[] getRevenueByWeek() {

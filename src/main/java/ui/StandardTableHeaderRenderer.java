@@ -36,7 +36,7 @@ public class StandardTableHeaderRenderer extends DefaultTableCellRenderer {
                 table, value, isSelected, hasFocus, row, column);
 
         lbl.setHorizontalAlignment(alignment);
-        lbl.setFont(table.getFont().deriveFont(Font.BOLD, 11f));
+        lbl.setFont(table.getFont().deriveFont(Font.BOLD, 12f));
         lbl.setForeground(FG_COLOR);
         lbl.setBackground(BG_COLOR);
 

@@ -17,6 +17,7 @@ import repository.ProductRepository;
 import repository.ScheduleRepository;
 import ui.AttendanceTableRenderer;
 import ui.HistoryTableRenderer;
+import ui.HistoryActionCellEditor;
 import ui.InventoryTableRenderer;
 import ui.ScheduleTableRenderer;
 import ui.BarChartPanel;
@@ -56,11 +57,11 @@ public class DashBoardFrame extends javax.swing.JFrame {
         loadCategoryComboBox();
         loadOrderTableData();
         initInventoryFilterEvents();
-        loadOrderHistoryOverview();
         initStatusFilter();
+        initSearchInvoiceFilter();
         initDateFilters();
         customHistoryTableAppearance();
-        loadOrderHistoryLog();
+        refreshOrderHistory();
         customDashboardComponentsStyle();
         customHistoryComponentsStyle();
         ui.CancelButtonStyler.apply(btnCancelOrder);
@@ -391,29 +392,61 @@ public class DashBoardFrame extends javax.swing.JFrame {
     }
 
     private void customHistoryComponentsStyle() {
-        panelDate.putClientProperty(FlatClientProperties.STYLE, "background: #FFFFFF;");
-        panelDate.setBorder(new com.formdev.flatlaf.ui.FlatLineBorder(new java.awt.Insets(4, 12, 4, 12), java.awt.Color.decode("#E2E8F0"), 1, 12));
+        int CARD_HEIGHT = 108;
+        java.awt.Dimension cardSize;
 
-        // JComboBox cbStatus hỗ trợ sẵn borderWidth/borderColor nên giữ nguyên
-        cbStatus.putClientProperty(FlatClientProperties.STYLE,
-                "arc: 12; " //
-                + "background: #FFFFFF; " //
-                + "borderWidth: 1; " //
-                + "borderColor: #E2E8F0;"); //
+        cardSize = new java.awt.Dimension(225, CARD_HEIGHT);
+        panelTotalRevenue.setPreferredSize(cardSize);
+        panelTotalRevenue.setMinimumSize(cardSize);
+        panelTotalRevenue.setMaximumSize(new java.awt.Dimension(300, CARD_HEIGHT));
 
-        // Các panel thống kê lịch sử hóa đơn khác
-        java.awt.Color historyBorderColor = java.awt.Color.decode("#F1F5F9");
+        cardSize = new java.awt.Dimension(225, CARD_HEIGHT);
+        jPanel1.setPreferredSize(cardSize);
+        jPanel1.setMinimumSize(cardSize);
+        jPanel1.setMaximumSize(new java.awt.Dimension(300, CARD_HEIGHT));
 
-        panelTotalRevenue.putClientProperty(FlatClientProperties.STYLE, "background: #FFFFFF;");
-        panelTotalRevenue.setBorder(new com.formdev.flatlaf.ui.FlatLineBorder(new java.awt.Insets(0, 0, 0, 0), historyBorderColor, 1, 20));
+        cardSize = new java.awt.Dimension(225, CARD_HEIGHT);
+        panelPaidOrders.setPreferredSize(cardSize);
+        panelPaidOrders.setMinimumSize(cardSize);
+        panelPaidOrders.setMaximumSize(new java.awt.Dimension(300, CARD_HEIGHT));
 
-        panelPaidOrders.putClientProperty(FlatClientProperties.STYLE, "background: #FFFFFF;");
-        panelPaidOrders.setBorder(new com.formdev.flatlaf.ui.FlatLineBorder(new java.awt.Insets(0, 0, 0, 0), historyBorderColor, 1, 16));
+        cardSize = new java.awt.Dimension(225, CARD_HEIGHT);
+        panelCanceledOrder.setPreferredSize(cardSize);
+        panelCanceledOrder.setMinimumSize(cardSize);
+        panelCanceledOrder.setMaximumSize(new java.awt.Dimension(300, CARD_HEIGHT));
 
-        panelCanceledOrder.putClientProperty(FlatClientProperties.STYLE, "background: #FFFFFF;");
-        panelCanceledOrder.setBorder(new com.formdev.flatlaf.ui.FlatLineBorder(new java.awt.Insets(0, 0, 0, 0), historyBorderColor, 1, 16));
+        java.awt.Color borderColor = java.awt.Color.decode("#F1F5F9");
+        com.formdev.flatlaf.ui.FlatLineBorder cardBorder
+                = new com.formdev.flatlaf.ui.FlatLineBorder(new java.awt.Insets(0, 0, 0, 0), borderColor, 1, 14);
 
-        this.repaint(); //
+        for (javax.swing.JPanel p : new javax.swing.JPanel[]{
+            panelTotalRevenue, jPanel1, panelPaidOrders, panelCanceledOrder}) {
+            p.setOpaque(true);
+            p.setBackground(java.awt.Color.WHITE);
+            p.setBorder(cardBorder);
+        }
+
+        int PAD = 18;
+        setCardPadding(panelTotalRevenue, PAD);
+        setCardPadding(jPanel1, PAD);
+        setCardPadding(panelPaidOrders, PAD);
+        setCardPadding(panelCanceledOrder, PAD);
+
+        panelBelowHeader.setBackground(java.awt.Color.WHITE);
+        panelBelowHeader.setBorder(new com.formdev.flatlaf.ui.FlatLineBorder(
+                new java.awt.Insets(0, 0, 0, 0), borderColor, 1, 14));
+        panelBelowHeader.setPreferredSize(new java.awt.Dimension(panelBelowHeader.getPreferredSize().width, 80));
+        panelBelowHeader.setMinimumSize(new java.awt.Dimension(100, 80));
+        panelBelowHeader.setMaximumSize(new java.awt.Dimension(Short.MAX_VALUE, 80));
+    }
+
+    private void setCardPadding(javax.swing.JPanel panel, int leftPad) {
+        panel.setBorder(javax.swing.BorderFactory.createCompoundBorder(
+                new com.formdev.flatlaf.ui.FlatLineBorder(
+                        new java.awt.Insets(0, 0, 0, 0),
+                        java.awt.Color.decode("#F1F5F9"), 1, 14),
+                javax.swing.BorderFactory.createEmptyBorder(14, leftPad, 14, 12)
+        ));
     }
 
     private void loadWeeklyScheduleData() {
@@ -689,8 +722,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
                             row.productName,
                             row.categoryName,
                             String.format("%,.0f đ", row.price),
-                            row.quantity,
-                            row.status == 1 ? "Active" : "Inactive"
+                            row.quantity
                         });
                     }
 
@@ -712,11 +744,12 @@ public class DashBoardFrame extends javax.swing.JFrame {
     }
 
     private void customHistoryTableAppearance() {
+        tableTransactionHistory.setAutoResizeMode(javax.swing.JTable.AUTO_RESIZE_OFF);
         tableTransactionHistory.setModel(new javax.swing.table.DefaultTableModel(
                 new Object[][]{},
-                new String[]{"ORDER ID", "DATE & TIME", "CASHIER NAME", "PAYMENT", "TOTAL AMOUNT", "STATUS", "ACTION"}
+                new String[]{"ORDER ID", "DATE & TIME", "CASHIER", "CUSTOMER", "PAYMENT", "TOTAL", "STATUS", "ACTION"}
         ) {
-            boolean[] canEdit = new boolean[]{false, false, false, false, false, false, false};
+            boolean[] canEdit = new boolean[]{false, false, false, false, false, false, false, true};
 
             @Override
             public boolean isCellEditable(int rowIndex, int columnIndex) {
@@ -724,55 +757,254 @@ public class DashBoardFrame extends javax.swing.JFrame {
             }
         });
 
-        tableTransactionHistory.setRowHeight(42);
+        tableTransactionHistory.setRowHeight(52);
         tableTransactionHistory.setShowHorizontalLines(true);
         tableTransactionHistory.setShowVerticalLines(false);
+        tableTransactionHistory.setFillsViewportHeight(true);
         tableTransactionHistory.setSelectionBackground(new java.awt.Color(248, 246, 242));
-        tableProduct.setSelectionForeground(new java.awt.Color(15, 23, 42));
-        tableTransactionHistory.putClientProperty(FlatClientProperties.STYLE, "rowSelectionBackground: #F8F6F2; rowSelectionForeground: #0F172A; lineColor: #F1F5F9;");
+        tableTransactionHistory.setSelectionForeground(new java.awt.Color(15, 23, 42));
+        tableTransactionHistory.putClientProperty(FlatClientProperties.STYLE,
+                "rowSelectionBackground: #F8F6F2; rowSelectionForeground: #0F172A; lineColor: #F1F5F9;");
 
         javax.swing.table.JTableHeader h = tableTransactionHistory.getTableHeader();
         h.setPreferredSize(new java.awt.Dimension(h.getPreferredSize().width, 38));
-        h.setDefaultRenderer(new ui.StandardTableHeaderRenderer());
+        h.setDefaultRenderer(new ui.StandardTableHeaderRenderer(javax.swing.SwingConstants.LEFT, 12));
+
         HistoryTableRenderer renderer = new HistoryTableRenderer();
         for (int i = 0; i < tableTransactionHistory.getColumnCount(); i++) {
             tableTransactionHistory.getColumnModel().getColumn(i).setCellRenderer(renderer);
         }
+
+        HistoryActionCellEditor actionEditor = new HistoryActionCellEditor(
+                this::onViewHistoryOrder,
+                this::onCancelHistoryOrder
+        );
+        tableTransactionHistory.getColumnModel().getColumn(7).setCellEditor(actionEditor);
+
+        tableTransactionHistory.getColumnModel().getColumn(0).setPreferredWidth(135); // ORDER ID
+        tableTransactionHistory.getColumnModel().getColumn(1).setPreferredWidth(155); // DATE & TIME
+        tableTransactionHistory.getColumnModel().getColumn(2).setPreferredWidth(145); // CASHIER
+        tableTransactionHistory.getColumnModel().getColumn(3).setPreferredWidth(175); // CUSTOMER
+        tableTransactionHistory.getColumnModel().getColumn(4).setPreferredWidth(95);  // PAYMENT
+        tableTransactionHistory.getColumnModel().getColumn(5).setPreferredWidth(120); // TOTAL
+        tableTransactionHistory.getColumnModel().getColumn(6).setPreferredWidth(110); // STATUS
+        tableTransactionHistory.getColumnModel().getColumn(7).setPreferredWidth(220);
+        tableTransactionHistory.getColumnModel().getColumn(7).setMinWidth(210);
+
+        java.awt.Container parent = tableTransactionHistory.getParent();
+        if (parent instanceof javax.swing.JViewport viewport) {
+            javax.swing.JScrollPane scrollPane = (javax.swing.JScrollPane) viewport.getParent();
+            scrollPane.setViewport(new ui.EmptyTableViewport(tableTransactionHistory, "No transactions found"));
+            scrollPane.setViewportView(tableTransactionHistory);
+        }
     }
 
     private void loadOrderHistoryLog() {
-        String selectedStatus = cbStatus.getSelectedItem() != null ? cbStatus.getSelectedItem().toString() : "All";
+        // Thay thế đoạn lọc cũ bằng bộ lọc chung
+        java.util.List<repository.OrderRepository.OrderHistoryRow> rows = getFilteredOrderHistoryRows();
+
+        javax.swing.table.DefaultTableModel model
+                = (javax.swing.table.DefaultTableModel) tableTransactionHistory.getModel();
+        model.setRowCount(0);
+
+        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm");
+
+        for (repository.OrderRepository.OrderHistoryRow row : rows) {
+            String paymentValue = normalizeHistoryPayment(row.paymentMethod);
+            String statusValue = row.status != null
+                    ? row.status.trim().toUpperCase(java.util.Locale.ROOT)
+                    : "PENDING";
+            String orderIdStr = String.format("ORD-2026-%04d", row.id);
+            String dateStr = (row.orderDate != null) ? sdf.format(row.orderDate) : "";
+            String amountStr = String.format("%,.0f đ", row.totalAmount);
+            String cashier = row.cashierName != null ? row.cashierName : "";
+            String customer = (row.customerName != null && !row.customerName.isBlank())
+                    ? row.customerName
+                    : "Walk-in customer";
+
+            // Hai đoạn check bộ lọc cũ (paymentFilter và searchText) đã được xóa bỏ tại đây
+            model.addRow(new Object[]{
+                orderIdStr,
+                dateStr,
+                cashier,
+                customer,
+                paymentValue,
+                amountStr,
+                statusValue,
+                "VIEW"
+            });
+        }
+
+        // Cập nhật hiển thị số lượng bản ghi bằng rows.size() thay vì biến đếm matchCount
+        lblRecordLog.setText("(" + rows.size() + " records)");
+    }
+
+    private java.util.List<repository.OrderRepository.OrderHistoryRow> getFilteredOrderHistoryRows() {
+        String selectedStatus = cbStatus.getSelectedItem() != null
+                ? cbStatus.getSelectedItem().toString() : "All";
         java.util.Date startDate = dateFrom.getDate();
         java.util.Date endDate = dateTo.getDate();
 
         java.util.List<repository.OrderRepository.OrderHistoryRow> rows
                 = orderRepository.findOrderHistory(selectedStatus, startDate, endDate);
+        String paymentFilter = (cbPaymentMethod != null && cbPaymentMethod.getSelectedItem() != null)
+                ? cbPaymentMethod.getSelectedItem().toString() : "All";
+        String searchText = (txtSearchInvoice != null)
+                ? txtSearchInvoice.getText().trim().toLowerCase() : "";
 
-        javax.swing.table.DefaultTableModel model = (javax.swing.table.DefaultTableModel) tableTransactionHistory.getModel();
-        model.setRowCount(0);
-
-        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-
+        java.util.List<repository.OrderRepository.OrderHistoryRow> filteredRows = new java.util.ArrayList<>();
         for (repository.OrderRepository.OrderHistoryRow row : rows) {
+            String paymentValue = normalizeHistoryPayment(row.paymentMethod);
             String orderIdStr = String.format("ORD-2026-%04d", row.id);
-            String dateStr = (row.orderDate != null) ? sdf.format(row.orderDate) : "";
-            String amountStr = String.format("%,.0f đ", row.totalAmount);
-            String statusStr = (row.isDeleted == 1) ? "CANCELED" : "PAID";
-            model.addRow(new Object[]{orderIdStr, dateStr, row.cashierName, row.paymentMethod, amountStr, statusStr, "View"});
+            String cashier = row.cashierName != null ? row.cashierName : "";
+            String customer = (row.customerName != null && !row.customerName.isBlank())
+                    ? row.customerName
+                    : "Walk-in customer";
+
+            if (!"All".equalsIgnoreCase(paymentFilter)
+                    && !paymentFilter.equalsIgnoreCase(paymentValue)) {
+                continue;
+            }
+
+            if (!searchText.isEmpty()) {
+                boolean matchId = orderIdStr.toLowerCase().contains(searchText)
+                        || String.valueOf(row.id).contains(searchText);
+                boolean matchCashier = cashier.toLowerCase().contains(searchText);
+                boolean matchCustomer = customer.toLowerCase().contains(searchText);
+                if (!matchId && !matchCashier && !matchCustomer) {
+                    continue;
+                }
+            }
+
+            filteredRows.add(row);
         }
 
-        lblRecordLog.setText("(" + rows.size() + " records)");
+        return filteredRows;
+    }
+
+    private String normalizeHistoryPayment(String paymentMethod) {
+        if (paymentMethod == null || paymentMethod.isBlank()) {
+            return "";
+        }
+
+        String normalized = paymentMethod.trim().toUpperCase(java.util.Locale.ROOT);
+        if (normalized.contains("BANK") && normalized.contains("TRANSFER")) {
+            return "TRANSFER";
+        }
+
+        if (normalized.contains("CASH") || normalized.contains("TIỀN MẶT") || normalized.contains("TIEN MAT")) {
+            return "CASH";
+        }
+        if (normalized.contains("TRANSFER") || normalized.contains("CHUYỂN KHOẢN") || normalized.contains("CHUYEN KHOAN")) {
+            return "TRANSFER";
+        }
+        if (normalized.contains("CARD") || normalized.contains("THẺ") || normalized.contains("THE")) {
+            return "CARD";
+        }
+        if (normalized.contains("E-WALLET") || normalized.contains("EWALLET") || normalized.contains("VÍ ĐIỆN TỬ") || normalized.contains("VI DIEN TU")) {
+            return "E-WALLET";
+        }
+        return normalized;
+    }
+
+    private int extractHistoryOrderId(int rowIndex) {
+        javax.swing.table.DefaultTableModel model
+                = (javax.swing.table.DefaultTableModel) tableTransactionHistory.getModel();
+        String orderCode = String.valueOf(model.getValueAt(rowIndex, 0));
+        int lastHyphen = orderCode.lastIndexOf('-');
+        String numericPart = lastHyphen >= 0 ? orderCode.substring(lastHyphen + 1) : orderCode;
+        return Integer.parseInt(numericPart);
+    }
+
+    private void onViewHistoryOrder(int rowIndex) {
+        javax.swing.JOptionPane.showMessageDialog(this,
+                "Frame chi tiết order_details sẽ nối sau.\nHiện tại cột ACTION của tableTransactionHistory đã sẵn sàng để gắn tiếp.",
+                "Order details",
+                javax.swing.JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    private void onCancelHistoryOrder(int rowIndex) {
+        javax.swing.table.DefaultTableModel model
+                = (javax.swing.table.DefaultTableModel) tableTransactionHistory.getModel();
+
+        String status = String.valueOf(model.getValueAt(rowIndex, 6));
+        if (!"PENDING".equalsIgnoreCase(status)) {
+            javax.swing.JOptionPane.showMessageDialog(this,
+                    "Chỉ có thể hủy hóa đơn ở trạng thái PENDING.",
+                    "Không thể hủy",
+                    javax.swing.JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        String orderCode = String.valueOf(model.getValueAt(rowIndex, 0));
+        int confirm = javax.swing.JOptionPane.showConfirmDialog(this,
+                "Bạn có chắc muốn hủy hóa đơn " + orderCode + "?",
+                "Xác nhận hủy hóa đơn",
+                javax.swing.JOptionPane.YES_NO_OPTION,
+                javax.swing.JOptionPane.WARNING_MESSAGE);
+
+        if (confirm != javax.swing.JOptionPane.YES_OPTION) {
+            return;
+        }
+
+        int updatedRows = orderRepository.cancelOrders(java.util.Collections.singletonList(extractHistoryOrderId(rowIndex)));
+        if (updatedRows > 0) {
+            loadOverviewCardsData();
+            loadOrderTableData();
+            refreshOrderHistory();
+            initPaymentMethodFilter();
+            javax.swing.JOptionPane.showMessageDialog(this,
+                    "Đã hủy hóa đơn " + orderCode + " thành công.",
+                    "Thành công",
+                    javax.swing.JOptionPane.INFORMATION_MESSAGE);
+        } else {
+            javax.swing.JOptionPane.showMessageDialog(this,
+                    "Hủy hóa đơn thất bại. Vui lòng thử lại.",
+                    "Lỗi",
+                    javax.swing.JOptionPane.ERROR_MESSAGE);
+        }
     }
 
     private void loadOrderHistoryOverview() {
-        java.util.Date startDate = dateFrom.getDate();
-        java.util.Date endDate = dateTo.getDate();
+        java.util.List<repository.OrderRepository.OrderHistoryRow> rows = getFilteredOrderHistoryRows();
 
-        repository.OrderRepository.OrderOverview ov = orderRepository.getOrderOverview(startDate, endDate);
+        double totalRevenue = 0;
+        int paidCount = 0;
+        int canceledCount = 0;
 
-        lblTotalRevenue.setText(String.format("%,.0f đ", ov.totalRevenue));
-        lblPaidOrders.setText(String.valueOf(ov.paidCount));
-        lblOrdersCanceled.setText(String.valueOf(ov.canceledCount));
+        for (repository.OrderRepository.OrderHistoryRow row : rows) {
+            totalRevenue += row.totalAmount;
+
+            String statusValue = row.status != null
+                    ? row.status.trim().toUpperCase(java.util.Locale.ROOT)
+                    : "PENDING";
+
+            if ("PAID".equals(statusValue)) {
+                paidCount++;
+            } else if ("CANCELLED".equals(statusValue) || "CANCELED".equals(statusValue)) {
+                canceledCount++;
+            }
+        }
+
+        lblTotalRevenue.setText(String.format("%,.0f đ", totalRevenue));
+        lblPaidOrders.setText(String.valueOf(paidCount));
+        lblOrdersCanceled.setText(String.valueOf(canceledCount));
+
+        int total = paidCount + canceledCount;
+
+        if (lblPaidOrder != null) {
+            lblPaidOrder.setText(paidCount + (paidCount == 1 ? " paid order" : " paid orders"));
+        }
+
+        if (lblPercentTotal != null) {
+            double pct = total > 0 ? (paidCount * 100.0) / total : 0;
+            lblPercentTotal.setText(String.format("%.1f%% of total", pct));
+        }
+
+        if (lblPercentCanceledOrder != null) {
+            double pct = total > 0 ? (canceledCount * 100.0) / total : 0;
+            lblPercentCanceledOrder.setText(String.format("%.1f%% of total", pct));
+        }
     }
 
     private void performInventoryFilter() {
@@ -818,18 +1050,13 @@ public class DashBoardFrame extends javax.swing.JFrame {
         txtSearchProduct.putClientProperty(FlatClientProperties.STYLE, "arc: 12; margin: 0,10,0,10;");
 
         btnAddProduct.putClientProperty(FlatClientProperties.STYLE,
-                "background: #E38A45; "
-                + "foreground: #FFFFFF; "
-                + "arc: 12; "
-                + "borderWidth: 0; "
-                + "focusWidth: 0; "
-                + "font: bold;");
+                "background: #E38A45; foreground: #FFFFFF; arc: 12; borderWidth: 0; focusWidth: 0; font: bold;");
 
         tableProduct.setModel(new javax.swing.table.DefaultTableModel(
                 new Object[][]{},
-                new String[]{"PRODUCT ID", "IMAGE", "PRODUCT NAME", "CATEGORY", "PRICE", "STOCK QTY", "STATUS"}
+                new String[]{"PRODUCT ID", "IMAGE", "PRODUCT NAME", "CATEGORY", "PRICE", "STOCK", "ACTION"}
         ) {
-            boolean[] canEdit = new boolean[]{false, false, false, false, false, false, false};
+            boolean[] canEdit = new boolean[]{false, false, false, false, false, false, true};
 
             @Override
             public boolean isCellEditable(int rowIndex, int columnIndex) {
@@ -840,18 +1067,37 @@ public class DashBoardFrame extends javax.swing.JFrame {
         tableProduct.setRowHeight(52);
         tableProduct.setShowHorizontalLines(true);
         tableProduct.setShowVerticalLines(false);
-        tableProduct.setSelectionBackground(new java.awt.Color(248, 246, 242)); // Màu be giống table hóa đơn
+        tableProduct.setSelectionBackground(new java.awt.Color(248, 246, 242));
         tableProduct.setSelectionForeground(new java.awt.Color(15, 23, 42));
-        tableProduct.putClientProperty(FlatClientProperties.STYLE, "rowSelectionBackground: #F8F6F2; rowSelectionForeground: #0F172A; lineColor: #F1F5F9;");
+        tableProduct.putClientProperty(FlatClientProperties.STYLE,
+                "rowSelectionBackground: #F8F6F2; rowSelectionForeground: #0F172A; lineColor: #F1F5F9;");
 
         javax.swing.table.JTableHeader header = tableProduct.getTableHeader();
         header.setPreferredSize(new java.awt.Dimension(header.getPreferredSize().width, 38));
         header.setDefaultRenderer(new ui.StandardTableHeaderRenderer());
 
         InventoryTableRenderer renderer = new InventoryTableRenderer(this::getCachedProductIcon);
-        for (int i = 0; i < tableProduct.getColumnCount(); i++) {
+        for (int i = 0; i < tableProduct.getColumnCount() - 1; i++) {
             tableProduct.getColumnModel().getColumn(i).setCellRenderer(renderer);
         }
+
+        tableProduct.getColumnModel().getColumn(0).setPreferredWidth(70);   // PRODUCT ID
+        tableProduct.getColumnModel().getColumn(1).setPreferredWidth(70);   // IMAGE
+        tableProduct.getColumnModel().getColumn(1).setMaxWidth(70);
+        tableProduct.getColumnModel().getColumn(2).setPreferredWidth(200);  // PRODUCT NAME
+        tableProduct.getColumnModel().getColumn(3).setPreferredWidth(100);  // CATEGORY
+        tableProduct.getColumnModel().getColumn(4).setPreferredWidth(90);  // PRICE
+        tableProduct.getColumnModel().getColumn(5).setPreferredWidth(50);
+
+        ui.ProductActionCellRenderer actionRenderer = new ui.ProductActionCellRenderer();
+        ui.ProductActionCellEditor actionEditor = new ui.ProductActionCellEditor(
+                this::onEditProduct,
+                this::onDeleteProduct
+        );
+        tableProduct.getColumnModel().getColumn(6).setCellRenderer(actionRenderer);
+        tableProduct.getColumnModel().getColumn(6).setCellEditor(actionEditor);
+        tableProduct.getColumnModel().getColumn(6).setPreferredWidth(130);
+        tableProduct.getColumnModel().getColumn(6).setMaxWidth(150);
 
         java.awt.Container parent = tableProduct.getParent();
         if (parent instanceof javax.swing.JViewport viewport) {
@@ -859,7 +1105,50 @@ public class DashBoardFrame extends javax.swing.JFrame {
             scrollPane.setViewport(new ui.EmptyTableViewport(tableProduct, "Nothing found!"));
             scrollPane.setViewportView(tableProduct);
         }
+    }
 
+    private void onEditProduct(int rowIndex) {
+        javax.swing.table.DefaultTableModel model
+                = (javax.swing.table.DefaultTableModel) tableProduct.getModel();
+
+        String productIdStr = model.getValueAt(rowIndex, 0).toString();
+        int productId = Integer.parseInt(productIdStr.replace("PRD-", ""));
+
+        entity.Product product = productRepository.findById(productId);
+        if (product == null) {
+            javax.swing.JOptionPane.showMessageDialog(this,
+                    "Không tìm thấy sản phẩm!", "Lỗi",
+                    javax.swing.JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        views.AddProductFrame editFrame = new views.AddProductFrame(product, () -> loadInventoryTableData());
+        editFrame.setVisible(true);
+    }
+
+    private void onDeleteProduct(int rowIndex) {
+        javax.swing.table.DefaultTableModel model
+                = (javax.swing.table.DefaultTableModel) tableProduct.getModel();
+
+        String productIdStr = model.getValueAt(rowIndex, 0).toString();
+        String productName = model.getValueAt(rowIndex, 2).toString();
+        int productId = Integer.parseInt(productIdStr.replace("PRD-", ""));
+
+        int confirm = javax.swing.JOptionPane.showConfirmDialog(this,
+                "Bạn có chắc muốn xóa sản phẩm \"" + productName + "\"?\n(Sản phẩm sẽ bị ẩn, không mất dữ liệu)",
+                "Xác nhận xóa",
+                javax.swing.JOptionPane.YES_NO_OPTION,
+                javax.swing.JOptionPane.WARNING_MESSAGE);
+
+        if (confirm == javax.swing.JOptionPane.YES_OPTION) {
+            boolean deleted = productRepository.softDelete(productId);
+            if (deleted) {
+                loadInventoryTableData();
+            } else {
+                javax.swing.JOptionPane.showMessageDialog(this,
+                        "Xóa thất bại! Vui lòng thử lại.", "Lỗi",
+                        javax.swing.JOptionPane.ERROR_MESSAGE);
+            }
+        }
     }
 
     private javax.swing.ImageIcon getCachedProductIcon(String imgPath) {
@@ -868,8 +1157,14 @@ public class DashBoardFrame extends javax.swing.JFrame {
         }
         return imageCache.computeIfAbsent(imgPath, path -> {
             try {
-                java.net.URL imgUrl = getClass().getResource(path);
+                String fileName = path.contains("/")
+                        ? path.substring(path.lastIndexOf('/') + 1)
+                        : path;
+                String resourcePath = "/images/" + fileName;
+
+                java.net.URL imgUrl = getClass().getResource(resourcePath);
                 if (imgUrl == null) {
+                    System.err.println("⚠️ Không tìm thấy ảnh: " + resourcePath);
                     return null;
                 }
 
@@ -884,10 +1179,12 @@ public class DashBoardFrame extends javax.swing.JFrame {
                 int kichThuocThuc = Math.max(kichThuocLogic, (int) Math.round(kichThuocLogic * scale));
 
                 var imgLogic = util.ImageUtil.scale(raw, kichThuocLogic);
-                var imgThuc = (kichThuocThuc == kichThuocLogic) ? imgLogic : util.ImageUtil.scale(raw, kichThuocThuc);
+                var imgThuc = (kichThuocThuc == kichThuocLogic)
+                        ? imgLogic
+                        : util.ImageUtil.scale(raw, kichThuocThuc);
 
-                var imgMultiRes = new java.awt.image.BaseMultiResolutionImage(imgLogic, imgThuc);
-                return new javax.swing.ImageIcon(imgMultiRes);
+                return new javax.swing.ImageIcon(
+                        new java.awt.image.BaseMultiResolutionImage(imgLogic, imgThuc));
             } catch (Exception ex) {
                 return null;
             }
@@ -902,7 +1199,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
                 new String[]{"No.", "Order ID", "Customer name", "Phone", "Total", "Status"}
         ) {
             Class[] types = new Class[]{java.lang.Object.class, java.lang.Object.class, java.lang.Object.class, java.lang.Object.class, java.lang.Object.class, java.lang.Object.class};
-            boolean[] canEdit = new boolean[]{false, false, false, false, false, false};
+            boolean[] canEdit = new boolean[]{false, false, false, false, false, false, true};
 
             @Override
             public Class getColumnClass(int columnIndex) {
@@ -1066,11 +1363,46 @@ public class DashBoardFrame extends javax.swing.JFrame {
     }
 
     private void initStatusFilter() {
-        cbStatus.setModel(new javax.swing.DefaultComboBoxModel<>(new String[]{"All", "PAID", "CANCELED"}));
-        cbStatus.putClientProperty(FlatClientProperties.STYLE, "arc: 12; background: #FFFFFF;");
-        cbStatus.addActionListener(e -> {
-            loadOrderHistoryLog();
-        });
+        cbStatus.setModel(new javax.swing.DefaultComboBoxModel<>(new String[]{"All", "PAID", "PENDING", "CANCELLED"}));
+        cbStatus.putClientProperty(com.formdev.flatlaf.FlatClientProperties.STYLE, "arc: 12; background: #FFFFFF;");
+        cbStatus.addActionListener(e -> refreshOrderHistory());
+
+        initPaymentMethodFilter();
+    }
+
+    private void initPaymentMethodFilter() {
+        java.util.LinkedHashSet<String> paymentOptions = new java.util.LinkedHashSet<>();
+        paymentOptions.add("All");
+        for (String paymentMethod : orderRepository.findDistinctPaymentMethods()) {
+            String normalized = normalizeHistoryPayment(paymentMethod);
+            if (!normalized.isBlank()) {
+                paymentOptions.add(normalized);
+            }
+        }
+
+        cbPaymentMethod.setModel(new javax.swing.DefaultComboBoxModel<>(
+                paymentOptions.toArray(String[]::new)));
+        cbPaymentMethod.putClientProperty(com.formdev.flatlaf.FlatClientProperties.STYLE,
+                "arc: 12; background: #FFFFFF;");
+        for (java.awt.event.ActionListener listener : cbPaymentMethod.getActionListeners()) {
+            cbPaymentMethod.removeActionListener(listener);
+        }
+        cbPaymentMethod.addActionListener(e -> refreshOrderHistory());
+    }
+
+    private void initSearchInvoiceFilter() {
+        if (txtSearchInvoice == null) {
+            return;
+        }
+        txtSearchInvoice.putClientProperty("JTextField.placeholder", "Search Order ID, customer, cashier...");
+        txtSearchInvoice.putClientProperty(com.formdev.flatlaf.FlatClientProperties.STYLE,
+                "arc: 12; margin: 0,10,0,10;");
+        txtSearchInvoice.getDocument().addDocumentListener(onDocumentChange(this::refreshOrderHistory));
+    }
+
+    private void refreshOrderHistory() {
+        loadOrderHistoryOverview();
+        loadOrderHistoryLog();
     }
 
     private void initAttendanceDateFilter() {
@@ -1285,28 +1617,42 @@ public class DashBoardFrame extends javax.swing.JFrame {
         cbAll = new javax.swing.JComboBox<>();
         btnAddProduct = new javax.swing.JButton();
         panelOrder = new javax.swing.JPanel();
+        panelOrderManagement2 = new javax.swing.JPanel();
+        jScrollPane3 = new javax.swing.JScrollPane();
+        tableTransactionHistory = new javax.swing.JTable();
+        jLabel27 = new javax.swing.JLabel();
+        lblRecordLog = new javax.swing.JLabel();
         jPanel3 = new javax.swing.JPanel();
         jLabel11 = new javax.swing.JLabel();
         jLabel12 = new javax.swing.JLabel();
         panelTotalRevenue = new javax.swing.JPanel();
         jLabel23 = new javax.swing.JLabel();
         lblTotalRevenue = new javax.swing.JLabel();
+        lblPaidOrder = new javax.swing.JLabel();
         panelPaidOrders = new javax.swing.JPanel();
         jLabel22 = new javax.swing.JLabel();
         lblPaidOrders = new javax.swing.JLabel();
+        lblPercentTotal = new javax.swing.JLabel();
         panelCanceledOrder = new javax.swing.JPanel();
         jLabel21 = new javax.swing.JLabel();
         lblOrdersCanceled = new javax.swing.JLabel();
+        lblPercentCanceledOrder = new javax.swing.JLabel();
+        jPanel1 = new javax.swing.JPanel();
+        jLabel26 = new javax.swing.JLabel();
+        lblAvgOrderValue = new javax.swing.JLabel();
+        jLabel29 = new javax.swing.JLabel();
+        panelBelowHeader = new javax.swing.JPanel();
         panelDate = new javax.swing.JPanel();
         dateTo = new com.toedter.calendar.JDateChooser();
         dateFrom = new com.toedter.calendar.JDateChooser();
         jLabel1 = new javax.swing.JLabel();
         cbStatus = new javax.swing.JComboBox<>();
-        panelOrderManagement2 = new javax.swing.JPanel();
-        jScrollPane3 = new javax.swing.JScrollPane();
-        tableTransactionHistory = new javax.swing.JTable();
-        jLabel27 = new javax.swing.JLabel();
-        lblRecordLog = new javax.swing.JLabel();
+        lblPaidOrder1 = new javax.swing.JLabel();
+        lblPaidOrder2 = new javax.swing.JLabel();
+        lblPaidOrder3 = new javax.swing.JLabel();
+        cbPaymentMethod = new javax.swing.JComboBox<>();
+        lblPaidOrder4 = new javax.swing.JLabel();
+        txtSearchInvoice = new javax.swing.JTextField();
         panelHRMain = new javax.swing.JPanel();
         panelHRHeader = new javax.swing.JPanel();
         jLabel13 = new javax.swing.JLabel();
@@ -1356,6 +1702,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
         jTable1 = new javax.swing.JTable();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
+        setBackground(new java.awt.Color(244, 246, 248));
 
         panelMenu.setBackground(new java.awt.Color(255, 255, 255));
 
@@ -1469,10 +1816,11 @@ public class DashBoardFrame extends javax.swing.JFrame {
                 .addGap(26, 26, 26))
         );
 
+        panelContent.setBackground(new java.awt.Color(244, 246, 248));
         panelContent.setPreferredSize(new java.awt.Dimension(100, 500));
         panelContent.setLayout(new java.awt.CardLayout());
 
-        panelDashboard.setBackground(new java.awt.Color(245, 245, 245));
+        panelDashboard.setBackground(new java.awt.Color(244, 246, 248));
 
         panelDashboardHeader.setBackground(new java.awt.Color(255, 255, 255));
 
@@ -1787,6 +2135,8 @@ public class DashBoardFrame extends javax.swing.JFrame {
 
         panelContent.add(panelDashboard, "CardDashboard");
 
+        panelProduct.setBackground(new java.awt.Color(244, 246, 248));
+
         jPanel2.setBackground(new java.awt.Color(255, 255, 255));
 
         jLabel9.setBackground(new java.awt.Color(122, 67, 29));
@@ -1848,15 +2198,12 @@ public class DashBoardFrame extends javax.swing.JFrame {
         panelOrderManagement1Layout.setHorizontalGroup(
             panelOrderManagement1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(panelOrderManagement1Layout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(jScrollPane2, javax.swing.GroupLayout.DEFAULT_SIZE, 910, Short.MAX_VALUE)
-                .addContainerGap())
-            .addGroup(panelOrderManagement1Layout.createSequentialGroup()
                 .addGap(33, 33, 33)
                 .addComponent(jLabel20)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(lblTotalItem, javax.swing.GroupLayout.PREFERRED_SIZE, 80, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+            .addComponent(jScrollPane2)
         );
         panelOrderManagement1Layout.setVerticalGroup(
             panelOrderManagement1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -1866,8 +2213,8 @@ public class DashBoardFrame extends javax.swing.JFrame {
                     .addComponent(jLabel20)
                     .addComponent(lblTotalItem))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 8, Short.MAX_VALUE)
-                .addComponent(jScrollPane2, javax.swing.GroupLayout.PREFERRED_SIZE, 441, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(20, 20, 20))
+                .addComponent(jScrollPane2, javax.swing.GroupLayout.PREFERRED_SIZE, 455, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap())
         );
 
         cbAll.setFont(new java.awt.Font("Segoe UI", 1, 13)); // NOI18N
@@ -1884,17 +2231,16 @@ public class DashBoardFrame extends javax.swing.JFrame {
             .addComponent(jPanel2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelProductLayout.createSequentialGroup()
                 .addContainerGap(24, Short.MAX_VALUE)
-                .addGroup(panelProductLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(panelProductLayout.createSequentialGroup()
-                        .addComponent(panelOrderManagement1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addContainerGap())
-                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelProductLayout.createSequentialGroup()
-                        .addComponent(txtSearchProduct, javax.swing.GroupLayout.PREFERRED_SIZE, 305, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addGap(81, 81, 81)
-                        .addComponent(cbAll, javax.swing.GroupLayout.PREFERRED_SIZE, 106, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                        .addComponent(btnAddProduct)
-                        .addGap(346, 346, 346))))
+                .addComponent(txtSearchProduct, javax.swing.GroupLayout.PREFERRED_SIZE, 305, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(81, 81, 81)
+                .addComponent(cbAll, javax.swing.GroupLayout.PREFERRED_SIZE, 106, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addComponent(btnAddProduct)
+                .addGap(346, 346, 346))
+            .addGroup(panelProductLayout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(panelOrderManagement1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addContainerGap())
         );
         panelProductLayout.setVerticalGroup(
             panelProductLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -1911,6 +2257,55 @@ public class DashBoardFrame extends javax.swing.JFrame {
         );
 
         panelContent.add(panelProduct, "CardProduct");
+
+        panelOrder.setBackground(new java.awt.Color(244, 246, 248));
+
+        panelOrderManagement2.setBackground(new java.awt.Color(247, 246, 242));
+
+        tableTransactionHistory.setModel(new javax.swing.table.DefaultTableModel(
+            new Object [][] {
+                {null, null, null, null},
+                {null, null, null, null},
+                {null, null, null, null},
+                {null, null, null, null}
+            },
+            new String [] {
+                "Title 1", "Title 2", "Title 3", "Title 4"
+            }
+        ));
+        jScrollPane3.setViewportView(tableTransactionHistory);
+
+        jLabel27.setBackground(new java.awt.Color(122, 67, 29));
+        jLabel27.setFont(new java.awt.Font("Segoe UI", 0, 19)); // NOI18N
+        jLabel27.setForeground(new java.awt.Color(122, 67, 29));
+        jLabel27.setText("Transaction Log ");
+
+        lblRecordLog.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
+        lblRecordLog.setForeground(new java.awt.Color(102, 102, 102));
+        lblRecordLog.setText("(0 records)");
+
+        javax.swing.GroupLayout panelOrderManagement2Layout = new javax.swing.GroupLayout(panelOrderManagement2);
+        panelOrderManagement2.setLayout(panelOrderManagement2Layout);
+        panelOrderManagement2Layout.setHorizontalGroup(
+            panelOrderManagement2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(panelOrderManagement2Layout.createSequentialGroup()
+                .addGap(33, 33, 33)
+                .addComponent(jLabel27)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(lblRecordLog)
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+            .addComponent(jScrollPane3, javax.swing.GroupLayout.DEFAULT_SIZE, 933, Short.MAX_VALUE)
+        );
+        panelOrderManagement2Layout.setVerticalGroup(
+            panelOrderManagement2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelOrderManagement2Layout.createSequentialGroup()
+                .addGap(26, 26, 26)
+                .addGroup(panelOrderManagement2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel27)
+                    .addComponent(lblRecordLog))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jScrollPane3, javax.swing.GroupLayout.DEFAULT_SIZE, 281, Short.MAX_VALUE))
+        );
 
         jPanel3.setBackground(new java.awt.Color(255, 255, 255));
 
@@ -1949,12 +2344,14 @@ public class DashBoardFrame extends javax.swing.JFrame {
 
         jLabel23.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
         jLabel23.setForeground(new java.awt.Color(102, 102, 102));
-        jLabel23.setText("Total Revenue (filtered)");
+        jLabel23.setText("Total Revenue");
 
-        lblTotalRevenue.setFont(new java.awt.Font("Segoe UI", 1, 24)); // NOI18N
-        lblTotalRevenue.setForeground(new java.awt.Color(38, 205, 111));
-        lblTotalRevenue.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        lblTotalRevenue.setFont(new java.awt.Font("Segoe UI", 1, 20)); // NOI18N
+        lblTotalRevenue.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
         lblTotalRevenue.setText("0đ");
+
+        lblPaidOrder.setForeground(new java.awt.Color(102, 102, 102));
+        lblPaidOrder.setText("0 paid orders");
 
         javax.swing.GroupLayout panelTotalRevenueLayout = new javax.swing.GroupLayout(panelTotalRevenue);
         panelTotalRevenue.setLayout(panelTotalRevenueLayout);
@@ -1962,21 +2359,22 @@ public class DashBoardFrame extends javax.swing.JFrame {
             panelTotalRevenueLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(panelTotalRevenueLayout.createSequentialGroup()
                 .addGap(48, 48, 48)
-                .addComponent(lblTotalRevenue, javax.swing.GroupLayout.PREFERRED_SIZE, 205, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(47, Short.MAX_VALUE))
-            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelTotalRevenueLayout.createSequentialGroup()
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addComponent(jLabel23)
-                .addGap(70, 70, 70))
+                .addGroup(panelTotalRevenueLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(lblPaidOrder)
+                    .addComponent(jLabel23)
+                    .addComponent(lblTotalRevenue, javax.swing.GroupLayout.PREFERRED_SIZE, 163, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addContainerGap(14, Short.MAX_VALUE))
         );
         panelTotalRevenueLayout.setVerticalGroup(
             panelTotalRevenueLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(panelTotalRevenueLayout.createSequentialGroup()
-                .addGap(79, 79, 79)
+                .addGap(17, 17, 17)
                 .addComponent(jLabel23)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(lblTotalRevenue)
-                .addContainerGap(13, Short.MAX_VALUE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(lblPaidOrder)
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
         panelPaidOrders.setBackground(new java.awt.Color(255, 255, 255));
@@ -1986,33 +2384,35 @@ public class DashBoardFrame extends javax.swing.JFrame {
         jLabel22.setForeground(new java.awt.Color(102, 102, 102));
         jLabel22.setText("Paid Orders");
 
-        lblPaidOrders.setFont(new java.awt.Font("Segoe UI", 1, 24)); // NOI18N
-        lblPaidOrders.setForeground(new java.awt.Color(47, 116, 255));
-        lblPaidOrders.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        lblPaidOrders.setFont(new java.awt.Font("Segoe UI", 1, 20)); // NOI18N
+        lblPaidOrders.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
         lblPaidOrders.setText("0");
+
+        lblPercentTotal.setForeground(new java.awt.Color(102, 102, 102));
+        lblPercentTotal.setText("0% of total");
 
         javax.swing.GroupLayout panelPaidOrdersLayout = new javax.swing.GroupLayout(panelPaidOrders);
         panelPaidOrders.setLayout(panelPaidOrdersLayout);
         panelPaidOrdersLayout.setHorizontalGroup(
             panelPaidOrdersLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(panelPaidOrdersLayout.createSequentialGroup()
+                .addGap(45, 45, 45)
                 .addGroup(panelPaidOrdersLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(panelPaidOrdersLayout.createSequentialGroup()
-                        .addGap(45, 45, 45)
-                        .addComponent(lblPaidOrders, javax.swing.GroupLayout.PREFERRED_SIZE, 205, javax.swing.GroupLayout.PREFERRED_SIZE))
-                    .addGroup(panelPaidOrdersLayout.createSequentialGroup()
-                        .addGap(108, 108, 108)
-                        .addComponent(jLabel22)))
-                .addContainerGap(50, Short.MAX_VALUE))
+                    .addComponent(lblPercentTotal)
+                    .addComponent(jLabel22)
+                    .addComponent(lblPaidOrders, javax.swing.GroupLayout.PREFERRED_SIZE, 157, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addContainerGap(23, Short.MAX_VALUE))
         );
         panelPaidOrdersLayout.setVerticalGroup(
             panelPaidOrdersLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelPaidOrdersLayout.createSequentialGroup()
-                .addContainerGap(80, Short.MAX_VALUE)
+                .addGap(16, 16, 16)
                 .addComponent(jLabel22)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(lblPaidOrders)
-                .addGap(12, 12, 12))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(lblPercentTotal)
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
         panelCanceledOrder.setBackground(new java.awt.Color(255, 255, 255));
@@ -2022,33 +2422,72 @@ public class DashBoardFrame extends javax.swing.JFrame {
         jLabel21.setForeground(new java.awt.Color(102, 102, 102));
         jLabel21.setText("Canceled Orders");
 
-        lblOrdersCanceled.setFont(new java.awt.Font("Segoe UI", 1, 24)); // NOI18N
-        lblOrdersCanceled.setForeground(new java.awt.Color(255, 77, 77));
-        lblOrdersCanceled.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        lblOrdersCanceled.setFont(new java.awt.Font("Segoe UI", 1, 20)); // NOI18N
+        lblOrdersCanceled.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
         lblOrdersCanceled.setText("0");
+
+        lblPercentCanceledOrder.setForeground(new java.awt.Color(102, 102, 102));
+        lblPercentCanceledOrder.setText("0% of total");
 
         javax.swing.GroupLayout panelCanceledOrderLayout = new javax.swing.GroupLayout(panelCanceledOrder);
         panelCanceledOrder.setLayout(panelCanceledOrderLayout);
         panelCanceledOrderLayout.setHorizontalGroup(
             panelCanceledOrderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(panelCanceledOrderLayout.createSequentialGroup()
+                .addGap(45, 45, 45)
                 .addGroup(panelCanceledOrderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(panelCanceledOrderLayout.createSequentialGroup()
-                        .addGap(45, 45, 45)
-                        .addComponent(lblOrdersCanceled, javax.swing.GroupLayout.PREFERRED_SIZE, 205, javax.swing.GroupLayout.PREFERRED_SIZE))
-                    .addGroup(panelCanceledOrderLayout.createSequentialGroup()
-                        .addGap(96, 96, 96)
-                        .addComponent(jLabel21)))
-                .addContainerGap(50, Short.MAX_VALUE))
+                    .addComponent(lblPercentCanceledOrder)
+                    .addComponent(jLabel21)
+                    .addComponent(lblOrdersCanceled, javax.swing.GroupLayout.PREFERRED_SIZE, 149, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addContainerGap(31, Short.MAX_VALUE))
         );
         panelCanceledOrderLayout.setVerticalGroup(
             panelCanceledOrderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(panelCanceledOrderLayout.createSequentialGroup()
-                .addGap(82, 82, 82)
+                .addGap(18, 18, 18)
                 .addComponent(jLabel21)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(lblOrdersCanceled)
-                .addContainerGap(10, Short.MAX_VALUE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(lblPercentCanceledOrder)
+                .addContainerGap(9, Short.MAX_VALUE))
+        );
+
+        jPanel1.setBackground(new java.awt.Color(255, 255, 255));
+
+        jLabel26.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
+        jLabel26.setForeground(new java.awt.Color(102, 102, 102));
+        jLabel26.setText("Avg. Order Value");
+
+        lblAvgOrderValue.setFont(new java.awt.Font("Segoe UI", 1, 20)); // NOI18N
+        lblAvgOrderValue.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
+        lblAvgOrderValue.setText("0đ");
+
+        jLabel29.setForeground(new java.awt.Color(102, 102, 102));
+        jLabel29.setText("Per paid order");
+
+        javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
+        jPanel1.setLayout(jPanel1Layout);
+        jPanel1Layout.setHorizontalGroup(
+            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel1Layout.createSequentialGroup()
+                .addGap(46, 46, 46)
+                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(jLabel29)
+                    .addComponent(lblAvgOrderValue, javax.swing.GroupLayout.PREFERRED_SIZE, 157, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(jLabel26))
+                .addContainerGap(22, Short.MAX_VALUE))
+        );
+        jPanel1Layout.setVerticalGroup(
+            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel1Layout.createSequentialGroup()
+                .addGap(16, 16, 16)
+                .addComponent(jLabel26)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(lblAvgOrderValue)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jLabel29)
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
         panelDate.setBackground(new java.awt.Color(255, 255, 255));
@@ -2090,56 +2529,72 @@ public class DashBoardFrame extends javax.swing.JFrame {
         cbStatus.setFont(new java.awt.Font("Segoe UI", 1, 13)); // NOI18N
         cbStatus.setForeground(new java.awt.Color(102, 102, 102));
         cbStatus.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Item 1", "Item 2", "Item 3", "Item 4" }));
+        cbStatus.setPreferredSize(new java.awt.Dimension(74, 38));
 
-        panelOrderManagement2.setBackground(new java.awt.Color(247, 246, 242));
+        lblPaidOrder1.setForeground(new java.awt.Color(102, 102, 102));
+        lblPaidOrder1.setText("From");
 
-        tableTransactionHistory.setModel(new javax.swing.table.DefaultTableModel(
-            new Object [][] {
-                {null, null, null, null},
-                {null, null, null, null},
-                {null, null, null, null},
-                {null, null, null, null}
-            },
-            new String [] {
-                "Title 1", "Title 2", "Title 3", "Title 4"
-            }
-        ));
-        jScrollPane3.setViewportView(tableTransactionHistory);
+        lblPaidOrder2.setForeground(new java.awt.Color(102, 102, 102));
+        lblPaidOrder2.setText("To");
 
-        jLabel27.setBackground(new java.awt.Color(122, 67, 29));
-        jLabel27.setFont(new java.awt.Font("Segoe UI", 0, 19)); // NOI18N
-        jLabel27.setForeground(new java.awt.Color(122, 67, 29));
-        jLabel27.setText("Transaction Log ");
+        lblPaidOrder3.setForeground(new java.awt.Color(102, 102, 102));
+        lblPaidOrder3.setText("Status");
 
-        lblRecordLog.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
-        lblRecordLog.setForeground(new java.awt.Color(102, 102, 102));
-        lblRecordLog.setText("(0 records)");
+        cbPaymentMethod.setFont(new java.awt.Font("Segoe UI", 1, 13)); // NOI18N
+        cbPaymentMethod.setForeground(new java.awt.Color(102, 102, 102));
+        cbPaymentMethod.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Item 1", "Item 2", "Item 3", "Item 4" }));
+        cbPaymentMethod.setPreferredSize(new java.awt.Dimension(74, 38));
 
-        javax.swing.GroupLayout panelOrderManagement2Layout = new javax.swing.GroupLayout(panelOrderManagement2);
-        panelOrderManagement2.setLayout(panelOrderManagement2Layout);
-        panelOrderManagement2Layout.setHorizontalGroup(
-            panelOrderManagement2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(panelOrderManagement2Layout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(jScrollPane3, javax.swing.GroupLayout.DEFAULT_SIZE, 912, Short.MAX_VALUE)
-                .addContainerGap())
-            .addGroup(panelOrderManagement2Layout.createSequentialGroup()
-                .addGap(33, 33, 33)
-                .addComponent(jLabel27)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(lblRecordLog)
+        lblPaidOrder4.setForeground(new java.awt.Color(102, 102, 102));
+        lblPaidOrder4.setText("Payment");
+
+        txtSearchInvoice.addActionListener(this::txtSearchInvoiceActionPerformed);
+
+        javax.swing.GroupLayout panelBelowHeaderLayout = new javax.swing.GroupLayout(panelBelowHeader);
+        panelBelowHeader.setLayout(panelBelowHeaderLayout);
+        panelBelowHeaderLayout.setHorizontalGroup(
+            panelBelowHeaderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(panelBelowHeaderLayout.createSequentialGroup()
+                .addGroup(panelBelowHeaderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(panelBelowHeaderLayout.createSequentialGroup()
+                        .addGap(18, 18, 18)
+                        .addComponent(panelDate, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addGroup(panelBelowHeaderLayout.createSequentialGroup()
+                        .addGap(36, 36, 36)
+                        .addComponent(lblPaidOrder1)
+                        .addGap(151, 151, 151)
+                        .addComponent(lblPaidOrder2)))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addGroup(panelBelowHeaderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(lblPaidOrder3)
+                    .addComponent(cbStatus, javax.swing.GroupLayout.PREFERRED_SIZE, 113, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addGroup(panelBelowHeaderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(panelBelowHeaderLayout.createSequentialGroup()
+                        .addComponent(cbPaymentMethod, javax.swing.GroupLayout.PREFERRED_SIZE, 113, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                        .addComponent(txtSearchInvoice, javax.swing.GroupLayout.PREFERRED_SIZE, 301, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addComponent(lblPaidOrder4))
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
-        panelOrderManagement2Layout.setVerticalGroup(
-            panelOrderManagement2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelOrderManagement2Layout.createSequentialGroup()
-                .addGap(26, 26, 26)
-                .addGroup(panelOrderManagement2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(jLabel27)
-                    .addComponent(lblRecordLog))
+        panelBelowHeaderLayout.setVerticalGroup(
+            panelBelowHeaderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(panelBelowHeaderLayout.createSequentialGroup()
+                .addContainerGap(7, Short.MAX_VALUE)
+                .addGroup(panelBelowHeaderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(lblPaidOrder1, javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addComponent(lblPaidOrder2, javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelBelowHeaderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                        .addComponent(lblPaidOrder3)
+                        .addComponent(lblPaidOrder4)))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(jScrollPane3, javax.swing.GroupLayout.DEFAULT_SIZE, 263, Short.MAX_VALUE)
-                .addContainerGap())
+                .addGroup(panelBelowHeaderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                    .addComponent(panelDate, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addGroup(panelBelowHeaderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                        .addComponent(cbPaymentMethod, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(cbStatus, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(txtSearchInvoice, javax.swing.GroupLayout.PREFERRED_SIZE, 38, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                .addGap(14, 14, 14))
         );
 
         javax.swing.GroupLayout panelOrderLayout = new javax.swing.GroupLayout(panelOrder);
@@ -2149,46 +2604,46 @@ public class DashBoardFrame extends javax.swing.JFrame {
             .addComponent(jPanel3, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addGroup(panelOrderLayout.createSequentialGroup()
                 .addGap(24, 24, 24)
-                .addGroup(panelOrderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                .addGroup(panelOrderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addGroup(panelOrderLayout.createSequentialGroup()
-                        .addComponent(panelDate, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addGap(18, 18, 18)
-                        .addComponent(cbStatus, javax.swing.GroupLayout.PREFERRED_SIZE, 113, javax.swing.GroupLayout.PREFERRED_SIZE))
-                    .addGroup(panelOrderLayout.createSequentialGroup()
-                        .addComponent(panelTotalRevenue, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addGap(18, 18, 18)
-                        .addComponent(panelPaidOrders, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addGap(18, 18, 18)
-                        .addComponent(panelCanceledOrder, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                        .addComponent(panelTotalRevenue, javax.swing.GroupLayout.PREFERRED_SIZE, 225, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                        .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                        .addComponent(panelPaidOrders, javax.swing.GroupLayout.PREFERRED_SIZE, 225, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                        .addComponent(panelCanceledOrder, javax.swing.GroupLayout.PREFERRED_SIZE, 225, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addComponent(panelBelowHeader, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addContainerGap(22, Short.MAX_VALUE))
             .addGroup(panelOrderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                 .addGroup(panelOrderLayout.createSequentialGroup()
-                    .addGap(29, 29, 29)
-                    .addComponent(panelOrderManagement2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addGap(29, 29, 29)))
+                    .addGap(24, 24, 24)
+                    .addComponent(panelOrderManagement2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addContainerGap(25, Short.MAX_VALUE)))
         );
         panelOrderLayout.setVerticalGroup(
             panelOrderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(panelOrderLayout.createSequentialGroup()
                 .addComponent(jPanel3, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(38, 38, 38)
-                .addGroup(panelOrderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(panelTotalRevenue, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(panelPaidOrders, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(panelCanceledOrder, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addGap(29, 29, 29)
-                .addGroup(panelOrderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                    .addComponent(panelDate, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(cbStatus))
-                .addContainerGap(368, Short.MAX_VALUE))
+                .addGroup(panelOrderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
+                    .addComponent(panelPaidOrders, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, 102, Short.MAX_VALUE)
+                    .addComponent(panelTotalRevenue, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, 102, Short.MAX_VALUE)
+                    .addComponent(panelCanceledOrder, javax.swing.GroupLayout.DEFAULT_SIZE, 102, Short.MAX_VALUE)
+                    .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addGap(24, 24, 24)
+                .addComponent(panelBelowHeader, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap(378, Short.MAX_VALUE))
             .addGroup(panelOrderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                .addGroup(panelOrderLayout.createSequentialGroup()
-                    .addGap(390, 390, 390)
-                    .addComponent(panelOrderManagement2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addContainerGap()))
+                .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelOrderLayout.createSequentialGroup()
+                    .addContainerGap(367, Short.MAX_VALUE)
+                    .addComponent(panelOrderManagement2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addGap(17, 17, 17)))
         );
 
         panelContent.add(panelOrder, "CardOrder");
+
+        panelHRMain.setBackground(new java.awt.Color(244, 246, 248));
 
         panelHRHeader.setBackground(new java.awt.Color(255, 255, 255));
         panelHRHeader.setPreferredSize(new java.awt.Dimension(992, 125));
@@ -2262,6 +2717,8 @@ public class DashBoardFrame extends javax.swing.JFrame {
         );
 
         panelEmployeeMain.setLayout(new java.awt.CardLayout());
+
+        panelAttendance.setBackground(new java.awt.Color(244, 246, 248));
 
         lblOnTimeCount.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
         lblOnTimeCount.setForeground(new java.awt.Color(38, 205, 111));
@@ -2379,6 +2836,8 @@ public class DashBoardFrame extends javax.swing.JFrame {
 
         panelEmployeeMain.add(panelAttendance, "cardAttendance");
 
+        panelEmployeeManagement.setBackground(new java.awt.Color(244, 246, 248));
+
         cbRole.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Item 1", "Item 2", "Item 3", "Item 4" }));
 
         jButton4.setBackground(new java.awt.Color(227, 138, 69));
@@ -2442,6 +2901,8 @@ public class DashBoardFrame extends javax.swing.JFrame {
         );
 
         panelEmployeeMain.add(panelEmployeeManagement, "cardEmployeeManagement");
+
+        panelSchedule.setBackground(new java.awt.Color(244, 246, 248));
 
         jPanel6.setBackground(new java.awt.Color(255, 255, 255));
 
@@ -2577,6 +3038,8 @@ public class DashBoardFrame extends javax.swing.JFrame {
 
         panelContent.add(panelHRMain, "CardAttendance");
 
+        panelCustomer.setBackground(new java.awt.Color(244, 246, 248));
+
         panelCustomerHeader.setBackground(new java.awt.Color(255, 255, 255));
 
         jLabel24.setBackground(new java.awt.Color(122, 67, 29));
@@ -2706,6 +3169,10 @@ public class DashBoardFrame extends javax.swing.JFrame {
         addFrame.setVisible(true);
     }//GEN-LAST:event_btnAddProductActionPerformed
 
+    private void txtSearchInvoiceActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_txtSearchInvoiceActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_txtSearchInvoiceActionPerformed
+
     public static void main(String args[]) {
         com.formdev.flatlaf.FlatLightLaf.setup();
         java.awt.EventQueue.invokeLater(() -> {
@@ -2733,6 +3200,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
     private javax.swing.JButton btnTuan;
     private javax.swing.JComboBox<String> cbAll;
     private javax.swing.JComboBox<String> cbMonth;
+    private javax.swing.JComboBox<String> cbPaymentMethod;
     private javax.swing.JComboBox<String> cbRole;
     private javax.swing.JComboBox<String> cbStatus;
     private javax.swing.JComboBox<String> cbYear;
@@ -2757,13 +3225,16 @@ public class DashBoardFrame extends javax.swing.JFrame {
     private javax.swing.JLabel jLabel23;
     private javax.swing.JLabel jLabel24;
     private javax.swing.JLabel jLabel25;
+    private javax.swing.JLabel jLabel26;
     private javax.swing.JLabel jLabel27;
+    private javax.swing.JLabel jLabel29;
     private javax.swing.JLabel jLabel3;
     private javax.swing.JLabel jLabel4;
     private javax.swing.JLabel jLabel6;
     private javax.swing.JLabel jLabel7;
     private javax.swing.JLabel jLabel8;
     private javax.swing.JLabel jLabel9;
+    private javax.swing.JPanel jPanel1;
     private javax.swing.JPanel jPanel2;
     private javax.swing.JPanel jPanel3;
     private javax.swing.JPanel jPanel4;
@@ -2782,14 +3253,22 @@ public class DashBoardFrame extends javax.swing.JFrame {
     private javax.swing.JLabel lblAbsentCount;
     private javax.swing.JLabel lblActiveEmployees;
     private javax.swing.JLabel lblAttendance;
+    private javax.swing.JLabel lblAvgOrderValue;
     private javax.swing.JLabel lblEmployeeSchedule;
     private javax.swing.JLabel lblLateCount;
     private javax.swing.JLabel lblMonthDayYear;
     private javax.swing.JLabel lblOnLeaveCount;
     private javax.swing.JLabel lblOnTimeCount;
     private javax.swing.JLabel lblOrdersCanceled;
+    private javax.swing.JLabel lblPaidOrder;
+    private javax.swing.JLabel lblPaidOrder1;
+    private javax.swing.JLabel lblPaidOrder2;
+    private javax.swing.JLabel lblPaidOrder3;
+    private javax.swing.JLabel lblPaidOrder4;
     private javax.swing.JLabel lblPaidOrders;
     private javax.swing.JLabel lblPendingInvoice;
+    private javax.swing.JLabel lblPercentCanceledOrder;
+    private javax.swing.JLabel lblPercentTotal;
     private javax.swing.JLabel lblRecordAttendance;
     private javax.swing.JLabel lblRecordLog;
     private javax.swing.JLabel lblRevenueMonth;
@@ -2800,6 +3279,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
     private javax.swing.JPanel panelActiveEmployees;
     private javax.swing.JPanel panelActiveOrders;
     private javax.swing.JPanel panelAttendance;
+    private javax.swing.JPanel panelBelowHeader;
     private javax.swing.JPanel panelCanceledOrder;
     private javax.swing.JPanel panelCanceledOrders;
     private javax.swing.JPanel panelContent;
@@ -2834,6 +3314,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
     private javax.swing.JTable tableSchedule;
     private javax.swing.JTable tableTransactionHistory;
     private javax.swing.JTextField txtSearchEmployee;
+    private javax.swing.JTextField txtSearchInvoice;
     private javax.swing.JTextField txtSearchProduct;
     // End of variables declaration//GEN-END:variables
 }
