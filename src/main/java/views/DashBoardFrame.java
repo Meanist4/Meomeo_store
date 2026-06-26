@@ -917,10 +917,10 @@ public class DashBoardFrame extends javax.swing.JFrame {
     }
 
     private void onViewHistoryOrder(int rowIndex) {
-        javax.swing.JOptionPane.showMessageDialog(this,
-                "Frame chi tiết order_details sẽ nối sau.\nHiện tại cột ACTION của tableTransactionHistory đã sẵn sàng để gắn tiếp.",
-                "Order details",
-                javax.swing.JOptionPane.INFORMATION_MESSAGE);
+        int orderId = extractHistoryOrderId(rowIndex);
+        ViewOrderDetailFrame detailFrame = new ViewOrderDetailFrame(orderId);
+        detailFrame.setLocationRelativeTo(this);
+        detailFrame.setVisible(true);
     }
 
     private void onCancelHistoryOrder(int rowIndex) {
@@ -2590,9 +2590,9 @@ public class DashBoardFrame extends javax.swing.JFrame {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(panelBelowHeaderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addComponent(panelDate, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(cbStatus, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addGroup(panelBelowHeaderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                         .addComponent(cbPaymentMethod, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addComponent(cbStatus, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addComponent(txtSearchInvoice, javax.swing.GroupLayout.PREFERRED_SIZE, 38, javax.swing.GroupLayout.PREFERRED_SIZE)))
                 .addGap(14, 14, 14))
         );

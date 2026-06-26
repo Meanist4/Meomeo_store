@@ -1660,9 +1660,9 @@
                           <EmptySpace max="-2" attributes="0"/>
                           <Group type="103" groupAlignment="0" max="-2" attributes="0">
                               <Component id="panelDate" max="32767" attributes="0"/>
+                              <Component id="cbStatus" alignment="0" max="32767" attributes="0"/>
                               <Group type="103" groupAlignment="3" attributes="0">
                                   <Component id="cbPaymentMethod" alignment="3" max="32767" attributes="0"/>
-                                  <Component id="cbStatus" alignment="0" max="32767" attributes="0"/>
                                   <Component id="txtSearchInvoice" alignment="3" min="-2" pref="38" max="-2" attributes="0"/>
                               </Group>
                           </Group>

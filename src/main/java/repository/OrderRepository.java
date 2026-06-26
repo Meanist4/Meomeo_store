@@ -154,9 +154,12 @@ public class OrderRepository {
 
         String normalized = rawStatus.trim().toUpperCase(Locale.ROOT);
         return switch (normalized) {
-            case "CANCELED", "CANCELLED" -> "CANCELLED";
-            case "PENDING", "PAID", "ALL" -> normalized;
-            default -> normalized;
+            case "CANCELED", "CANCELLED" ->
+                "CANCELLED";
+            case "PENDING", "PAID", "ALL" ->
+                normalized;
+            default ->
+                normalized;
         };
     }
 
@@ -167,9 +170,12 @@ public class OrderRepository {
 
         String normalized = rawStatus.trim().toUpperCase(Locale.ROOT);
         return switch (normalized) {
-            case "CANCELED", "CANCELLED" -> "CANCELLED";
-            case "PENDING", "PAID" -> normalized;
-            default -> normalized;
+            case "CANCELED", "CANCELLED" ->
+                "CANCELLED";
+            case "PENDING", "PAID" ->
+                normalized;
+            default ->
+                normalized;
         };
     }
 
@@ -409,6 +415,72 @@ public class OrderRepository {
             }
         } catch (SQLException e) {
             System.err.println("Lỗi getTopProductsThisMonth: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return result;
+    }
+
+    public static class OrderDetailRow {
+
+        public String productName;
+        public double unitPrice;
+        public int quantity;
+    }
+
+    public OrderHistoryRow findOrderById(int orderId) {
+        String sql = """
+        SELECT o.id, o.order_date, o.total_amount, o.payment_method, o.status,
+               e.full_name  AS cashier_name,
+               COALESCE(c.full_name, '') AS customer_name
+        FROM orders o
+        JOIN employees e ON o.employee_id = e.id
+        LEFT JOIN customers c ON o.customer_id = c.id
+        WHERE o.id = ?
+        """;
+        try (Connection conn = DatabaseConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, orderId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    OrderHistoryRow row = new OrderHistoryRow();
+                    row.id = rs.getInt("id");
+                    row.orderDate = rs.getTimestamp("order_date");
+                    row.totalAmount = rs.getDouble("total_amount");
+                    row.paymentMethod = rs.getString("payment_method");
+                    row.status = normalizeHistoryStatus(rs.getString("status"));
+                    row.cashierName = rs.getString("cashier_name");
+                    row.customerName = rs.getString("customer_name");
+                    return row;
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Lỗi findOrderById id=" + orderId + ": " + e.getMessage());
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    public List<OrderDetailRow> findOrderDetails(int orderId) {
+        List<OrderDetailRow> result = new ArrayList<>();
+        String sql = """
+        SELECT p.product_name, od.price AS unit_price, od.quantity
+        FROM order_details od
+        JOIN products p ON od.product_id = p.id
+        WHERE od.order_id = ?
+        ORDER BY p.product_name ASC
+        """;
+        try (Connection conn = DatabaseConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, orderId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    OrderDetailRow row = new OrderDetailRow();
+                    row.productName = rs.getString("product_name");
+                    row.unitPrice = rs.getDouble("unit_price");
+                    row.quantity = rs.getInt("quantity");
+                    result.add(row);
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Lỗi findOrderDetails orderId=" + orderId + ": " + e.getMessage());
             e.printStackTrace();
         }
         return result;
