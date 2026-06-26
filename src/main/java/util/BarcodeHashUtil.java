@@ -6,6 +6,7 @@ import java.security.NoSuchAlgorithmException;
 public class BarcodeHashUtil {
 
     private static final String PREFIX = "PRO-";
+    private static final String EMP_PREFIX = "EMP-";
 
     public static String toProCode(String rawBarcode) {
         if (rawBarcode == null || rawBarcode.isBlank()) {
@@ -32,5 +33,14 @@ public class BarcodeHashUtil {
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException("SHA-256 not available", e);
         }
+    }
+
+    public static String toEmpCode(String rawBarcode) {
+        if (rawBarcode == null || rawBarcode.isBlank()) {
+            return "";
+        }
+        String normalized = rawBarcode.trim().toUpperCase();
+        String hash = sha256(normalized);
+        return EMP_PREFIX + hash.substring(0, 8).toUpperCase();
     }
 }

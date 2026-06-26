@@ -10,6 +10,7 @@ import java.awt.Font;
 import java.util.Map;
 import javax.swing.JPanel;
 import javax.swing.SwingWorker;
+
 import repository.AttendanceRepository;
 import repository.CategoryRepository;
 import repository.ScheduleRepository.EmployeeScheduleRow;
@@ -41,6 +42,109 @@ public class DashBoardFrame extends javax.swing.JFrame {
     private javax.swing.table.TableRowSorter<javax.swing.table.DefaultTableModel> inventorySorter;
     private boolean isInitializingAttendance = true;
     private java.time.LocalDate currentWeekStart;
+
+    class ButtonsRenderer extends javax.swing.JPanel implements javax.swing.table.TableCellRenderer {
+
+        public ButtonsRenderer() {
+            setLayout(new java.awt.FlowLayout(java.awt.FlowLayout.CENTER, 5, 2));
+            add(new javax.swing.JButton("Sửa"));
+            add(new javax.swing.JButton("Xóa"));
+        }
+
+        @Override
+        public java.awt.Component getTableCellRendererComponent(javax.swing.JTable table, Object value,
+                boolean isSelected, boolean hasFocus, int row, int column) {
+            setBackground(isSelected ? table.getSelectionBackground() : table.getBackground());
+            return this;
+        }
+    }
+
+    class ButtonsEditor extends javax.swing.AbstractCellEditor implements javax.swing.table.TableCellEditor {
+
+        private final javax.swing.JPanel panel = new javax.swing.JPanel();
+        private final javax.swing.JButton btnSua = new javax.swing.JButton("Sửa");
+        private final javax.swing.JButton btnXoa = new javax.swing.JButton("Xóa");
+        private int currentRow = -1;
+
+        public ButtonsEditor(javax.swing.JTable table) {
+            panel.setLayout(new java.awt.FlowLayout(java.awt.FlowLayout.CENTER, 5, 2));
+            panel.add(btnSua);
+            panel.add(btnXoa);
+
+            btnSua.addActionListener(e -> {
+                int row = currentRow;
+                fireEditingStopped();
+                if (row < 0) {
+                    return;
+                }
+                int modelRow = table.convertRowIndexToModel(row);
+                String empIdStr = table.getModel().getValueAt(modelRow, 0).toString();
+                try {
+                    int empId = Integer.parseInt(empIdStr.replace("EMP", ""));
+                    openEditEmployeeFrame(empId);
+                } catch (NumberFormatException ex) {
+                    javax.swing.JOptionPane.showMessageDialog(
+                            DashBoardFrame.this,
+                            "Mã nhân viên không hợp lệ.",
+                            "Lỗi",
+                            javax.swing.JOptionPane.ERROR_MESSAGE);
+                }
+            });
+
+            btnXoa.addActionListener(e -> {
+                int row = currentRow;
+                fireEditingStopped();
+                if (row < 0) {
+                    return;
+                }
+                int modelRow = table.convertRowIndexToModel(row);
+                String empIdStr = table.getModel().getValueAt(modelRow, 0).toString();
+                String fullName = table.getModel().getValueAt(modelRow, 1).toString();
+
+                int confirm = javax.swing.JOptionPane.showConfirmDialog(
+                        DashBoardFrame.this,
+                        "Bạn có chắc muốn xóa nhân viên " + fullName + " (" + empIdStr + ")?",
+                        "Xác nhận xóa",
+                        javax.swing.JOptionPane.YES_NO_OPTION);
+
+                if (confirm == javax.swing.JOptionPane.YES_OPTION) {
+                    try {
+                        int empId = Integer.parseInt(empIdStr.replace("EMP", ""));
+                        if (employeeRepository.deleteEmployee(empId)) {
+                            loadEmployeeManagementTableData();
+                            javax.swing.JOptionPane.showMessageDialog(
+                                    DashBoardFrame.this, "Đã xóa nhân viên thành công.");
+                        } else {
+                            javax.swing.JOptionPane.showMessageDialog(
+                                    DashBoardFrame.this,
+                                    "Không thể xóa nhân viên. Vui lòng thử lại.",
+                                    "Lỗi",
+                                    javax.swing.JOptionPane.ERROR_MESSAGE);
+                        }
+                    } catch (NumberFormatException ex) {
+                        javax.swing.JOptionPane.showMessageDialog(
+                                DashBoardFrame.this,
+                                "Mã nhân viên không hợp lệ.",
+                                "Lỗi",
+                                javax.swing.JOptionPane.ERROR_MESSAGE);
+                    }
+                }
+            });
+        }
+
+        @Override
+        public java.awt.Component getTableCellEditorComponent(javax.swing.JTable table, Object value,
+                boolean isSelected, int row, int column) {
+            currentRow = row;
+            panel.setBackground(isSelected ? table.getSelectionBackground() : table.getBackground());
+            return panel;
+        }
+
+        @Override
+        public Object getCellEditorValue() {
+            return "";
+        }
+    }
 
     public DashBoardFrame() {
         initComponents();
@@ -559,7 +663,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
                 new Object[][]{},
                 new String[]{"Employee ID", "Full Name", "Role", "Phone", "Barcode", "Status", "Actions"}
         ) {
-            boolean[] canEdit = new boolean[]{false, false, false, false, false, false, false};
+            boolean[] canEdit = new boolean[]{false, false, false, false, false, false, true};
 
             @Override
             public boolean isCellEditable(int rowIndex, int columnIndex) {
@@ -591,6 +695,21 @@ public class DashBoardFrame extends javax.swing.JFrame {
             scrollPane.setViewportView(tableEmployeeManagement);
         }
 
+        int actionColumnIndex = 6;
+        tableEmployeeManagement.setRowHeight(50);
+        tableEmployeeManagement.getColumnModel().getColumn(actionColumnIndex).setCellRenderer(new ButtonsRenderer());
+        tableEmployeeManagement.getColumnModel().getColumn(actionColumnIndex)
+                .setCellEditor(new ButtonsEditor(tableEmployeeManagement));
+        tableEmployeeManagement.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mousePressed(java.awt.event.MouseEvent e) {
+                int row = tableEmployeeManagement.rowAtPoint(e.getPoint());
+                int col = tableEmployeeManagement.columnAtPoint(e.getPoint());
+                if (row >= 0 && col == actionColumnIndex) {
+                    tableEmployeeManagement.editCellAt(row, col, e);
+                }
+            }
+        });
     }
 
     private javax.swing.event.DocumentListener onDocumentChange(Runnable action) {
@@ -1677,7 +1796,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
         panelEmployeeManagement = new javax.swing.JPanel();
         txtSearchEmployee = new javax.swing.JTextField();
         cbRole = new javax.swing.JComboBox<>();
-        jButton4 = new javax.swing.JButton();
+        btnAddEmployee = new javax.swing.JButton();
         jPanel4 = new javax.swing.JPanel();
         jScrollPane4 = new javax.swing.JScrollPane();
         tableEmployeeManagement = new javax.swing.JTable();
@@ -1694,6 +1813,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
         jScrollPane6 = new javax.swing.JScrollPane();
         tableSchedule = new javax.swing.JTable();
         panelCustomer = new javax.swing.JPanel();
+        btnAddCustomer = new javax.swing.JButton();
         panelCustomerHeader = new javax.swing.JPanel();
         jLabel24 = new javax.swing.JLabel();
         jLabel25 = new javax.swing.JLabel();
@@ -2840,10 +2960,15 @@ public class DashBoardFrame extends javax.swing.JFrame {
 
         cbRole.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Item 1", "Item 2", "Item 3", "Item 4" }));
 
-        jButton4.setBackground(new java.awt.Color(227, 138, 69));
-        jButton4.setFont(new java.awt.Font("Segoe UI", 1, 13)); // NOI18N
-        jButton4.setForeground(new java.awt.Color(255, 255, 255));
-        jButton4.setText("+ Add Employee");
+        btnAddEmployee.setBackground(new java.awt.Color(227, 138, 69));
+        btnAddEmployee.setFont(new java.awt.Font("Segoe UI", 1, 13)); // NOI18N
+        btnAddEmployee.setForeground(new java.awt.Color(255, 255, 255));
+        btnAddEmployee.setText("+ Add Employee");
+        btnAddEmployee.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                btnAddEmployeeMouseClicked(evt);
+            }
+        });
 
         jPanel4.setBackground(new java.awt.Color(247, 246, 242));
 
@@ -2884,7 +3009,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(cbRole, javax.swing.GroupLayout.PREFERRED_SIZE, 135, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 326, Short.MAX_VALUE)
-                        .addComponent(jButton4, javax.swing.GroupLayout.PREFERRED_SIZE, 154, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                        .addComponent(btnAddEmployee, javax.swing.GroupLayout.PREFERRED_SIZE, 154, javax.swing.GroupLayout.PREFERRED_SIZE)))
                 .addGap(25, 25, 25))
         );
         panelEmployeeManagementLayout.setVerticalGroup(
@@ -2894,7 +3019,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
                 .addGroup(panelEmployeeManagementLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(txtSearchEmployee, javax.swing.GroupLayout.PREFERRED_SIZE, 37, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(cbRole, javax.swing.GroupLayout.PREFERRED_SIZE, 37, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(jButton4, javax.swing.GroupLayout.PREFERRED_SIZE, 37, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addComponent(btnAddEmployee, javax.swing.GroupLayout.PREFERRED_SIZE, 37, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addGap(18, 18, 18)
                 .addComponent(jPanel4, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addContainerGap(19, Short.MAX_VALUE))
@@ -3021,7 +3146,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
         panelHRMain.setLayout(panelHRMainLayout);
         panelHRMainLayout.setHorizontalGroup(
             panelHRMainLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(panelHRHeader, javax.swing.GroupLayout.DEFAULT_SIZE, 982, Short.MAX_VALUE)
+            .addComponent(panelHRHeader, javax.swing.GroupLayout.DEFAULT_SIZE, 983, Short.MAX_VALUE)
             .addGroup(panelHRMainLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                 .addComponent(panelEmployeeMain, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
@@ -3039,6 +3164,8 @@ public class DashBoardFrame extends javax.swing.JFrame {
         panelContent.add(panelHRMain, "CardAttendance");
 
         panelCustomer.setBackground(new java.awt.Color(244, 246, 248));
+
+        btnAddCustomer.setText("Add Customer");
 
         panelCustomerHeader.setBackground(new java.awt.Color(255, 255, 255));
 
@@ -3105,19 +3232,26 @@ public class DashBoardFrame extends javax.swing.JFrame {
         panelCustomer.setLayout(panelCustomerLayout);
         panelCustomerLayout.setHorizontalGroup(
             panelCustomerLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelCustomerLayout.createSequentialGroup()
-                .addComponent(panelCustomerHeader, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addContainerGap())
             .addGroup(panelCustomerLayout.createSequentialGroup()
-                .addGap(19, 19, 19)
-                .addComponent(jPanel7, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(12, Short.MAX_VALUE))
+                .addGroup(panelCustomerLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(panelCustomerHeader, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addGroup(panelCustomerLayout.createSequentialGroup()
+                        .addGap(19, 19, 19)
+                        .addComponent(jPanel7, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(0, 7, Short.MAX_VALUE)))
+                .addContainerGap())
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelCustomerLayout.createSequentialGroup()
+                .addGap(0, 0, Short.MAX_VALUE)
+                .addComponent(btnAddCustomer)
+                .addGap(148, 148, 148))
         );
         panelCustomerLayout.setVerticalGroup(
             panelCustomerLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(panelCustomerLayout.createSequentialGroup()
                 .addComponent(panelCustomerHeader, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(100, 100, 100)
+                .addGap(52, 52, 52)
+                .addComponent(btnAddCustomer, javax.swing.GroupLayout.PREFERRED_SIZE, 36, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(jPanel7, javax.swing.GroupLayout.PREFERRED_SIZE, 487, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(0, 30, Short.MAX_VALUE))
         );
@@ -3131,7 +3265,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
             .addGroup(layout.createSequentialGroup()
                 .addComponent(panelMenu, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(panelContent, javax.swing.GroupLayout.DEFAULT_SIZE, 982, Short.MAX_VALUE))
+                .addComponent(panelContent, javax.swing.GroupLayout.PREFERRED_SIZE, 982, Short.MAX_VALUE))
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -3173,6 +3307,26 @@ public class DashBoardFrame extends javax.swing.JFrame {
         // TODO add your handling code here:
     }//GEN-LAST:event_txtSearchInvoiceActionPerformed
 
+    private void btnAddEmployeeMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_btnAddEmployeeMouseClicked
+        openAddEmployeeFrame();
+    }//GEN-LAST:event_btnAddEmployeeMouseClicked
+
+    private void openAddEmployeeFrame() {
+        AddEmployeeFrame addFrame = new AddEmployeeFrame(() -> showEmployeeManagementAndReload());
+        addFrame.setVisible(true);
+    }
+
+    private void openEditEmployeeFrame(int employeeId) {
+        AddEmployeeFrame editFrame = new AddEmployeeFrame(employeeId, () -> showEmployeeManagementAndReload());
+        editFrame.setVisible(true);
+    }
+
+    public void showEmployeeManagementAndReload() {
+        btnHumanResources.doClick();
+        btnEmployeeManagement.doClick();
+        loadEmployeeManagementTableData();
+    }
+
     public static void main(String args[]) {
         com.formdev.flatlaf.FlatLightLaf.setup();
         java.awt.EventQueue.invokeLater(() -> {
@@ -3181,6 +3335,8 @@ public class DashBoardFrame extends javax.swing.JFrame {
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JButton btnAddCustomer;
+    private javax.swing.JButton btnAddEmployee;
     private javax.swing.JButton btnAddProduct;
     private javax.swing.JButton btnAttendance;
     private javax.swing.JButton btnBackToSaleCounter;
@@ -3206,7 +3362,6 @@ public class DashBoardFrame extends javax.swing.JFrame {
     private javax.swing.JComboBox<String> cbYear;
     private com.toedter.calendar.JDateChooser dateFrom;
     private com.toedter.calendar.JDateChooser dateTo;
-    private javax.swing.JButton jButton4;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel10;
     private javax.swing.JLabel jLabel11;
