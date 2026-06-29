@@ -1,6 +1,5 @@
 package views;
 
-import ui.BarChartPanel;
 import com.formdev.flatlaf.FlatClientProperties;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
@@ -36,14 +35,16 @@ public class DashBoardFrame extends javax.swing.JFrame {
     private ui.TopSalesPanel topSalesNgay;
     private ui.TopSalesPanel topSalesThang;
     private java.awt.CardLayout cardTopSales;
+    private final SalesCounterFrame salesCounter;
 
     private final java.util.Map<String, javax.swing.ImageIcon> imageCache = new java.util.HashMap<>();
     private javax.swing.table.TableRowSorter<javax.swing.table.DefaultTableModel> inventorySorter;
     private boolean isInitializingAttendance = true;
     private java.time.LocalDate currentWeekStart;
 
-    public DashBoardFrame() {
+    public DashBoardFrame(SalesCounterFrame salesCounter) {
         initComponents();
+        this.salesCounter = salesCounter;
         panelRevenueDate.setPreferredSize(new java.awt.Dimension(500, 320));
         panelTopSales.setPreferredSize(new java.awt.Dimension(400, 320));
         setupScrollArea();
@@ -178,6 +179,12 @@ public class DashBoardFrame extends javax.swing.JFrame {
             lbAvatarShop.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
             lbAvatarShop.setVerticalAlignment(javax.swing.SwingConstants.CENTER);
         }
+    }
+
+    public void refreshAfterNewOrder() {
+        loadOverviewCardsData();
+        loadOrderTableData();
+        refreshOrderHistory();
     }
 
     private void setupScrollArea() {
@@ -1974,6 +1981,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
         btnCancelOrder.setForeground(new java.awt.Color(255, 77, 77));
         btnCancelOrder.setText("Cancel Selected Invoice");
         btnCancelOrder.setPreferredSize(new java.awt.Dimension(155, 35));
+        btnCancelOrder.addActionListener(this::btnCancelOrderActionPerformed);
 
         javax.swing.GroupLayout panelOrderManagementLayout = new javax.swing.GroupLayout(panelOrderManagement);
         panelOrderManagement.setLayout(panelOrderManagementLayout);
@@ -3155,7 +3163,8 @@ public class DashBoardFrame extends javax.swing.JFrame {
     }//GEN-LAST:event_cbMonthActionPerformed
 
     private void btnBackToSaleCounterActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnBackToSaleCounterActionPerformed
-        // TODO add your handling code here:
+        salesCounter.setVisible(true);
+        this.dispose();
     }//GEN-LAST:event_btnBackToSaleCounterActionPerformed
 
     private void btnCustomerManagementActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnCustomerManagementActionPerformed
@@ -3173,10 +3182,17 @@ public class DashBoardFrame extends javax.swing.JFrame {
         // TODO add your handling code here:
     }//GEN-LAST:event_txtSearchInvoiceActionPerformed
 
+    private void btnCancelOrderActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnCancelOrderActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_btnCancelOrderActionPerformed
+
     public static void main(String args[]) {
         com.formdev.flatlaf.FlatLightLaf.setup();
         java.awt.EventQueue.invokeLater(() -> {
-            new DashBoardFrame().setVisible(true);
+            // Tạo một frame rỗng tạm thời hoặc truyền null để test giao diện Dashboard
+            // (Nếu code constructor của bạn bắt buộc phải có SalesCounterFrame, hãy giữ nguyên nhưng kiểm tra Constructor của SalesCounter xem có bị gọi setVisible(true) bên trong không nhé)
+            DashBoardFrame db = new DashBoardFrame(new SalesCounterFrame());
+            db.setVisible(true);
         });
     }
 

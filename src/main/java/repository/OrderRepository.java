@@ -175,7 +175,7 @@ public class OrderRepository {
             case "PENDING", "PAID" ->
                 normalized;
             default ->
-                normalized;
+                "PENDING"; // status không nhận diện được -> ép về PENDING, không cho lọt giá trị lạ vào DB
         };
     }
 
@@ -293,6 +293,104 @@ public class OrderRepository {
             e.printStackTrace();
         }
         return result;
+    }
+
+    // ===== Tạo hóa đơn mới (đồng bộ PENDING / PAID / CANCELLED) =====
+    public static class NewOrderItem {
+
+        public final int productId;
+        public final int quantity;
+        public final double price;
+
+        public NewOrderItem(int productId, int quantity, double price) {
+            this.productId = productId;
+            this.quantity = quantity;
+            this.price = price;
+        }
+    }
+
+    /**
+     * Tạo 1 hóa đơn (orders) + chi tiết (order_details) trong 1 transaction.
+     * status truyền vào sẽ được chuẩn hóa về đúng 1 trong 3 giá trị: PENDING /
+     * PAID / CANCELLED. Trả về id của order vừa tạo, hoặc -1 nếu thất bại.
+     */
+    public int createOrder(int employeeId, Integer customerId, String paymentMethod,
+            double totalAmount, String status, List<NewOrderItem> items) {
+
+        if (items == null || items.isEmpty()) {
+            System.err.println("Lỗi tạo hóa đơn: danh sách sản phẩm trống");
+            return -1;
+        }
+
+        String safeStatus = normalizeHistoryStatus(status); // tái dùng để luôn ra PENDING/PAID/CANCELLED
+
+        String insertOrderSql = "INSERT INTO orders (employee_id, customer_id, total_amount, payment_method, status) "
+                + "VALUES (?, ?, ?, ?, ?)";
+        String insertDetailSql = "INSERT INTO order_details (order_id, product_id, quantity, price) "
+                + "VALUES (?, ?, ?, ?)";
+
+        Connection conn = null;
+        try {
+            conn = DatabaseConnection.getConnection();
+            conn.setAutoCommit(false);
+
+            int newOrderId;
+            try (PreparedStatement ps = conn.prepareStatement(insertOrderSql, Statement.RETURN_GENERATED_KEYS)) {
+                ps.setInt(1, employeeId);
+                if (customerId != null) {
+                    ps.setInt(2, customerId);
+                } else {
+                    ps.setNull(2, Types.INTEGER);
+                }
+                ps.setDouble(3, totalAmount);
+                ps.setString(4, paymentMethod != null ? paymentMethod : "Cash");
+                ps.setString(5, safeStatus);
+                ps.executeUpdate();
+
+                try (ResultSet keys = ps.getGeneratedKeys()) {
+                    if (keys.next()) {
+                        newOrderId = keys.getInt(1);
+                    } else {
+                        throw new SQLException("Không lấy được id hóa đơn vừa tạo");
+                    }
+                }
+            }
+
+            try (PreparedStatement ps = conn.prepareStatement(insertDetailSql)) {
+                for (NewOrderItem item : items) {
+                    ps.setInt(1, newOrderId);
+                    ps.setInt(2, item.productId);
+                    ps.setInt(3, item.quantity);
+                    ps.setDouble(4, item.price);
+                    ps.addBatch();
+                }
+                ps.executeBatch();
+            }
+
+            conn.commit();
+            return newOrderId;
+
+        } catch (SQLException e) {
+            System.err.println("Lỗi tạo hóa đơn: " + e.getMessage());
+            e.printStackTrace();
+            if (conn != null) {
+                try {
+                    conn.rollback();
+                } catch (SQLException rollbackEx) {
+                    rollbackEx.printStackTrace();
+                }
+            }
+            return -1;
+        } finally {
+            if (conn != null) {
+                try {
+                    conn.setAutoCommit(true);
+                    conn.close();
+                } catch (SQLException closeEx) {
+                    closeEx.printStackTrace();
+                }
+            }
+        }
     }
 
     public long[] getRevenueByWeek() {
@@ -485,4 +583,73 @@ public class OrderRepository {
         }
         return result;
     }
+    // Tạo đơn hàng rỗng trạng thái PENDING (chưa có items)
+
+    public int createPendingOrder(int employeeId) {
+        String sql = "INSERT INTO orders (employee_id, total_amount, status) VALUES (?, 0, 'PENDING')";
+        try (Connection conn = DatabaseConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            ps.setInt(1, employeeId);
+            ps.executeUpdate();
+            try (ResultSet keys = ps.getGeneratedKeys()) {
+                if (keys.next()) {
+                    return keys.getInt(1);
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Lỗi tạo đơn PENDING: " + e.getMessage());
+        }
+        return -1;
+    }
+
+// Cập nhật đơn từ PENDING → PAID/CANCELLED + ghi items
+    public boolean finalizeOrder(int orderId, String paymentMethod,
+            double totalAmount, String status, List<NewOrderItem> items) {
+
+        String updateSql = "UPDATE orders SET payment_method=?, total_amount=?, status=? WHERE id=?";
+        String detailSql = "INSERT INTO order_details (order_id, product_id, quantity, price) VALUES (?,?,?,?)";
+
+        Connection conn = null;
+        try {
+            conn = DatabaseConnection.getConnection();
+            conn.setAutoCommit(false);
+
+            try (PreparedStatement ps = conn.prepareStatement(updateSql)) {
+                ps.setString(1, paymentMethod != null ? paymentMethod : "Cash");
+                ps.setDouble(2, totalAmount);
+                ps.setString(3, normalizeHistoryStatus(status));
+                ps.setInt(4, orderId);
+                ps.executeUpdate();
+            }
+
+            if (items != null) {
+                try (PreparedStatement ps = conn.prepareStatement(detailSql)) {
+                    for (NewOrderItem item : items) {
+                        ps.setInt(1, orderId);
+                        ps.setInt(2, item.productId);
+                        ps.setInt(3, item.quantity);
+                        ps.setDouble(4, item.price);
+                        ps.addBatch();
+                    }
+                    ps.executeBatch();
+                }
+            }
+
+            conn.commit();
+            return true;
+        } catch (SQLException e) {
+            if (conn != null) try {
+                conn.rollback();
+            } catch (SQLException ignored) {
+            }
+            System.err.println("Lỗi finalize đơn hàng: " + e.getMessage());
+            return false;
+        } finally {
+            if (conn != null) try {
+                conn.setAutoCommit(true);
+                conn.close();
+            } catch (SQLException ignored) {
+            }
+        }
+    }
+
 }
