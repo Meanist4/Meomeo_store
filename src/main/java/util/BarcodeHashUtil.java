@@ -21,6 +21,10 @@ public class BarcodeHashUtil {
         return value != null && value.startsWith(PREFIX) && value.length() == 12;
     }
 
+    public static boolean isEmpCode(String value) {
+        return value != null && value.startsWith(EMP_PREFIX) && value.length() == 12;
+    }
+
     private static String sha256(String input) {
         try {
             MessageDigest md = MessageDigest.getInstance("SHA-256");

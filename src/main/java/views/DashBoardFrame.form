@@ -29,7 +29,7 @@
           <Group type="102" alignment="0" attributes="0">
               <Component id="panelMenu" min="-2" max="-2" attributes="0"/>
               <EmptySpace max="-2" attributes="0"/>
-              <Component id="panelContent" pref="982" max="32767" attributes="0"/>
+              <Component id="panelContent" pref="984" max="32767" attributes="0"/>
           </Group>
       </Group>
     </DimensionLayout>
@@ -297,7 +297,7 @@
                               <Group type="103" groupAlignment="0" attributes="0">
                                   <Group type="102" attributes="0">
                                       <Component id="panelActiveOrders" min="-2" max="-2" attributes="0"/>
-                                      <EmptySpace pref="19" max="32767" attributes="0"/>
+                                      <EmptySpace pref="21" max="32767" attributes="0"/>
                                       <Component id="panelActiveEmployees" min="-2" max="-2" attributes="0"/>
                                   </Group>
                                   <Component id="panelTopSales" max="32767" attributes="0"/>
@@ -862,7 +862,7 @@
               <Group type="103" groupAlignment="0" attributes="0">
                   <Component id="jPanel2" alignment="0" max="32767" attributes="0"/>
                   <Group type="102" alignment="1" attributes="0">
-                      <EmptySpace pref="24" max="32767" attributes="0"/>
+                      <EmptySpace pref="26" max="32767" attributes="0"/>
                       <Component id="txtSearchProduct" min="-2" pref="305" max="-2" attributes="0"/>
                       <EmptySpace min="-2" pref="81" max="-2" attributes="0"/>
                       <Component id="cbAll" min="-2" pref="106" max="-2" attributes="0"/>
@@ -1129,13 +1129,13 @@
                           </Group>
                           <Component id="panelBelowHeader" max="32767" attributes="0"/>
                       </Group>
-                      <EmptySpace pref="22" max="32767" attributes="0"/>
+                      <EmptySpace pref="24" max="32767" attributes="0"/>
                   </Group>
                   <Group type="103" rootIndex="1" groupAlignment="0" attributes="0">
                       <Group type="102" alignment="0" attributes="0">
                           <EmptySpace min="-2" pref="24" max="-2" attributes="0"/>
                           <Component id="panelOrderManagement2" min="-2" max="-2" attributes="0"/>
-                          <EmptySpace pref="25" max="32767" attributes="0"/>
+                          <EmptySpace pref="27" max="32767" attributes="0"/>
                       </Group>
                   </Group>
               </Group>
@@ -1842,7 +1842,7 @@
           <Layout>
             <DimensionLayout dim="0">
               <Group type="103" groupAlignment="0" attributes="0">
-                  <Component id="panelHRHeader" alignment="0" pref="983" max="32767" attributes="0"/>
+                  <Component id="panelHRHeader" alignment="0" pref="984" max="32767" attributes="0"/>
                   <Group type="103" rootIndex="1" groupAlignment="0" attributes="0">
                       <Component id="panelEmployeeMain" alignment="0" max="32767" attributes="0"/>
                   </Group>
@@ -1944,7 +1944,7 @@
                               <Component id="btnEmployeeManagement" min="-2" pref="178" max="-2" attributes="0"/>
                               <EmptySpace max="-2" attributes="0"/>
                               <Component id="btnSchedule" min="-2" pref="131" max="-2" attributes="0"/>
-                              <EmptySpace pref="500" max="32767" attributes="0"/>
+                              <EmptySpace pref="502" max="32767" attributes="0"/>
                           </Group>
                       </Group>
                     </DimensionLayout>
@@ -2034,7 +2034,7 @@
                                       <Component id="cbYear" min="-2" pref="117" max="-2" attributes="0"/>
                                   </Group>
                               </Group>
-                              <EmptySpace pref="20" max="32767" attributes="0"/>
+                              <EmptySpace pref="22" max="32767" attributes="0"/>
                           </Group>
                       </Group>
                     </DimensionLayout>
@@ -2183,6 +2183,9 @@
                           </StringArray>
                         </Property>
                       </Properties>
+                      <Events>
+                        <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="cbYearActionPerformed"/>
+                      </Events>
                       <AuxValues>
                         <AuxValue name="JavaCodeGenerator_TypeParameters" type="java.lang.String" value="&lt;String&gt;"/>
                       </AuxValues>
@@ -2282,7 +2285,11 @@
                                       <Component id="txtSearchEmployee" min="-2" pref="317" max="-2" attributes="0"/>
                                       <EmptySpace max="-2" attributes="0"/>
                                       <Component id="cbRole" min="-2" pref="135" max="-2" attributes="0"/>
-                                      <EmptySpace pref="326" max="32767" attributes="0"/>
+                                      <EmptySpace type="unrelated" max="-2" attributes="0"/>
+                                      <Component id="btnRefresh" min="-2" max="-2" attributes="0"/>
+                                      <EmptySpace max="32767" attributes="0"/>
+                                      <Component id="findByBarcode" min="-2" pref="154" max="-2" attributes="0"/>
+                                      <EmptySpace type="unrelated" max="-2" attributes="0"/>
                                       <Component id="btnAddEmployee" min="-2" pref="154" max="-2" attributes="0"/>
                                   </Group>
                               </Group>
@@ -2293,21 +2300,26 @@
                     <DimensionLayout dim="1">
                       <Group type="103" groupAlignment="0" attributes="0">
                           <Group type="102" alignment="0" attributes="0">
-                              <EmptySpace min="-2" pref="21" max="-2" attributes="0"/>
+                              <EmptySpace min="24" pref="24" max="-2" attributes="0"/>
                               <Group type="103" groupAlignment="3" attributes="0">
                                   <Component id="txtSearchEmployee" alignment="3" min="-2" pref="37" max="-2" attributes="0"/>
                                   <Component id="cbRole" alignment="3" min="-2" pref="37" max="-2" attributes="0"/>
                                   <Component id="btnAddEmployee" alignment="3" min="-2" pref="37" max="-2" attributes="0"/>
+                                  <Component id="findByBarcode" alignment="3" min="-2" pref="37" max="-2" attributes="0"/>
+                                  <Component id="btnRefresh" alignment="3" min="-2" max="-2" attributes="0"/>
                               </Group>
-                              <EmptySpace type="separate" max="-2" attributes="0"/>
+                              <EmptySpace min="-2" pref="27" max="-2" attributes="0"/>
                               <Component id="jPanel4" min="-2" max="-2" attributes="0"/>
-                              <EmptySpace pref="19" max="32767" attributes="0"/>
+                              <EmptySpace pref="7" max="32767" attributes="0"/>
                           </Group>
                       </Group>
                     </DimensionLayout>
                   </Layout>
                   <SubComponents>
                     <Component class="javax.swing.JTextField" name="txtSearchEmployee">
+                      <Events>
+                        <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="txtSearchEmployeeActionPerformed"/>
+                      </Events>
                     </Component>
                     <Component class="javax.swing.JComboBox" name="cbRole">
                       <Properties>
@@ -2384,6 +2396,34 @@
                         </Container>
                       </SubComponents>
                     </Container>
+                    <Component class="javax.swing.JButton" name="findByBarcode">
+                      <Properties>
+                        <Property name="background" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
+                          <Color blue="45" green="8a" red="e3" type="rgb"/>
+                        </Property>
+                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                          <Font name="Segoe UI" size="13" style="1"/>
+                        </Property>
+                        <Property name="foreground" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
+                          <Color blue="ff" green="ff" red="ff" type="rgb"/>
+                        </Property>
+                        <Property name="text" type="java.lang.String" value="Find By Barcode"/>
+                      </Properties>
+                      <Events>
+                        <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="findByBarcodeMouseClicked"/>
+                      </Events>
+                    </Component>
+                    <Component class="javax.swing.JButton" name="btnRefresh">
+                      <Properties>
+                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                          <Font name="Segoe UI" size="18" style="1"/>
+                        </Property>
+                        <Property name="text" type="java.lang.String" value="&#x21bb;"/>
+                      </Properties>
+                      <Events>
+                        <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="btnRefreshActionPerformed"/>
+                      </Events>
+                    </Component>
                   </SubComponents>
                 </Container>
                 <Container class="javax.swing.JPanel" name="panelSchedule">
@@ -2636,7 +2676,7 @@
                           <Group type="102" attributes="0">
                               <EmptySpace min="-2" pref="19" max="-2" attributes="0"/>
                               <Component id="jPanel7" min="-2" max="-2" attributes="0"/>
-                              <EmptySpace min="0" pref="7" max="32767" attributes="0"/>
+                              <EmptySpace min="0" pref="8" max="32767" attributes="0"/>
                           </Group>
                       </Group>
                       <EmptySpace max="-2" attributes="0"/>

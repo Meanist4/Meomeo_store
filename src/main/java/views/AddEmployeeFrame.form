@@ -40,11 +40,13 @@
               <EmptySpace max="32767" attributes="0"/>
           </Group>
           <Group type="102" alignment="0" attributes="0">
-              <EmptySpace min="-2" pref="553" max="-2" attributes="0"/>
-              <Component id="btnBack1" min="-2" pref="115" max="-2" attributes="0"/>
               <EmptySpace max="32767" attributes="0"/>
-              <Component id="btnAddEmployee" min="-2" max="-2" attributes="0"/>
-              <EmptySpace min="-2" pref="52" max="-2" attributes="0"/>
+              <Component id="btnBack1" min="-2" pref="115" max="-2" attributes="0"/>
+              <EmptySpace min="-2" pref="28" max="-2" attributes="0"/>
+              <Component id="btnReset" min="-2" pref="92" max="-2" attributes="0"/>
+              <EmptySpace min="-2" pref="28" max="-2" attributes="0"/>
+              <Component id="btnAddEmployee" min="-2" pref="135" max="-2" attributes="0"/>
+              <EmptySpace min="-2" pref="24" max="-2" attributes="0"/>
           </Group>
       </Group>
     </DimensionLayout>
@@ -66,6 +68,7 @@
                       <Group type="103" groupAlignment="3" attributes="0">
                           <Component id="btnBack1" alignment="3" min="-2" pref="48" max="-2" attributes="0"/>
                           <Component id="btnAddEmployee" alignment="3" min="-2" pref="48" max="-2" attributes="0"/>
+                          <Component id="btnReset" alignment="3" min="-2" pref="48" max="-2" attributes="0"/>
                       </Group>
                       <EmptySpace min="-2" pref="31" max="-2" attributes="0"/>
                   </Group>
@@ -183,9 +186,6 @@
               <Dimension value="[64, 31]"/>
             </Property>
           </Properties>
-          <Events>
-            <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="txtUsernameActionPerformed"/>
-          </Events>
         </Component>
         <Component class="javax.swing.JLabel" name="phoneLabel">
           <Properties>
@@ -204,9 +204,6 @@
               <StringArray count="0"/>
             </Property>
           </Properties>
-          <Events>
-            <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="cbRoleActionPerformed"/>
-          </Events>
           <AuxValues>
             <AuxValue name="JavaCodeGenerator_TypeParameters" type="java.lang.String" value="&lt;Role&gt;"/>
           </AuxValues>
@@ -228,9 +225,6 @@
               <Dimension value="[64, 31]"/>
             </Property>
           </Properties>
-          <Events>
-            <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="txtPhoneActionPerformed"/>
-          </Events>
         </Component>
         <Component class="javax.swing.JLabel" name="Password">
           <Properties>
@@ -249,9 +243,6 @@
               <Dimension value="[64, 31]"/>
             </Property>
           </Properties>
-          <Events>
-            <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="txtFullNameActionPerformed"/>
-          </Events>
         </Component>
         <Component class="javax.swing.JLabel" name="jLabel6">
           <Properties>
@@ -293,13 +284,15 @@
       <Properties>
         <Property name="text" type="java.lang.String" value="Add Employee"/>
       </Properties>
-      <Events>
-        <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="btnAddEmployeeMouseClicked"/>
-      </Events>
     </Component>
     <Component class="javax.swing.JButton" name="btnBack1">
       <Properties>
         <Property name="text" type="java.lang.String" value="Go Back"/>
+      </Properties>
+    </Component>
+    <Component class="javax.swing.JButton" name="btnReset">
+      <Properties>
+        <Property name="text" type="java.lang.String" value="Reset"/>
       </Properties>
     </Component>
   </SubComponents>

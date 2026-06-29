@@ -19,24 +19,24 @@ public class AddEmployeeFrame extends javax.swing.JFrame {
     }
 
     public AddEmployeeFrame(int employeeId, Runnable onClose) {
-        initFrame(onClose);
-        Employee emp = empSrv.getEmployeeById(employeeId);
-        if (emp == null) {
-            showError("Không tìm thấy nhân viên.");
-            javax.swing.SwingUtilities.invokeLater(this::dispose);
-            return;
-        }
-        editingEmployee = emp;
-        configureEditMode();
-        fillFormForEdit(emp);
+    initFrame(onClose); 
+    Employee emp = empSrv.getEmployeeById(employeeId);
+    if (emp == null) {
+        showError("Không tìm thấy nhân viên.");
+        javax.swing.SwingUtilities.invokeLater(this::dispose);
+        return;
     }
+    editingEmployee = emp;
+    fillFormForEdit(emp);
+    configureEditMode(); 
+}
 
     private void initFrame(Runnable onClose) {
         initComponents();
         this.onClose = onClose;
 
         setTitle("Thêm nhân viên mới");
-        setSize(790, 680);
+        setSize(1080, 680);
         setLocationRelativeTo(null);
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
 
@@ -45,19 +45,24 @@ public class AddEmployeeFrame extends javax.swing.JFrame {
         setupEvents();
     }
 
-    private void configureEditMode() {
-        setTitle("Cập nhật nhân viên");
-        jLabel1.setText("Edit Employee");
-        jLabel3.setText("Update employee information");
+    // 1. Thay đổi giao diện khi ở chế độ UPDATE (Sửa nhân viên)
+   private void configureEditMode() {
+    setTitle("Cập nhật nhân viên");
+    jLabel1.setText("Edit Employee");
+    jLabel3.setText("Update employee information");
+    btnAddEmployee.setText("Save employee");
 
-        txtUsername.setEditable(false);
-        txtUsername.setBackground(new Color(240, 240, 240));
+    // Khóa triệt để ô Username
+    txtUsername.setEditable(false);
+    txtUsername.setEnabled(false); // Vô hiệu hóa hẳn để người dùng không bấm chuột vào được
+    txtUsername.setBackground(new Color(230, 230, 230)); // Đổi màu xám rõ hơn
 
-        Password.setVisible(false);
-        jLabel7.setVisible(false);
-        txtPassword.setVisible(false);
-        txtConfirmPassword.setVisible(false);
-    }
+    // Ẩn các trường mật khẩu đi
+    Password.setVisible(false);
+    jLabel7.setVisible(false);
+    txtPassword.setVisible(false);
+    txtConfirmPassword.setVisible(false);
+}
 
     private void fillFormForEdit(Employee emp) {
         txtFullName.setText(emp.getFullName() != null ? emp.getFullName() : "");
@@ -76,36 +81,38 @@ public class AddEmployeeFrame extends javax.swing.JFrame {
         }
     }
 
+    // 2. Áp dụng phong cách FlatLaf (Giữ nguyên tên biến trên UI)
     private void applyAppearance() {
         getContentPane().setBackground(new Color(244, 246, 248));
         jPanel1.setBackground(Color.WHITE);
         jPanel1.putClientProperty(FlatClientProperties.STYLE, "arc: 12;");
 
-        btnBackToDashBoard.setText("Back");
-        btnBackToDashBoard.putClientProperty(FlatClientProperties.STYLE,
+        btnBack1.setText("Back"); // Đổi tên hiển thị từ Go Back thành Back cho gọn
+        btnBack1.putClientProperty(FlatClientProperties.STYLE,
                 "background: #FFFFFF; foreground: #4A5568; arc: 8; borderWidth: 1; focusWidth: 0;");
 
         btnReset.setText("Reset");
         btnReset.putClientProperty(FlatClientProperties.STYLE,
                 "background: #FFFFFF; foreground: #4A5568; arc: 8; borderWidth: 1; focusWidth: 0;");
 
-        btnSaveEmployee.setText("Save employee");
-        btnSaveEmployee.setBackground(new Color(227, 138, 69));
-        btnSaveEmployee.setForeground(Color.WHITE);
-        btnSaveEmployee.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        btnSaveEmployee.setFocusPainted(false);
-        btnSaveEmployee.setBorderPainted(false);
-        btnSaveEmployee.putClientProperty(FlatClientProperties.STYLE,
+        // Áp dụng màu cam thương hiệu cho nút hành động chính (Dù đang là Add hay Save)
+        btnAddEmployee.setBackground(new Color(227, 138, 69));
+        btnAddEmployee.setForeground(Color.WHITE);
+        btnAddEmployee.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        btnAddEmployee.setFocusPainted(false);
+        btnAddEmployee.setBorderPainted(false);
+        btnAddEmployee.putClientProperty(FlatClientProperties.STYLE,
                 "background: #E38A45; foreground: #FFFFFF; arc: 8; borderWidth: 0; focusWidth: 0;");
 
         txtPassword.setText("");
         txtConfirmPassword.setText("");
     }
 
+// 3. Đăng ký sự kiện hành động 
     private void setupEvents() {
-        btnBackToDashBoard.addActionListener(e -> dispose());
+        btnBack1.addActionListener(e -> dispose());
         btnReset.addActionListener(e -> resetForm());
-        btnSaveEmployee.addActionListener(e -> saveEmployee());
+        btnAddEmployee.addActionListener(e -> saveEmployee()); // Kích hoạt hàm xử lý rẽ nhánh
 
         addWindowListener(new java.awt.event.WindowAdapter() {
             @Override
@@ -139,25 +146,19 @@ public class AddEmployeeFrame extends javax.swing.JFrame {
         }
     }
 
+    // 4. Hàm xử lý nghiệp vụ chính khi click nút (Rẽ nhánh Create / Update)
     private void saveEmployee() {
         String fullName = txtFullName.getText().trim();
         String phone = txtPhone.getText().trim();
 
-        if (fullName.isEmpty()) {
-            showError("Vui lòng nhập họ tên!");
-            return;
-        }
-        if (phone.isEmpty()) {
-            showError("Vui lòng nhập số điện thoại!");
-            return;
-        }
-        if (cbRole.getSelectedItem() == null) {
-            showError("Vui lòng chọn vai trò!");
-            return;
-        }
+        // Kiểm tra các trường chung bắt buộc điền
+        if (fullName.isEmpty()) { showError("Vui lòng nhập họ tên!"); return; }
+        if (phone.isEmpty()) { showError("Vui lòng nhập số điện thoại!"); return; }
+        if (cbRole.getSelectedItem() == null) { showError("Vui lòng chọn vai trò!"); return; }
 
         Role selectedRole = (Role) cbRole.getSelectedItem();
 
+        // 📌 NHÁNH CẬP NHẬT (UPDATE): Nếu editingEmployee có dữ liệu
         if (editingEmployee != null) {
             boolean updated = empSrv.updateEmployeeInfo(
                     editingEmployee.getId(), fullName, selectedRole.getId(), phone);
@@ -167,25 +168,17 @@ public class AddEmployeeFrame extends javax.swing.JFrame {
             } else {
                 showError("Không thể cập nhật nhân viên. Vui lòng thử lại.");
             }
-            return;
+            return; // Ngăn chặn chạy xuống phần logic tạo mới phía dưới
         }
 
+        // 📌 NHÁNH THÊM MỚI (CREATE): Chạy khi editingEmployee == null
         String username = txtUsername.getText().trim();
         String password = new String(txtPassword.getPassword());
         String confirmPassword = new String(txtConfirmPassword.getPassword());
 
-        if (username.isEmpty()) {
-            showError("Vui lòng nhập username!");
-            return;
-        }
-        if (password.isEmpty()) {
-            showError("Vui lòng nhập mật khẩu!");
-            return;
-        }
-        if (!password.equals(confirmPassword)) {
-            showError("Mật khẩu xác nhận không khớp!");
-            return;
-        }
+        if (username.isEmpty()) { showError("Vui lòng nhập username!"); return; }
+        if (password.isEmpty()) { showError("Vui lòng nhập mật khẩu!"); return; }
+        if (!password.equals(confirmPassword)) { showError("Mật khẩu xác nhận không khớp!"); return; }
 
         boolean isAdded = empSrv.addEmployee(fullName, selectedRole.getId(), phone, username, password);
         if (isAdded) {
@@ -204,7 +197,6 @@ public class AddEmployeeFrame extends javax.swing.JFrame {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
-        btnBackToDashBoard = new javax.swing.JButton();
         jLabel1 = new javax.swing.JLabel();
         jLabel3 = new javax.swing.JLabel();
         jPanel1 = new javax.swing.JPanel();
@@ -220,13 +212,11 @@ public class AddEmployeeFrame extends javax.swing.JFrame {
         txtConfirmPassword = new javax.swing.JPasswordField();
         txtPassword = new javax.swing.JPasswordField();
         jLabel2 = new javax.swing.JLabel();
+        btnAddEmployee = new javax.swing.JButton();
+        btnBack1 = new javax.swing.JButton();
         btnReset = new javax.swing.JButton();
-        btnSaveEmployee = new javax.swing.JButton();
 
-        setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
-        setBackground(new java.awt.Color(244, 246, 248));
-
-        btnBackToDashBoard.setText("Back");
+        setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 
         jLabel1.setFont(new java.awt.Font("Segoe UI", 1, 24)); // NOI18N
         jLabel1.setText("Add New Employee");
@@ -234,8 +224,6 @@ public class AddEmployeeFrame extends javax.swing.JFrame {
         jLabel3.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
         jLabel3.setForeground(new java.awt.Color(102, 102, 102));
         jLabel3.setText("Manage your pet shop employee");
-
-        jPanel1.setBackground(new java.awt.Color(255, 255, 255));
 
         txtUsername.setFont(new java.awt.Font("Segoe UI", 0, 13)); // NOI18N
         txtUsername.setPreferredSize(new java.awt.Dimension(64, 31));
@@ -263,143 +251,123 @@ public class AddEmployeeFrame extends javax.swing.JFrame {
         jLabel7.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
         jLabel7.setText("Confirm Password");
 
+        txtConfirmPassword.setText("jPasswordField1");
+
+        txtPassword.setText("jPasswordField1");
+
         jLabel2.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
         jLabel2.setText("Role");
 
         javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
         jPanel1.setLayout(jPanel1Layout);
         jPanel1Layout.setHorizontalGroup(
-                jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                        .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel1Layout.createSequentialGroup()
-                                .addContainerGap(23, Short.MAX_VALUE)
-                                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                                        .addGroup(jPanel1Layout.createSequentialGroup()
-                                                .addComponent(jLabel4)
-                                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 24,
-                                                        Short.MAX_VALUE)
-                                                .addComponent(txtFullName, javax.swing.GroupLayout.PREFERRED_SIZE, 275,
-                                                        javax.swing.GroupLayout.PREFERRED_SIZE))
-                                        .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel1Layout
-                                                .createSequentialGroup()
-                                                .addGroup(jPanel1Layout
-                                                        .createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                                                        .addComponent(phoneLabel)
-                                                        .addComponent(jLabel2))
-                                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED,
-                                                        javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                                                .addGroup(jPanel1Layout
-                                                        .createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                                                        .addComponent(cbRole, javax.swing.GroupLayout.PREFERRED_SIZE,
-                                                                202, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                                        .addComponent(txtPhone, javax.swing.GroupLayout.PREFERRED_SIZE,
-                                                                275, javax.swing.GroupLayout.PREFERRED_SIZE))))
-                                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                                        .addGroup(jPanel1Layout.createSequentialGroup()
-                                                .addGap(55, 55, 55)
-                                                .addGroup(jPanel1Layout
-                                                        .createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                                                        .addComponent(Password,
-                                                                javax.swing.GroupLayout.Alignment.TRAILING)
-                                                        .addComponent(jLabel6,
-                                                                javax.swing.GroupLayout.Alignment.TRAILING))
-                                                .addGap(18, 18, 18))
-                                        .addGroup(javax.swing.GroupLayout.Alignment.TRAILING,
-                                                jPanel1Layout.createSequentialGroup()
-                                                        .addComponent(jLabel7)
-                                                        .addGap(10, 10, 10)))
-                                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                                        .addComponent(txtUsername, javax.swing.GroupLayout.PREFERRED_SIZE, 275,
-                                                javax.swing.GroupLayout.PREFERRED_SIZE)
-                                        .addComponent(txtPassword, javax.swing.GroupLayout.PREFERRED_SIZE, 275,
-                                                javax.swing.GroupLayout.PREFERRED_SIZE)
-                                        .addComponent(txtConfirmPassword, javax.swing.GroupLayout.PREFERRED_SIZE, 275,
-                                                javax.swing.GroupLayout.PREFERRED_SIZE))
-                                .addGap(73, 73, 73)));
+            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel1Layout.createSequentialGroup()
+                .addContainerGap(23, Short.MAX_VALUE)
+                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(jPanel1Layout.createSequentialGroup()
+                        .addComponent(jLabel4)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 24, Short.MAX_VALUE)
+                        .addComponent(txtFullName, javax.swing.GroupLayout.PREFERRED_SIZE, 275, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel1Layout.createSequentialGroup()
+                        .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                            .addComponent(phoneLabel)
+                            .addComponent(jLabel2))
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(cbRole, javax.swing.GroupLayout.PREFERRED_SIZE, 202, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(txtPhone, javax.swing.GroupLayout.PREFERRED_SIZE, 275, javax.swing.GroupLayout.PREFERRED_SIZE))))
+                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(jPanel1Layout.createSequentialGroup()
+                        .addGap(55, 55, 55)
+                        .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(Password, javax.swing.GroupLayout.Alignment.TRAILING)
+                            .addComponent(jLabel6, javax.swing.GroupLayout.Alignment.TRAILING))
+                        .addGap(18, 18, 18))
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel1Layout.createSequentialGroup()
+                        .addComponent(jLabel7)
+                        .addGap(10, 10, 10)))
+                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(txtUsername, javax.swing.GroupLayout.PREFERRED_SIZE, 275, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(txtPassword, javax.swing.GroupLayout.PREFERRED_SIZE, 275, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(txtConfirmPassword, javax.swing.GroupLayout.PREFERRED_SIZE, 275, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addGap(73, 73, 73))
+        );
         jPanel1Layout.setVerticalGroup(
-                jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                        .addGroup(jPanel1Layout.createSequentialGroup()
-                                .addGap(54, 54, 54)
-                                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                                        .addComponent(txtUsername, javax.swing.GroupLayout.PREFERRED_SIZE,
-                                                javax.swing.GroupLayout.DEFAULT_SIZE,
-                                                javax.swing.GroupLayout.PREFERRED_SIZE)
-                                        .addComponent(jLabel6)
-                                        .addComponent(txtFullName, javax.swing.GroupLayout.PREFERRED_SIZE,
-                                                javax.swing.GroupLayout.DEFAULT_SIZE,
-                                                javax.swing.GroupLayout.PREFERRED_SIZE)
-                                        .addComponent(jLabel4))
-                                .addGap(61, 61, 61)
-                                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                                        .addComponent(txtPassword, javax.swing.GroupLayout.PREFERRED_SIZE, 33,
-                                                javax.swing.GroupLayout.PREFERRED_SIZE)
-                                        .addComponent(Password)
-                                        .addComponent(txtPhone, javax.swing.GroupLayout.PREFERRED_SIZE,
-                                                javax.swing.GroupLayout.DEFAULT_SIZE,
-                                                javax.swing.GroupLayout.PREFERRED_SIZE)
-                                        .addComponent(phoneLabel))
-                                .addGap(47, 47, 47)
-                                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                                        .addComponent(txtConfirmPassword, javax.swing.GroupLayout.PREFERRED_SIZE, 33,
-                                                javax.swing.GroupLayout.PREFERRED_SIZE)
-                                        .addComponent(jLabel7)
-                                        .addGroup(jPanel1Layout
-                                                .createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                                                .addComponent(cbRole, javax.swing.GroupLayout.PREFERRED_SIZE, 31,
-                                                        javax.swing.GroupLayout.PREFERRED_SIZE)
-                                                .addComponent(jLabel2)))
-                                .addContainerGap(80, Short.MAX_VALUE)));
+            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel1Layout.createSequentialGroup()
+                .addGap(54, 54, 54)
+                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(txtUsername, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(jLabel6)
+                    .addComponent(txtFullName, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(jLabel4))
+                .addGap(61, 61, 61)
+                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(txtPassword, javax.swing.GroupLayout.PREFERRED_SIZE, 33, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(Password)
+                    .addComponent(txtPhone, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(phoneLabel))
+                .addGap(47, 47, 47)
+                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addComponent(txtConfirmPassword, javax.swing.GroupLayout.PREFERRED_SIZE, 33, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(jLabel7)
+                    .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                        .addComponent(cbRole, javax.swing.GroupLayout.PREFERRED_SIZE, 31, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(jLabel2)))
+                .addContainerGap(166, Short.MAX_VALUE))
+        );
+
+        btnAddEmployee.setText("Add Employee");
+
+        btnBack1.setText("Go Back");
 
         btnReset.setText("Reset");
-        btnSaveEmployee.setText("Save employee");
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
-                layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                        .addGroup(layout.createSequentialGroup()
-                                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                                        .addGroup(layout.createSequentialGroup()
-                                                .addContainerGap()
-                                                .addComponent(btnBackToDashBoard)
-                                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                                                .addComponent(btnReset, javax.swing.GroupLayout.PREFERRED_SIZE, 81,
-                                                        javax.swing.GroupLayout.PREFERRED_SIZE)
-                                                .addGap(12, 12, 12)
-                                                .addComponent(btnSaveEmployee, javax.swing.GroupLayout.PREFERRED_SIZE,
-                                                        120, javax.swing.GroupLayout.PREFERRED_SIZE))
-                                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                                                .addGroup(layout.createSequentialGroup()
-                                                        .addGap(34, 34, 34)
-                                                        .addGroup(layout
-                                                                .createParallelGroup(
-                                                                        javax.swing.GroupLayout.Alignment.LEADING)
-                                                                .addComponent(jLabel3)
-                                                                .addComponent(jLabel1)))
-                                                .addGroup(layout.createSequentialGroup()
-                                                        .addGap(24, 24, 24)
-                                                        .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE,
-                                                                javax.swing.GroupLayout.DEFAULT_SIZE,
-                                                                javax.swing.GroupLayout.PREFERRED_SIZE))))
-                                .addContainerGap(34, Short.MAX_VALUE)));
+            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(layout.createSequentialGroup()
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(layout.createSequentialGroup()
+                        .addGap(26, 26, 26)
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(jLabel1)
+                            .addComponent(jLabel3)))
+                    .addGroup(layout.createSequentialGroup()
+                        .addGap(15, 15, 15)
+                        .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+            .addGroup(layout.createSequentialGroup()
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(btnBack1, javax.swing.GroupLayout.PREFERRED_SIZE, 115, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(28, 28, 28)
+                .addComponent(btnReset, javax.swing.GroupLayout.PREFERRED_SIZE, 92, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(28, 28, 28)
+                .addComponent(btnAddEmployee, javax.swing.GroupLayout.PREFERRED_SIZE, 135, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(24, 24, 24))
+        );
         layout.setVerticalGroup(
-                layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                        .addGroup(layout.createSequentialGroup()
-                                .addGap(26, 26, 26)
-                                .addComponent(jLabel1)
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                .addComponent(jLabel3)
-                                .addGap(18, 18, 18)
-                                .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE,
-                                        javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                .addGap(18, 18, 18)
-                                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                                        .addComponent(btnSaveEmployee, javax.swing.GroupLayout.PREFERRED_SIZE, 34,
-                                                javax.swing.GroupLayout.PREFERRED_SIZE)
-                                        .addComponent(btnReset, javax.swing.GroupLayout.PREFERRED_SIZE, 34,
-                                                javax.swing.GroupLayout.PREFERRED_SIZE)
-                                        .addComponent(btnBackToDashBoard, javax.swing.GroupLayout.PREFERRED_SIZE, 34,
-                                                javax.swing.GroupLayout.PREFERRED_SIZE))
-                                .addContainerGap(34, Short.MAX_VALUE)));
+            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(layout.createSequentialGroup()
+                .addGap(22, 22, 22)
+                .addComponent(jLabel1)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jLabel3)
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(layout.createSequentialGroup()
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(60, 107, Short.MAX_VALUE))
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                            .addComponent(btnBack1, javax.swing.GroupLayout.PREFERRED_SIZE, 48, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(btnAddEmployee, javax.swing.GroupLayout.PREFERRED_SIZE, 48, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(btnReset, javax.swing.GroupLayout.PREFERRED_SIZE, 48, javax.swing.GroupLayout.PREFERRED_SIZE))
+                        .addGap(31, 31, 31))))
+        );
 
         pack();
     }// </editor-fold>//GEN-END:initComponents
@@ -411,9 +379,9 @@ public class AddEmployeeFrame extends javax.swing.JFrame {
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel Password;
-    private javax.swing.JButton btnBackToDashBoard;
+    private javax.swing.JButton btnAddEmployee;
+    private javax.swing.JButton btnBack1;
     private javax.swing.JButton btnReset;
-    private javax.swing.JButton btnSaveEmployee;
     private javax.swing.JComboBox<Role> cbRole;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel2;
