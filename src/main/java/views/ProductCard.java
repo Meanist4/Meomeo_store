@@ -1,11 +1,11 @@
 package views;
 
 import entity.Product;
-import java.io.IOException;
 
 public class ProductCard extends javax.swing.JPanel {
 
     private Product product;
+    private final java.util.Map<String, javax.swing.ImageIcon> cardImageCache = new java.util.concurrent.ConcurrentHashMap<>();
 
     public ProductCard() {
         initComponents();
@@ -40,6 +40,60 @@ public class ProductCard extends javax.swing.JPanel {
         }
     }
 
+    private javax.swing.ImageIcon getCachedCardIcon(String imgPath) {
+        // Xử lý trường hợp chuỗi trống hoặc null, trả về ảnh default meomeo.png
+        if (imgPath == null || imgPath.isBlank() || "null".equals(imgPath)) {
+            imgPath = "meomeo.png";
+        }
+
+        return cardImageCache.computeIfAbsent(imgPath, path -> {
+            try {
+                // 1. Logic bóc tách tên file y hệt Dashboard
+                String fileName = path.contains("/")
+                        ? path.substring(path.lastIndexOf('/') + 1)
+                        : path;
+                String resourcePath = "/images/" + fileName;
+
+                java.net.URL imgUrl = getClass().getResource(resourcePath);
+                if (imgUrl == null) {
+                    // Nếu ảnh custom lỗi, cố gắng fallback về ảnh mặc định meomeo.png
+                    imgUrl = getClass().getResource("/images/meomeo.png");
+                    if (imgUrl == null) {
+                        return null;
+                    }
+                }
+
+                // 2. Định nghĩa kích thước Logic cho Card
+                int targetW = 130;
+                int targetH = 100;
+
+                // 3. Tính toán tỷ lệ màn hình (HiDPI / Retina) để nhân kích thước thực tế
+                double scale = 1.0;
+                var gc = getGraphicsConfiguration();
+                if (gc != null) {
+                    scale = gc.getDefaultTransform().getScaleX();
+                }
+
+                int thucW = Math.max(targetW, (int) Math.round(targetW * scale));
+                int thucH = Math.max(targetH, (int) Math.round(targetH * scale));
+
+                // 4. Sinh ra 2 phiên bản ảnh: Ảnh thường (Logic) và Ảnh nét (Thực tế khi màn hình scale)
+                // Sử dụng hàm lọc mịn toSharpImage sẵn có của bạn
+                java.awt.Image imgLogic = toSharpImage(imgUrl, targetW, targetH);
+                java.awt.Image imgThuc = (thucW == targetW)
+                        ? imgLogic
+                        : toSharpImage(imgUrl, thucW, thucH);
+
+                // 5. Trả về ảnh đa độ phân giải chống mờ
+                return new javax.swing.ImageIcon(
+                        new java.awt.image.BaseMultiResolutionImage(imgLogic, imgThuc));
+            } catch (Exception ex) {
+                System.err.println("❌ Lỗi load ảnh card: " + ex.getMessage());
+                return null;
+            }
+        });
+    }
+
     public void setProductData(entity.Product product, String categoryName) {
         this.product = product;
 
@@ -54,14 +108,10 @@ public class ProductCard extends javax.swing.JPanel {
         }
 
         if (lblImage != null) {
-            String path = (product.getImagePath() == null || product.getImagePath().isBlank())
-                    ? "/images/meomeo.png" : product.getImagePath();
+            javax.swing.ImageIcon cardIcon = getCachedCardIcon(product.getImagePath());
 
-            java.net.URL imgURL = getClass().getResource(path);
-            if (imgURL != null) {
-                // Gọi hàm lọc mịn đa điểm ảnh
-                java.awt.Image sharpImg = toSharpImage(imgURL, 130, 100);
-                lblImage.setIcon(new javax.swing.ImageIcon(sharpImg));
+            if (cardIcon != null) {
+                lblImage.setIcon(cardIcon);
                 lblImage.setText("");
             } else {
                 lblImage.setIcon(null);

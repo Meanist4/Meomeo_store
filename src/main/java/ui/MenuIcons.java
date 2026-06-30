@@ -108,6 +108,61 @@ public class MenuIcons {
         };
     }
 
+    /**
+     * Icon QR vẽ tay (finder pattern giả) dùng cho qrBtn ở SalesCounterFrame.
+     * Chuyển nguyên logic từ SalesCounterFrame sang đây để gom mọi icon vào 1 nơi.
+     */
+    public static Icon paymentQr() {
+        return new SimpleIcon(18, 18) {
+            @Override
+            protected void draw(Graphics2D g2, int x, int y) {
+                g2.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
+                final double u = 1.2;
+
+                java.util.function.BiConsumer<Integer, Integer> drawRoundFinderPattern = (ox, oy) -> {
+                    int px = (int) (x + ox * u);
+                    int py = (int) (y + oy * u);
+                    int sizeOuter = (int) (5 * u);
+                    g2.setStroke(new BasicStroke(1.2f));
+                    g2.drawRoundRect(px, py, sizeOuter - 1, sizeOuter - 1, 4, 4);
+                    int coreSize = (int) (1.5 * u);
+                    int offset = (int) (1.6 * u);
+                    g2.fillRoundRect(px + offset, py + offset, coreSize, coreSize, 2, 2);
+                };
+                drawRoundFinderPattern.accept(0, 0);
+                drawRoundFinderPattern.accept(9, 0);
+                drawRoundFinderPattern.accept(0, 9);
+
+                int ax = (int) (x + 10 * u);
+                int ay = (int) (y + 10 * u);
+                g2.setStroke(new BasicStroke(1.0f));
+                g2.drawRoundRect(ax, ay, (int) (3 * u) - 1, (int) (3 * u) - 1, 2, 2);
+                g2.fillRoundRect((int) (ax + u), (int) (ay + u), (int) u, (int) u, 1, 1);
+
+                int[][] dataPoints = {
+                    {6, 0}, {7, 1}, {6, 2}, {7, 3}, {6, 4}, {7, 5}, {6, 6}, {7, 7},
+                    {0, 6}, {2, 6}, {4, 6}, {5, 6}, {9, 6}, {11, 6}, {13, 6},
+                    {6, 9}, {6, 11}, {6, 13},
+                    {9, 8}, {13, 8}, {13, 9}, {13, 11}, {11, 13}, {12, 13}
+                };
+                int dotSize = (int) Math.max(1, u);
+                for (int[] pt : dataPoints) {
+                    g2.fillRoundRect((int) (x + pt[0] * u), (int) (y + pt[1] * u), dotSize, dotSize, 2, 2);
+                }
+            }
+
+            @Override
+            public int getIconWidth() {
+                return 18;
+            }
+
+            @Override
+            public int getIconHeight() {
+                return 18;
+            }
+        };
+    }
+
     public static Icon calendar() {
         return new SimpleIcon(14, 14) {
             private final Color COLOR = Color.decode("#64748B");
