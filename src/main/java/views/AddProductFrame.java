@@ -8,15 +8,13 @@ import java.util.ArrayList;
 import java.util.List;
 import javax.swing.ImageIcon;
 import javax.swing.JOptionPane;
-import javax.swing.SwingConstants;
 import repository.CategoryRepository;
 import repository.ProductRepository;
 
 public class AddProductFrame extends javax.swing.JFrame {
 
-    private Runnable onClose;
     private String currentImagePath = null;
-    private List<Category> categoryList = new ArrayList<>();
+    private final List<Category> categoryList = new ArrayList<>();
     private boolean isExistingProduct = false;
     private Product editingProduct = null;
     private final ProductRepository productRepository = new ProductRepository();
@@ -25,7 +23,6 @@ public class AddProductFrame extends javax.swing.JFrame {
     public AddProductFrame(Runnable onClose) {
         initComponents();
 
-        this.onClose = onClose;
         this.editingProduct = null;
         setSize(790, 740);
         setLocationRelativeTo(null);
@@ -51,7 +48,6 @@ public class AddProductFrame extends javax.swing.JFrame {
     public AddProductFrame(Product product, Runnable onClose) {
         initComponents();
 
-        this.onClose = onClose;
         this.editingProduct = product;
 
         setTitle("Thêm sản phẩm mới");

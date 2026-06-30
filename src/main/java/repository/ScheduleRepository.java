@@ -63,4 +63,34 @@ public class ScheduleRepository {
         }
         return rowsByEmployeeId;
     }
+
+    public boolean existsByEmployeeAndDate(int employeeId, LocalDate date) {
+        String sql = "SELECT 1 FROM schedules WHERE employee_id = ? AND shift_date = ?";
+        try (Connection conn = DatabaseConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, employeeId);
+            ps.setDate(2, java.sql.Date.valueOf(date));
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next();
+            }
+        } catch (SQLException e) {
+            System.err.println("Lỗi kiểm tra trùng lịch: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+    public boolean addSchedule(int employeeId, LocalDate date, LocalTime start, LocalTime end) {
+        String sql = "INSERT INTO schedules(employee_id, shift_date, start_time, end_time) VALUES(?,?,?,?)";
+        try (Connection conn = DatabaseConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, employeeId);
+            ps.setDate(2, java.sql.Date.valueOf(date));
+            ps.setTime(3, java.sql.Time.valueOf(start));
+            ps.setTime(4, java.sql.Time.valueOf(end));
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.err.println("Lỗi thêm lịch làm việc: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return false;
+    }
 }

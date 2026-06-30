@@ -32,7 +32,7 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
 
     public SalesCounterFrame() {
         initComponents();
-
+        this.setLocationRelativeTo(null);
         this.dashBoard = new DashBoardFrame(this);
         panelOrderSplit.removeAll();
         panelOrderSplit.setLayout(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 6, 4));
@@ -53,9 +53,14 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
                 + "focusWidth: 0; "
                 + "innerFocusWidth: 0; "
                 + "hoverBackground: #EDF2F7;";
-
+        String styleActive = "background: #E38A45; "
+                + "foreground: #FFFFFF; "
+                + "arc: 12; "
+                + "borderWidth: 0; "
+                + "focusWidth: 0; "
+                + "innerFocusWidth: 0;";
         javax.swing.JButton[] menuButtons = {btnMain, btnProductInventory,
-            btnOrderHistory, btnHumanResources, btnCustomerManagement};
+            btnOrder, btnEmployee, btnCustomer};
         for (javax.swing.JButton btn : menuButtons) {
             btn.setContentAreaFilled(true);
             btn.setFocusPainted(false);
@@ -65,6 +70,40 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
             btn.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
             btn.setIconTextGap(12);
             btn.putClientProperty(FlatClientProperties.STYLE, styleNormal);
+        }
+
+        btnMain.putClientProperty(FlatClientProperties.STYLE, styleActive);
+        btnMain.setIcon(ui.MenuIcons.dashboard());
+        btnProductInventory.setIcon(ui.MenuIcons.inventory());
+        btnOrder.setIcon(ui.MenuIcons.history());
+        btnEmployee.setIcon(ui.MenuIcons.humanResources());
+        btnCustomer.setIcon(ui.MenuIcons.customerManagement());
+        btnMain.putClientProperty("cardName", "cardSaleCounter");
+        btnProductInventory.putClientProperty("cardName", "cardProduct");
+        btnOrder.putClientProperty("cardName", "cardOrder");
+        btnEmployee.putClientProperty("cardName", "cardEmployee");
+        btnCustomer.putClientProperty("cardName", "cardCustomer");
+
+        java.awt.CardLayout cardLayout = (java.awt.CardLayout) panelMenu.getLayout();
+        cardLayout.show(panelMenu, "cardSaleCounter");
+        for (javax.swing.JButton clickedBtn : menuButtons) {
+            clickedBtn.addActionListener(e -> {
+                for (javax.swing.JButton btn : menuButtons) {
+                    if (btn == clickedBtn) {
+                        btn.putClientProperty(FlatClientProperties.STYLE, styleActive);
+                    } else {
+                        btn.putClientProperty(FlatClientProperties.STYLE, styleNormal);
+                    }
+                }
+                String targetCard = (String) clickedBtn.getClientProperty("cardName");
+                if (targetCard != null) {
+                    cardLayout.show(panelMenu, targetCard);
+                }
+                if (clickedBtn.getParent() != null) {
+                    clickedBtn.getParent().revalidate();
+                    clickedBtn.getParent().repaint();
+                }
+            });
         }
 
         createNewOrder();
@@ -545,9 +584,9 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         panelNav = new javax.swing.JPanel();
         btnMain = new javax.swing.JButton();
         btnProductInventory = new javax.swing.JButton();
-        btnOrderHistory = new javax.swing.JButton();
-        btnHumanResources = new javax.swing.JButton();
-        btnCustomerManagement = new javax.swing.JButton();
+        btnOrder = new javax.swing.JButton();
+        btnEmployee = new javax.swing.JButton();
+        btnCustomer = new javax.swing.JButton();
         panelMenu = new javax.swing.JPanel();
         panelSaleCounter = new javax.swing.JPanel();
         panelBarcode = new javax.swing.JPanel();
@@ -590,6 +629,10 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         qrBtn = new javax.swing.JButton();
         jLabel19 = new javax.swing.JLabel();
         jSeparator1 = new javax.swing.JSeparator();
+        panelProduct = new javax.swing.JPanel();
+        panelOrder = new javax.swing.JPanel();
+        panelEmployee = new javax.swing.JPanel();
+        panelCustomer = new javax.swing.JPanel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
         setBackground(new java.awt.Color(245, 245, 245));
@@ -661,23 +704,23 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         btnProductInventory.setBorder(null);
         btnProductInventory.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
 
-        btnOrderHistory.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
-        btnOrderHistory.setText("Invoice");
-        btnOrderHistory.setBorder(null);
-        btnOrderHistory.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
-        btnOrderHistory.addActionListener(this::btnOrderHistoryActionPerformed);
+        btnOrder.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
+        btnOrder.setText("Invoice");
+        btnOrder.setBorder(null);
+        btnOrder.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
+        btnOrder.addActionListener(this::btnOrderActionPerformed);
 
-        btnHumanResources.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
-        btnHumanResources.setText("Employee");
-        btnHumanResources.setBorder(null);
-        btnHumanResources.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
-        btnHumanResources.addActionListener(this::btnHumanResourcesActionPerformed);
+        btnEmployee.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
+        btnEmployee.setText("Employee");
+        btnEmployee.setBorder(null);
+        btnEmployee.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
+        btnEmployee.addActionListener(this::btnEmployeeActionPerformed);
 
-        btnCustomerManagement.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
-        btnCustomerManagement.setText("Customer");
-        btnCustomerManagement.setBorder(null);
-        btnCustomerManagement.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
-        btnCustomerManagement.addActionListener(this::btnCustomerManagementActionPerformed);
+        btnCustomer.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
+        btnCustomer.setText("Customer");
+        btnCustomer.setBorder(null);
+        btnCustomer.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
+        btnCustomer.addActionListener(this::btnCustomerActionPerformed);
 
         javax.swing.GroupLayout panelNavLayout = new javax.swing.GroupLayout(panelNav);
         panelNav.setLayout(panelNavLayout);
@@ -686,9 +729,9 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
             .addGroup(panelNavLayout.createSequentialGroup()
                 .addGap(14, 14, 14)
                 .addGroup(panelNavLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                    .addComponent(btnCustomerManagement, javax.swing.GroupLayout.PREFERRED_SIZE, 212, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(btnHumanResources, javax.swing.GroupLayout.PREFERRED_SIZE, 212, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(btnOrderHistory, javax.swing.GroupLayout.PREFERRED_SIZE, 212, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(btnCustomer, javax.swing.GroupLayout.PREFERRED_SIZE, 212, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(btnEmployee, javax.swing.GroupLayout.PREFERRED_SIZE, 212, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(btnOrder, javax.swing.GroupLayout.PREFERRED_SIZE, 212, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(btnProductInventory, javax.swing.GroupLayout.PREFERRED_SIZE, 212, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(btnMain, javax.swing.GroupLayout.PREFERRED_SIZE, 212, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
@@ -701,11 +744,11 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
                 .addGap(18, 18, 18)
                 .addComponent(btnProductInventory, javax.swing.GroupLayout.PREFERRED_SIZE, 47, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(18, 18, 18)
-                .addComponent(btnOrderHistory, javax.swing.GroupLayout.PREFERRED_SIZE, 47, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(btnOrder, javax.swing.GroupLayout.PREFERRED_SIZE, 47, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(18, 18, 18)
-                .addComponent(btnHumanResources, javax.swing.GroupLayout.PREFERRED_SIZE, 47, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(btnEmployee, javax.swing.GroupLayout.PREFERRED_SIZE, 47, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(18, 18, 18)
-                .addComponent(btnCustomerManagement, javax.swing.GroupLayout.PREFERRED_SIZE, 47, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(btnCustomer, javax.swing.GroupLayout.PREFERRED_SIZE, 47, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addContainerGap(363, Short.MAX_VALUE))
         );
 
@@ -1159,6 +1202,58 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
 
         panelMenu.add(panelSaleCounter, "cardSaleCounter");
 
+        javax.swing.GroupLayout panelProductLayout = new javax.swing.GroupLayout(panelProduct);
+        panelProduct.setLayout(panelProductLayout);
+        panelProductLayout.setHorizontalGroup(
+            panelProductLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGap(0, 953, Short.MAX_VALUE)
+        );
+        panelProductLayout.setVerticalGroup(
+            panelProductLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGap(0, 686, Short.MAX_VALUE)
+        );
+
+        panelMenu.add(panelProduct, "cardProduct");
+
+        javax.swing.GroupLayout panelOrderLayout = new javax.swing.GroupLayout(panelOrder);
+        panelOrder.setLayout(panelOrderLayout);
+        panelOrderLayout.setHorizontalGroup(
+            panelOrderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGap(0, 953, Short.MAX_VALUE)
+        );
+        panelOrderLayout.setVerticalGroup(
+            panelOrderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGap(0, 686, Short.MAX_VALUE)
+        );
+
+        panelMenu.add(panelOrder, "cardOrder");
+
+        javax.swing.GroupLayout panelEmployeeLayout = new javax.swing.GroupLayout(panelEmployee);
+        panelEmployee.setLayout(panelEmployeeLayout);
+        panelEmployeeLayout.setHorizontalGroup(
+            panelEmployeeLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGap(0, 953, Short.MAX_VALUE)
+        );
+        panelEmployeeLayout.setVerticalGroup(
+            panelEmployeeLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGap(0, 686, Short.MAX_VALUE)
+        );
+
+        panelMenu.add(panelEmployee, "cardEmployee");
+
+        javax.swing.GroupLayout panelCustomerLayout = new javax.swing.GroupLayout(panelCustomer);
+        panelCustomer.setLayout(panelCustomerLayout);
+        panelCustomerLayout.setHorizontalGroup(
+            panelCustomerLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGap(0, 953, Short.MAX_VALUE)
+        );
+        panelCustomerLayout.setVerticalGroup(
+            panelCustomerLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGap(0, 686, Short.MAX_VALUE)
+        );
+
+        panelMenu.add(panelCustomer, "cardCustomer");
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
@@ -1230,17 +1325,17 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         }
     }//GEN-LAST:event_btnConfirmOrderActionPerformed
 
-    private void btnOrderHistoryActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnOrderHistoryActionPerformed
+    private void btnOrderActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnOrderActionPerformed
         // TODO add your handling code here:
-    }//GEN-LAST:event_btnOrderHistoryActionPerformed
+    }//GEN-LAST:event_btnOrderActionPerformed
 
-    private void btnHumanResourcesActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnHumanResourcesActionPerformed
+    private void btnEmployeeActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnEmployeeActionPerformed
         // TODO add your handling code here:
-    }//GEN-LAST:event_btnHumanResourcesActionPerformed
+    }//GEN-LAST:event_btnEmployeeActionPerformed
 
-    private void btnCustomerManagementActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnCustomerManagementActionPerformed
+    private void btnCustomerActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnCustomerActionPerformed
         // TODO add your handling code here:
-    }//GEN-LAST:event_btnCustomerManagementActionPerformed
+    }//GEN-LAST:event_btnCustomerActionPerformed
 
     private void btnCancelOrderActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnCancelOrderActionPerformed
         int orderId = sessionOrderIds.get(activeIndex);
@@ -1320,10 +1415,10 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
     private javax.swing.JButton btnBarcode;
     private javax.swing.JButton btnCancelOrder;
     private javax.swing.JButton btnConfirmOrder;
-    private javax.swing.JButton btnCustomerManagement;
-    private javax.swing.JButton btnHumanResources;
+    private javax.swing.JButton btnCustomer;
+    private javax.swing.JButton btnEmployee;
     private javax.swing.JButton btnMain;
-    private javax.swing.JButton btnOrderHistory;
+    private javax.swing.JButton btnOrder;
     private javax.swing.JButton btnProductInventory;
     private javax.swing.JButton btnScan;
     private javax.swing.JButton cashBtn;
@@ -1355,12 +1450,16 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
     private javax.swing.JPanel panelCashier;
     private javax.swing.JPanel panelChangeDue;
     private javax.swing.JPanel panelCurrentOrder;
+    private javax.swing.JPanel panelCustomer;
+    private javax.swing.JPanel panelEmployee;
     private javax.swing.JPanel panelHeader;
     private javax.swing.JPanel panelMenu;
     private javax.swing.JPanel panelNav;
+    private javax.swing.JPanel panelOrder;
     private javax.swing.JPanel panelOrderSplit;
     private javax.swing.JPanel panelOrderSummary;
     private javax.swing.JPanel panelPopular;
+    private javax.swing.JPanel panelProduct;
     private javax.swing.JPanel panelProductGrid;
     private javax.swing.JPanel panelQRView;
     private javax.swing.JPanel panelSaleCounter;

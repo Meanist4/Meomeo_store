@@ -19,7 +19,7 @@ public class AttendanceRepository {
     public List<AttendanceRow> findByMonthYear(int month, int year) {
         List<AttendanceRow> result = new ArrayList<>();
         String sql = "SELECT e.id, e.full_name, "
-                + "       COALESCE(a.working_role, r.role_name) AS display_role, "
+                + "       r.role_name AS display_role, "
                 + "       s.shift_date AS work_date, "
                 + "       a.check_in, a.check_out, "
                 + "       CASE "

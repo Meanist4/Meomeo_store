@@ -12,20 +12,22 @@ import entity.Role;
 public class EmployeeRepository {
 
     public static class EmployeeRow {
+
         public int id;
         public String fullName;
         public String roleName;
+        public String roleColorHex;
         public String phone;
         public String barcode;
-        public int status; // 1: Active, 0: Inactive
+        public int status;
     }
 
     public List<EmployeeRow> findEmployees(String roleName, String keyword) {
         List<EmployeeRow> result = new ArrayList<>();
         StringBuilder sql = new StringBuilder(
-                "SELECT e.id, e.full_name, r.role_name, e.phone, e.barcode, e.status "
-                        + "FROM employees e JOIN roles r ON e.role_id = r.id "
-                        + "WHERE e.is_deleted = 0 ");
+                "SELECT e.id, e.full_name, r.role_name, r.color_hex, e.phone, e.barcode, e.status "
+                + "FROM employees e JOIN roles r ON e.role_id = r.id "
+                + "WHERE e.is_deleted = 0 ");
         if (roleName != null && !"All".equalsIgnoreCase(roleName)) {
             sql.append("AND r.role_name = ? ");
         }
@@ -34,8 +36,7 @@ public class EmployeeRepository {
         }
         sql.append("ORDER BY e.id ASC");
 
-        try (Connection conn = DatabaseConnection.getConnection();
-                PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+        try (Connection conn = DatabaseConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql.toString())) {
             int idx = 1;
             if (roleName != null && !"All".equalsIgnoreCase(roleName)) {
                 ps.setString(idx++, roleName);
@@ -50,6 +51,7 @@ public class EmployeeRepository {
                     row.id = rs.getInt("id");
                     row.fullName = rs.getString("full_name");
                     row.roleName = rs.getString("role_name");
+                    row.roleColorHex = rs.getString("color_hex");
                     row.phone = rs.getString("phone");
                     row.barcode = rs.getString("barcode");
                     row.status = rs.getInt("status");
@@ -67,9 +69,7 @@ public class EmployeeRepository {
         List<String> roles = new ArrayList<>();
 
         String sql = "SELECT role_name FROM roles ORDER BY role_name ASC";
-        try (Connection conn = DatabaseConnection.getConnection();
-                Statement st = conn.createStatement();
-                ResultSet rs = st.executeQuery(sql)) {
+        try (Connection conn = DatabaseConnection.getConnection(); Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(sql)) {
             while (rs.next()) {
                 roles.add(rs.getString("role_name"));
             }
@@ -83,9 +83,7 @@ public class EmployeeRepository {
     public List<Role> getAllRole() {
         List<Role> roles = new ArrayList<>();
         String sql = "SELECT * FROM roles ORDER BY role_name ASC";
-        try (Connection conn = DatabaseConnection.getConnection();
-                PreparedStatement st = conn.prepareStatement(sql);
-                ResultSet rs = st.executeQuery()) {
+        try (Connection conn = DatabaseConnection.getConnection(); PreparedStatement st = conn.prepareStatement(sql); ResultSet rs = st.executeQuery()) {
             while (rs.next()) {
                 Role role = new Role();
                 role.setId(rs.getInt("id"));
@@ -104,8 +102,7 @@ public class EmployeeRepository {
                 SELECT id, role_id, username, full_name, phone, barcode, status, is_deleted
                 FROM employees WHERE id = ? AND is_deleted = 0
                 """;
-        try (Connection conn = DatabaseConnection.getConnection();
-                PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (Connection conn = DatabaseConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, id);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
@@ -132,8 +129,7 @@ public class EmployeeRepository {
         String sql = """
                 INSERT INTO employees(full_name,username,password,role_id,phone,barcode) VALUES(?,?,?,?,?,?)
                 """;
-        try (Connection conn = DatabaseConnection.getConnection();
-                PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (Connection conn = DatabaseConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, emp.getFullName());
             ps.setString(2, emp.getUsername());
             ps.setString(3, util.PasswordEncryptionPlugin.hashPassword(emp.getPassword()));
@@ -152,8 +148,7 @@ public class EmployeeRepository {
         String sql = """
                 UPDATE employees SET full_name=?, role_id=?, phone=?, barcode=?, status=? WHERE id=?
                 """;
-        try (Connection conn = DatabaseConnection.getConnection();
-                PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (Connection conn = DatabaseConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, emp.getFullName());
             ps.setInt(2, emp.getRoleId());
             ps.setString(3, emp.getPhone());
@@ -170,8 +165,7 @@ public class EmployeeRepository {
 
     public boolean deleteEmployee(int empId) {
         String sql = "UPDATE employees SET is_deleted=1 WHERE id=?";
-        try (Connection conn = DatabaseConnection.getConnection();
-                PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (Connection conn = DatabaseConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, empId);
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {

@@ -797,13 +797,12 @@ public class DashBoardFrame extends javax.swing.JFrame {
 //    }
     // Timer
     private javax.swing.Timer searchTimer = null;
-    
+
     private void initEmployeeManagementFilterEvents() {
         // Với ComboBox thì không cần debounce vì người dùng chỉ click 1 lần
         cbRole.addActionListener(e -> loadEmployeeManagementTableData());
 
         // Với Textfield tìm kiếm: Áp dụng Debounce
-        
         txtSearchEmployee.getDocument().addDocumentListener(
                 onDocumentChange(() -> {
                     // Nếu có timer cũ đang chạy, hủy nó đi
@@ -1849,6 +1848,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
         jPanel5 = new javax.swing.JPanel();
         jScrollPane6 = new javax.swing.JScrollPane();
         tableSchedule = new javax.swing.JTable();
+        btnAddSchedule = new javax.swing.JButton();
         panelCustomer = new javax.swing.JPanel();
         btnAddCustomer = new javax.swing.JButton();
         panelCustomerHeader = new javax.swing.JPanel();
@@ -2505,6 +2505,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
         jLabel23.setText("Total Revenue");
 
         lblTotalRevenue.setFont(new java.awt.Font("Segoe UI", 1, 20)); // NOI18N
+        lblTotalRevenue.setForeground(new java.awt.Color(38, 205, 111));
         lblTotalRevenue.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
         lblTotalRevenue.setText("0đ");
 
@@ -2543,6 +2544,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
         jLabel22.setText("Paid Orders");
 
         lblPaidOrders.setFont(new java.awt.Font("Segoe UI", 1, 20)); // NOI18N
+        lblPaidOrders.setForeground(new java.awt.Color(47, 116, 255));
         lblPaidOrders.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
         lblPaidOrders.setText("0");
 
@@ -2581,6 +2583,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
         jLabel21.setText("Canceled Orders");
 
         lblOrdersCanceled.setFont(new java.awt.Font("Segoe UI", 1, 20)); // NOI18N
+        lblOrdersCanceled.setForeground(new java.awt.Color(255, 77, 77));
         lblOrdersCanceled.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
         lblOrdersCanceled.setText("0");
 
@@ -2618,6 +2621,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
         jLabel26.setText("Avg. Order Value");
 
         lblAvgOrderValue.setFont(new java.awt.Font("Segoe UI", 1, 20)); // NOI18N
+        lblAvgOrderValue.setForeground(new java.awt.Color(38, 205, 111));
         lblAvgOrderValue.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
         lblAvgOrderValue.setText("0đ");
 
@@ -3049,8 +3053,6 @@ public class DashBoardFrame extends javax.swing.JFrame {
 
         btnRefresh.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
         btnRefresh.setText("↻");
-        btnRefresh.putClientProperty(FlatClientProperties.STYLE,
-                "background: #FFFFFF; foreground: #4A5568; arc: 8; borderWidth: 1; borderColor: #CBD5E1; focusWidth: 0;");
         btnRefresh.addActionListener(this::btnRefreshActionPerformed);
 
         javax.swing.GroupLayout panelEmployeeManagementLayout = new javax.swing.GroupLayout(panelEmployeeManagement);
@@ -3163,6 +3165,12 @@ public class DashBoardFrame extends javax.swing.JFrame {
             .addComponent(jScrollPane6, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 507, Short.MAX_VALUE)
         );
 
+        btnAddSchedule.setBackground(new java.awt.Color(227, 138, 69));
+        btnAddSchedule.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
+        btnAddSchedule.setForeground(new java.awt.Color(255, 255, 255));
+        btnAddSchedule.setText("+ Make schedule");
+        btnAddSchedule.addActionListener(this::btnAddScheduleActionPerformed);
+
         javax.swing.GroupLayout panelScheduleLayout = new javax.swing.GroupLayout(panelSchedule);
         panelSchedule.setLayout(panelScheduleLayout);
         panelScheduleLayout.setHorizontalGroup(
@@ -3180,9 +3188,11 @@ public class DashBoardFrame extends javax.swing.JFrame {
                                 .addComponent(jLabel6, javax.swing.GroupLayout.PREFERRED_SIZE, 22, javax.swing.GroupLayout.PREFERRED_SIZE)
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                                 .addComponent(lblEmployeeSchedule)))
-                        .addGap(473, 473, 473)
+                        .addGap(308, 308, 308)
+                        .addComponent(btnAddSchedule, javax.swing.GroupLayout.PREFERRED_SIZE, 137, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(28, 28, 28)
                         .addComponent(jPanel6, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addContainerGap(8, Short.MAX_VALUE))
         );
         panelScheduleLayout.setVerticalGroup(
             panelScheduleLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -3197,7 +3207,9 @@ public class DashBoardFrame extends javax.swing.JFrame {
                             .addComponent(jLabel6)))
                     .addGroup(panelScheduleLayout.createSequentialGroup()
                         .addContainerGap()
-                        .addComponent(jPanel6, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                        .addGroup(panelScheduleLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                            .addComponent(jPanel6, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                            .addComponent(btnAddSchedule, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))))
                 .addGap(18, 18, 18)
                 .addComponent(jPanel5, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addContainerGap(18, Short.MAX_VALUE))
@@ -3430,6 +3442,12 @@ public class DashBoardFrame extends javax.swing.JFrame {
         // TODO add your handling code here:
     }//GEN-LAST:event_btnCancelOrderActionPerformed
 
+    private void btnAddScheduleActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnAddScheduleActionPerformed
+        AddScheduleFrame addScheduleFrame = new AddScheduleFrame(this::loadWeeklyScheduleData);
+        addScheduleFrame.setLocationRelativeTo(this);
+        addScheduleFrame.setVisible(true);
+    }//GEN-LAST:event_btnAddScheduleActionPerformed
+
     public static void main(String args[]) {
         com.formdev.flatlaf.FlatLightLaf.setup();
         java.awt.EventQueue.invokeLater(() -> {
@@ -3444,6 +3462,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
     private javax.swing.JButton btnAddCustomer;
     private javax.swing.JButton btnAddEmployee;
     private javax.swing.JButton btnAddProduct;
+    private javax.swing.JButton btnAddSchedule;
     private javax.swing.JButton btnAttendance;
     private javax.swing.JButton btnBackToSaleCounter;
     private javax.swing.JButton btnCancelOrder;
@@ -3455,6 +3474,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
     private javax.swing.JButton btnOrderHistory;
     private javax.swing.JButton btnPrevWeek;
     private javax.swing.JButton btnProductInventory;
+    private javax.swing.JButton btnRefresh;
     private javax.swing.JButton btnSchedule;
     private javax.swing.JButton btnThang;
     private javax.swing.JButton btnTopNgay;
@@ -3469,7 +3489,6 @@ public class DashBoardFrame extends javax.swing.JFrame {
     private com.toedter.calendar.JDateChooser dateFrom;
     private com.toedter.calendar.JDateChooser dateTo;
     private javax.swing.JButton findByBarcode;
-    private javax.swing.JButton btnRefresh;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel10;
     private javax.swing.JLabel jLabel11;
