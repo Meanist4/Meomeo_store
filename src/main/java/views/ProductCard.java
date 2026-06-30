@@ -10,7 +10,7 @@ public class ProductCard extends javax.swing.JPanel {
     public ProductCard() {
         initComponents();
         this.setLayout(null);
-        this.setPreferredSize(new java.awt.Dimension(160, 210));
+        this.setPreferredSize(new java.awt.Dimension(180, 210));
         this.setBackground(java.awt.Color.WHITE);
         this.putClientProperty(com.formdev.flatlaf.FlatClientProperties.STYLE, ""
                 + "arc: 15;"

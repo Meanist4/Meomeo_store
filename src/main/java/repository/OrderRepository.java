@@ -393,6 +393,18 @@ public class OrderRepository {
         }
     }
 
+    public boolean updateOrderTotal(int orderId, double totalAmount) {
+        String sql = "UPDATE orders SET total_amount = ? WHERE id = ?";
+        try (Connection conn = DatabaseConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setDouble(1, totalAmount);
+            ps.setInt(2, orderId);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.err.println("Lỗi cập nhật total_amount realtime: " + e.getMessage());
+            return false;
+        }
+    }
+
     public long[] getRevenueByWeek() {
         java.util.LinkedHashMap<java.time.LocalDate, Long> map = new java.util.LinkedHashMap<>();
         java.time.LocalDate today = java.time.LocalDate.now();
@@ -607,6 +619,9 @@ public class OrderRepository {
 
         String updateSql = "UPDATE orders SET payment_method=?, total_amount=?, status=? WHERE id=?";
         String detailSql = "INSERT INTO order_details (order_id, product_id, quantity, price) VALUES (?,?,?,?)";
+        // Chỉ trừ kho nếu còn đủ số lượng (quantity >= ?) để tránh chạy âm kho khi có race-condition
+        String deductStockSql = "UPDATE products SET quantity = quantity - ? "
+                + "WHERE id = ? AND is_deleted = 0 AND quantity >= ?";
 
         Connection conn = null;
         try {
@@ -631,6 +646,23 @@ public class OrderRepository {
                         ps.addBatch();
                     }
                     ps.executeBatch();
+                }
+
+                // Trừ số lượng tồn kho tương ứng cho từng sản phẩm trong đơn
+                try (PreparedStatement ps = conn.prepareStatement(deductStockSql)) {
+                    for (NewOrderItem item : items) {
+                        ps.setInt(1, item.quantity);
+                        ps.setInt(2, item.productId);
+                        ps.setInt(3, item.quantity);
+                        ps.addBatch();
+                    }
+                    int[] results = ps.executeBatch();
+                    for (int updated : results) {
+                        if (updated == 0) {
+                            // Không đủ hàng tồn (hoặc sản phẩm không tồn tại) -> hủy toàn bộ giao dịch
+                            throw new SQLException("Không đủ số lượng tồn kho để trừ cho một sản phẩm trong đơn hàng.");
+                        }
+                    }
                 }
             }
 

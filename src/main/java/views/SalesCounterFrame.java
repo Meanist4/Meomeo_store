@@ -32,7 +32,6 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
 
     public SalesCounterFrame() {
         initComponents();
-        this.setLocationRelativeTo(null);
         this.dashBoard = new DashBoardFrame(this);
         panelOrderSplit.removeAll();
         panelOrderSplit.setLayout(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 6, 4));
@@ -346,7 +345,7 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         }
         activeIndex = index;
         orderSessions.get(index).rebindTo(tableCurrentOrder, lbSubtotal, lbTotalPay,
-                lbChangeDue, txtCashReceived, this::renderPriceOnQRCode);
+                lbChangeDue, txtCashReceived, this::handleCartTotalChanged);
         applyTableStyling();
         reapplyButtonEditor();
         refreshTabUI();
@@ -355,7 +354,7 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
     private void createNewOrder() {
         OrderCartController newCart = new OrderCartController(
                 tableCurrentOrder, lbSubtotal, lbTotalPay,
-                lbChangeDue, txtCashReceived, this::renderPriceOnQRCode
+                lbChangeDue, txtCashReceived, this::handleCartTotalChanged
         );
         orderSessions.add(newCart);
         activeIndex = orderSessions.size() - 1;
@@ -365,13 +364,20 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         addTabButton("HD #" + orderSessions.size());
         refreshTabUI();
         renderPriceOnQRCode(0.0);
-        int pendingId = orderRepository.createPendingOrder(1);
+        int pendingId = -1;
         sessionOrderIds.add(pendingId);
 
         if (dashBoard != null) {
             dashBoard.refreshAfterNewOrder();
         }
 
+    }
+
+    private void ensureOrderPersisted(int index) {
+        if (sessionOrderIds.get(index) == -1) {
+            int pendingId = orderRepository.createPendingOrder(1);
+            sessionOrderIds.set(index, pendingId);
+        }
     }
 
     private void refreshTabUI() {
@@ -504,6 +510,30 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
                 });
     }
 
+    private void handleCartTotalChanged(double amount) {
+        renderPriceOnQRCode(amount);
+
+        int orderId = sessionOrderIds.get(activeIndex);
+        if (orderId == -1) {
+            return;
+        }
+
+        new javax.swing.SwingWorker<Void, Void>() {
+            @Override
+            protected Void doInBackground() {
+                orderRepository.updateOrderTotal(orderId, amount);
+                return null;
+            }
+
+            @Override
+            protected void done() {
+                if (dashBoard != null) {
+                    dashBoard.refreshOrderTableOnly();
+                }
+            }
+        }.execute();
+    }
+
     public void loadProductGrid() {
         panelProductGrid.removeAll();
         java.util.List<entity.Product> listProduct = productService.getPopularProducts();
@@ -531,6 +561,7 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
                 public void mouseClicked(java.awt.event.MouseEvent evt) {
                     ProductCard sourceCard = (ProductCard) evt.getSource();
                     if (sourceCard.getProduct() != null) {
+                        ensureOrderPersisted(activeIndex);
                         activeCart().addProduct(sourceCard.getProduct());
                     }
                 }
@@ -1276,6 +1307,7 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         );
 
         pack();
+        setLocationRelativeTo(null);
     }// </editor-fold>//GEN-END:initComponents
 
     private void btnScanActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnScanActionPerformed
@@ -1301,28 +1333,52 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         for (OrderCartController.CartItem ci : cart.getCartItems()) {
             items.add(new repository.OrderRepository.NewOrderItem(ci.productId, ci.quantity, ci.unitPrice));
         }
-        boolean ok = orderRepository.finalizeOrder(orderId, paymentMethod, cart.getTotalAmount(), "PAID", items);
-        if (!ok) {
-            javax.swing.JOptionPane.showMessageDialog(this, "Lưu hóa đơn thất bại.",
-                    "Lỗi", javax.swing.JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-        if (dashBoard != null) {
-            dashBoard.refreshAfterNewOrder();
-        }
-        orderSessions.remove(activeIndex);
-        sessionOrderIds.remove(activeIndex);
-        panelOrderSplit.remove(tabButtons.get(activeIndex));
-        tabButtons.remove(activeIndex);
-        if (orderSessions.isEmpty()) {
-            createNewOrder();
-        } else {
-            activeIndex = Math.max(0, activeIndex - 1);
-            for (int i = 0; i < tabButtons.size(); i++) {
-                tabButtons.get(i).setText("HD #" + (i + 1));
+        double totalAmount = cart.getTotalAmount();
+        final int finishedIndex = activeIndex;
+
+        btnConfirmOrder.setEnabled(false); // chặn bấm lại trong lúc xử lý nền
+
+        new javax.swing.SwingWorker<Boolean, Void>() {
+            @Override
+            protected Boolean doInBackground() {
+                // Chỉ phần DB thuần (finalizeOrder) chạy ở luồng nền.
+                return orderRepository.finalizeOrder(orderId, paymentMethod, totalAmount, "PAID", items);
             }
-            switchToOrder(activeIndex);
-        }
+
+            @Override
+            protected void done() {
+                btnConfirmOrder.setEnabled(true);
+                boolean ok;
+                try {
+                    ok = get();
+                } catch (Exception e) {
+                    ok = false;
+                }
+                if (!ok) {
+                    javax.swing.JOptionPane.showMessageDialog(SalesCounterFrame.this, "Lưu hóa đơn thất bại.",
+                            "Lỗi", javax.swing.JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+                // dashBoard.refreshAfterNewOrder() đụng vào component Swing -> phải chạy ở EDT (done() đã là EDT)
+                if (dashBoard != null) {
+                    dashBoard.refreshAfterNewOrder();
+                }
+                loadProductGrid(); // Tải lại lưới sản phẩm để cập nhật số lượng tồn kho vừa trừ
+                orderSessions.remove(finishedIndex);
+                sessionOrderIds.remove(finishedIndex);
+                panelOrderSplit.remove(tabButtons.get(finishedIndex));
+                tabButtons.remove(finishedIndex);
+                if (orderSessions.isEmpty()) {
+                    createNewOrder();
+                } else {
+                    activeIndex = Math.max(0, finishedIndex - 1);
+                    for (int i = 0; i < tabButtons.size(); i++) {
+                        tabButtons.get(i).setText("HD #" + (i + 1));
+                    }
+                    switchToOrder(activeIndex);
+                }
+            }
+        }.execute();
     }//GEN-LAST:event_btnConfirmOrderActionPerformed
 
     private void btnOrderActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnOrderActionPerformed
@@ -1339,7 +1395,9 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
 
     private void btnCancelOrderActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnCancelOrderActionPerformed
         int orderId = sessionOrderIds.get(activeIndex);
-        orderRepository.finalizeOrder(orderId, null, 0, "CANCELLED", null);
+        if (orderId != -1) {
+            orderRepository.finalizeOrder(orderId, null, 0, "CANCELLED", null);
+        }
 
         if (dashBoard != null) {
             dashBoard.refreshAfterNewOrder();

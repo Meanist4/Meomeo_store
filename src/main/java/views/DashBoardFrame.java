@@ -80,7 +80,6 @@ public class DashBoardFrame extends javax.swing.JFrame {
         this.getContentPane().add(panelContent, java.awt.BorderLayout.CENTER);
 
         this.setSize(1240, 800);
-        this.setLocationRelativeTo(null);
         this.currentWeekStart = java.time.LocalDate.now()
                 .with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY));
         initWeekNavigationEvents();
@@ -186,6 +185,11 @@ public class DashBoardFrame extends javax.swing.JFrame {
         loadOverviewCardsData();
         loadOrderTableData();
         refreshOrderHistory();
+        loadInventoryTableData();
+    }
+
+    public void refreshOrderTableOnly() {
+        loadOrderTableData();
     }
 
     private void setupScrollArea() {
@@ -3349,6 +3353,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
         );
 
         pack();
+        setLocationRelativeTo(null);
     }// </editor-fold>//GEN-END:initComponents
 
     private void btnHumanResourcesActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnHumanResourcesActionPerformed
