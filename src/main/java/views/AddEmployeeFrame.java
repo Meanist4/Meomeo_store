@@ -396,5 +396,25 @@ public class AddEmployeeFrame extends javax.swing.JFrame {
     private javax.swing.JPasswordField txtPassword;
     private javax.swing.JTextField txtPhone;
     private javax.swing.JTextField txtUsername;
+    @Override
+    public void setVisible(boolean b) {
+        if (b) {
+            if (!util.UserSession.getInstance().isLoggedIn()) {
+                super.setVisible(false);
+                util.AppRouter.showLogin();
+                this.dispose();
+                return;
+            }
+            entity.Employee user = util.UserSession.getInstance().getCurrentUser();
+            if (user == null || user.getRoleId() != 1) { // Not manager
+                super.setVisible(false);
+                JOptionPane.showMessageDialog(this, "Chỉ Manager mới được phép thực hiện chức năng này!", "Từ chối truy cập", JOptionPane.ERROR_MESSAGE);
+                this.dispose();
+                return;
+            }
+        }
+        super.setVisible(b);
+    }
+
     // End of variables declaration//GEN-END:variables
 }

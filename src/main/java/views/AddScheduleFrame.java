@@ -1,5 +1,7 @@
 package views;
 
+import com.formdev.flatlaf.FlatClientProperties;
+
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
@@ -18,6 +20,7 @@ public class AddScheduleFrame extends javax.swing.JFrame {
 
     public AddScheduleFrame(Runnable onScheduleSaved) {
         initComponents();
+        applyAppearance();
         this.onScheduleSaved = onScheduleSaved;
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         initSelectedEmployeesScrollArea();
@@ -38,6 +41,48 @@ public class AddScheduleFrame extends javax.swing.JFrame {
             }
         });
 
+    }
+
+    private void applyAppearance() {
+        getContentPane().setBackground(new java.awt.Color(244, 246, 248));
+        
+        // Buttons
+        btnBack.putClientProperty(FlatClientProperties.STYLE,
+                "background: #FFFFFF; foreground: #4A5568; arc: 8; borderWidth: 1; focusWidth: 0;");
+        btnCancel.putClientProperty(FlatClientProperties.STYLE,
+                "background: #FFFFFF; foreground: #4A5568; arc: 8; borderWidth: 1; focusWidth: 0;");
+        btnSaveSchedule.setBackground(new java.awt.Color(227, 138, 69));
+        btnSaveSchedule.setForeground(java.awt.Color.WHITE);
+        btnSaveSchedule.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 13));
+        btnSaveSchedule.setFocusPainted(false);
+        btnSaveSchedule.setBorderPainted(false);
+        btnSaveSchedule.putClientProperty(FlatClientProperties.STYLE,
+                "background: #E38A45; foreground: #FFFFFF; arc: 8; borderWidth: 0; focusWidth: 0;");
+
+        // Text field search
+        txtSearchEmployee.putClientProperty(FlatClientProperties.STYLE, "arc: 8; margin: 4,6,4,6;");
+
+        // Label style
+        jLabel1.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 22));
+        jLabel1.setForeground(new java.awt.Color(30, 41, 59));
+        
+        jLabel2.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 13));
+        jLabel2.setForeground(new java.awt.Color(74, 85, 104));
+        
+        jLabel3.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 13));
+        jLabel3.setForeground(new java.awt.Color(74, 85, 104));
+        
+        jLabel4.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 13));
+        jLabel4.setForeground(new java.awt.Color(74, 85, 104));
+        
+        jLabel5.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 13));
+        jLabel5.setForeground(new java.awt.Color(74, 85, 104));
+        
+        lblSelectedEmployees.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 13));
+        lblSelectedEmployees.setForeground(new java.awt.Color(74, 85, 104));
+        
+        setSize(410, 520);
+        setLocationRelativeTo(null);
     }
 
     private void initSelectedEmployeesScrollArea() {
@@ -487,6 +532,7 @@ public class AddScheduleFrame extends javax.swing.JFrame {
     }//GEN-LAST:event_txtSearchEmployeeActionPerformed
 
     public static void main(String args[]) {
+        com.formdev.flatlaf.FlatLightLaf.setup();
         java.awt.EventQueue.invokeLater(() -> new AddScheduleFrame(() -> {
         }).setVisible(true));
     }
@@ -507,5 +553,25 @@ public class AddScheduleFrame extends javax.swing.JFrame {
     private javax.swing.JLabel lblSelectedEmployees;
     private javax.swing.JPanel panelSelectedArea;
     private javax.swing.JTextField txtSearchEmployee;
+    @Override
+    public void setVisible(boolean b) {
+        if (b) {
+            if (!util.UserSession.getInstance().isLoggedIn()) {
+                super.setVisible(false);
+                util.AppRouter.showLogin();
+                this.dispose();
+                return;
+            }
+            entity.Employee user = util.UserSession.getInstance().getCurrentUser();
+            if (user == null || user.getRoleId() != 1) { // Not manager
+                super.setVisible(false);
+                javax.swing.JOptionPane.showMessageDialog(this, "Chỉ Manager mới được phép thực hiện chức năng này!", "Từ chối truy cập", javax.swing.JOptionPane.ERROR_MESSAGE);
+                this.dispose();
+                return;
+            }
+        }
+        super.setVisible(b);
+    }
+
     // End of variables declaration//GEN-END:variables
 }

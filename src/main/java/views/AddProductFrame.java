@@ -1,5 +1,7 @@
 package views;
 
+import com.formdev.flatlaf.FlatClientProperties;
+
 import entity.Category;
 import entity.Product;
 import java.awt.Color;
@@ -22,6 +24,7 @@ public class AddProductFrame extends javax.swing.JFrame {
 
     public AddProductFrame(Runnable onClose) {
         initComponents();
+        applyAppearance();
 
         this.editingProduct = null;
         setSize(790, 740);
@@ -47,6 +50,7 @@ public class AddProductFrame extends javax.swing.JFrame {
 
     public AddProductFrame(Product product, Runnable onClose) {
         initComponents();
+        applyAppearance();
 
         this.editingProduct = product;
 
@@ -118,6 +122,53 @@ public class AddProductFrame extends javax.swing.JFrame {
                 lblImagePlaceHolder.setText("");
             }
         }
+    }
+
+    private void applyAppearance() {
+        getContentPane().setBackground(new java.awt.Color(244, 246, 248));
+        jPanel1.setBackground(java.awt.Color.WHITE);
+        jPanel1.putClientProperty(FlatClientProperties.STYLE, "arc: 12;");
+
+        // Styling text fields
+        txtBarcode.putClientProperty(FlatClientProperties.STYLE, "arc: 8; margin: 4,6,4,6;");
+        txtProductName.putClientProperty(FlatClientProperties.STYLE, "arc: 8; margin: 4,6,4,6;");
+        txtImportPrice.putClientProperty(FlatClientProperties.STYLE, "arc: 8; margin: 4,6,4,6;");
+        txtSellingPrice.putClientProperty(FlatClientProperties.STYLE, "arc: 8; margin: 4,6,4,6;");
+        txtQuantity.putClientProperty(FlatClientProperties.STYLE, "arc: 8; margin: 4,6,4,6;");
+        txtUnit.putClientProperty(FlatClientProperties.STYLE, "arc: 8; margin: 4,6,4,6;");
+        txtDescription.putClientProperty(FlatClientProperties.STYLE, "arc: 8; margin: 4,6,4,6;");
+
+        // Styling ComboBoxes
+        cbCategory.putClientProperty(FlatClientProperties.STYLE, "arc: 8;");
+        
+        // Buttons
+        btnBackToDashBoard.setText("Back");
+        btnBackToDashBoard.putClientProperty(FlatClientProperties.STYLE,
+                "background: #FFFFFF; foreground: #4A5568; arc: 8; borderWidth: 1; focusWidth: 0;");
+        
+        btnReset.putClientProperty(FlatClientProperties.STYLE,
+                "background: #FFFFFF; foreground: #4A5568; arc: 8; borderWidth: 1; focusWidth: 0;");
+                
+        btnFindImage.putClientProperty(FlatClientProperties.STYLE,
+                "background: #FFFFFF; foreground: #4A5568; arc: 8; borderWidth: 1; focusWidth: 0;");
+
+        btnScanBarcode.putClientProperty(FlatClientProperties.STYLE,
+                "background: #FFFFFF; foreground: #4A5568; arc: 8; borderWidth: 1; focusWidth: 0;");
+                
+        btnSaveProduct.setBackground(new java.awt.Color(227, 138, 69));
+        btnSaveProduct.setForeground(java.awt.Color.WHITE);
+        btnSaveProduct.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 13));
+        btnSaveProduct.setFocusPainted(false);
+        btnSaveProduct.setBorderPainted(false);
+        btnSaveProduct.putClientProperty(FlatClientProperties.STYLE,
+                "background: #E38A45; foreground: #FFFFFF; arc: 8; borderWidth: 0; focusWidth: 0;");
+                
+        // Label header style
+        jLabel1.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 22));
+        jLabel1.setForeground(new java.awt.Color(30, 41, 59));
+        
+        // Placeholders
+        lblImagePlaceHolder.putClientProperty(FlatClientProperties.STYLE, "arc: 12; borderWidth: 1; borderColor: #CBD5E1;");
     }
 
     private void loadCategories() {
@@ -854,6 +905,7 @@ public class AddProductFrame extends javax.swing.JFrame {
     }
 
     public static void main(String args[]) {
+        com.formdev.flatlaf.FlatLightLaf.setup();
         java.awt.EventQueue.invokeLater(() -> {
             new AddProductFrame(() -> {
                 System.out.println("Dashboard đã được reload dữ liệu thành công!");
@@ -889,5 +941,25 @@ public class AddProductFrame extends javax.swing.JFrame {
     private javax.swing.JTextField txtQuantity;
     private javax.swing.JTextField txtSellingPrice;
     private javax.swing.JTextField txtUnit;
+    @Override
+    public void setVisible(boolean b) {
+        if (b) {
+            if (!util.UserSession.getInstance().isLoggedIn()) {
+                super.setVisible(false);
+                util.AppRouter.showLogin();
+                this.dispose();
+                return;
+            }
+            entity.Employee user = util.UserSession.getInstance().getCurrentUser();
+            if (user == null || user.getRoleId() != 1) { // Not manager
+                super.setVisible(false);
+                JOptionPane.showMessageDialog(this, "Chỉ Manager mới được phép thực hiện chức năng này!", "Từ chối truy cập", JOptionPane.ERROR_MESSAGE);
+                this.dispose();
+                return;
+            }
+        }
+        super.setVisible(b);
+    }
+
     // End of variables declaration//GEN-END:variables
 }

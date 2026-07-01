@@ -19,5 +19,7 @@ public interface EmployeeService {
 
     boolean deleteEmployee(int id);
 
+    Employee login(String username, String password);
+
     List<Role> getAllRole();
 }

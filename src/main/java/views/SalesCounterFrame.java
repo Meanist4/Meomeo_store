@@ -32,7 +32,12 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
 
     public SalesCounterFrame() {
         initComponents();
-        this.dashBoard = new DashBoardFrame(this);
+        entity.Employee user = util.UserSession.getInstance().getCurrentUser();
+        if (user != null && user.getRoleId() == 1) {
+            this.dashBoard = new DashBoardFrame(this);
+        } else {
+            this.dashBoard = null;
+        }
         panelOrderSplit.removeAll();
         panelOrderSplit.setLayout(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 6, 4));
         panelOrderSplit.setBackground(new java.awt.Color(248, 246, 242));
@@ -229,10 +234,11 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         panelQRView.putClientProperty(FlatClientProperties.STYLE, subPanelStyle);
         tableCurrentOrder.getColumnModel().getColumn(0).setPreferredWidth(35);  // STT
         tableCurrentOrder.getColumnModel().getColumn(1).setPreferredWidth(160); // Tên sản phẩm
-        tableCurrentOrder.getColumnModel().getColumn(2).setPreferredWidth(55);  // Số lượng
-        tableCurrentOrder.getColumnModel().getColumn(3).setPreferredWidth(75);  // Đơn giá
-        tableCurrentOrder.getColumnModel().getColumn(4).setPreferredWidth(85);  // Thành tiền
-        tableCurrentOrder.getColumnModel().getColumn(5).setPreferredWidth(65);  // Thao tác (Nút trừ)
+        tableCurrentOrder.getColumnModel().getColumn(2).setPreferredWidth(60);  // Còn lại
+        tableCurrentOrder.getColumnModel().getColumn(3).setPreferredWidth(55);  // Số lượng
+        tableCurrentOrder.getColumnModel().getColumn(4).setPreferredWidth(75);  // Đơn giá
+        tableCurrentOrder.getColumnModel().getColumn(5).setPreferredWidth(85);  // Thành tiền
+        tableCurrentOrder.getColumnModel().getColumn(6).setPreferredWidth(65);  // Thao tác (Nút trừ)
 
         tableCurrentOrder.setFont(new java.awt.Font("Segoe UI", java.awt.Font.PLAIN, 14));
         tableCurrentOrder.setRowHeight(38);
@@ -259,9 +265,10 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         centerRenderer.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
 
         tableCurrentOrder.getColumnModel().getColumn(0).setCellRenderer(centerRenderer); // STT -> Giữa
-        tableCurrentOrder.getColumnModel().getColumn(2).setCellRenderer(centerRenderer); // Số lượng -> Giữa
-        tableCurrentOrder.getColumnModel().getColumn(3).setCellRenderer(rightRenderer);  // Đơn giá -> Phải
-        tableCurrentOrder.getColumnModel().getColumn(4).setCellRenderer(rightRenderer);  // Thành tiền -> Phải
+        tableCurrentOrder.getColumnModel().getColumn(2).setCellRenderer(centerRenderer); // Còn lại -> Giữa
+        tableCurrentOrder.getColumnModel().getColumn(3).setCellRenderer(centerRenderer); // Số lượng -> Giữa
+        tableCurrentOrder.getColumnModel().getColumn(4).setCellRenderer(rightRenderer);  // Đơn giá -> Phải
+        tableCurrentOrder.getColumnModel().getColumn(5).setCellRenderer(rightRenderer);  // Thành tiền -> Phải
 
         class TableButtonEditor extends javax.swing.AbstractCellEditor
                 implements javax.swing.table.TableCellRenderer, javax.swing.table.TableCellEditor {
@@ -311,8 +318,8 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         btnScan.setText("");
         btnScan.setUI(new ScannerButtonUI());
         TableButtonEditor buttonEditor = new TableButtonEditor();
-        tableCurrentOrder.getColumnModel().getColumn(5).setCellRenderer(buttonEditor);
-        tableCurrentOrder.getColumnModel().getColumn(5).setCellEditor(buttonEditor);
+        tableCurrentOrder.getColumnModel().getColumn(6).setCellRenderer(buttonEditor);
+        tableCurrentOrder.getColumnModel().getColumn(6).setCellEditor(buttonEditor);
 
         if (jScrollPane1 != null) {
             jScrollPane1.setBorder(javax.swing.BorderFactory.createEmptyBorder(0, 0, 0, 0));
@@ -337,6 +344,9 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
                 activeCart().calculateChangeDue();
             }
         });
+
+        initCustomerManagementInSale();
+        initProductManagementInSale();
     }
 
     private void switchToOrder(int index) {
@@ -401,10 +411,11 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
     private void applyTableStyling() {
         tableCurrentOrder.getColumnModel().getColumn(0).setPreferredWidth(35);
         tableCurrentOrder.getColumnModel().getColumn(1).setPreferredWidth(160);
-        tableCurrentOrder.getColumnModel().getColumn(2).setPreferredWidth(55);
-        tableCurrentOrder.getColumnModel().getColumn(3).setPreferredWidth(75);
-        tableCurrentOrder.getColumnModel().getColumn(4).setPreferredWidth(85);
-        tableCurrentOrder.getColumnModel().getColumn(5).setPreferredWidth(65);
+        tableCurrentOrder.getColumnModel().getColumn(2).setPreferredWidth(60); // Còn lại
+        tableCurrentOrder.getColumnModel().getColumn(3).setPreferredWidth(55); // Số lượng
+        tableCurrentOrder.getColumnModel().getColumn(4).setPreferredWidth(75); // Đơn giá
+        tableCurrentOrder.getColumnModel().getColumn(5).setPreferredWidth(85); // Thành tiền
+        tableCurrentOrder.getColumnModel().getColumn(6).setPreferredWidth(65); // Thao tác
 
         tableCurrentOrder.setFont(new java.awt.Font("Segoe UI", java.awt.Font.PLAIN, 14));
         tableCurrentOrder.setRowHeight(38);
@@ -418,9 +429,10 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         centerRenderer.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
 
         tableCurrentOrder.getColumnModel().getColumn(0).setCellRenderer(centerRenderer);
-        tableCurrentOrder.getColumnModel().getColumn(2).setCellRenderer(centerRenderer);
-        tableCurrentOrder.getColumnModel().getColumn(3).setCellRenderer(rightRenderer);
-        tableCurrentOrder.getColumnModel().getColumn(4).setCellRenderer(rightRenderer);
+        tableCurrentOrder.getColumnModel().getColumn(2).setCellRenderer(centerRenderer); // Còn lại
+        tableCurrentOrder.getColumnModel().getColumn(3).setCellRenderer(centerRenderer); // Số lượng
+        tableCurrentOrder.getColumnModel().getColumn(4).setCellRenderer(rightRenderer);  // Đơn giá
+        tableCurrentOrder.getColumnModel().getColumn(5).setCellRenderer(rightRenderer);  // Thành tiền
     }
 
     private void reapplyButtonEditor() {
@@ -465,8 +477,8 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         }
 
         TableButtonEditor editor = new TableButtonEditor();
-        tableCurrentOrder.getColumnModel().getColumn(5).setCellRenderer(editor);
-        tableCurrentOrder.getColumnModel().getColumn(5).setCellEditor(editor);
+        tableCurrentOrder.getColumnModel().getColumn(6).setCellRenderer(editor);
+        tableCurrentOrder.getColumnModel().getColumn(6).setCellEditor(editor);
     }
 
     private void addTabButton(String label) {
@@ -1314,9 +1326,22 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         // TODO add your handling code here:
     }//GEN-LAST:event_btnScanActionPerformed
 
+    public void setManagerButtonVisible(boolean visible) {
+        managerBtn.setVisible(visible);
+    }
+
+    public void hideNonManagerMenus() {
+        managerBtn.setVisible(false);
+        managerBtn.setEnabled(false);
+        btnEmployee.setVisible(false);
+        btnOrder.setVisible(false);
+    }
+
     private void managerBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_managerBtnActionPerformed
-        dashBoard.setVisible(true); // Bật dashboard lên
-        this.setVisible(false);
+        if (dashBoard != null) {
+            dashBoard.setVisible(true); // Bật dashboard lên
+            this.setVisible(false);
+        }
     }//GEN-LAST:event_managerBtnActionPerformed
 
     private void btnConfirmOrderActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnConfirmOrderActionPerformed
@@ -1338,27 +1363,63 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
 
         btnConfirmOrder.setEnabled(false); // chặn bấm lại trong lúc xử lý nền
 
-        new javax.swing.SwingWorker<Boolean, Void>() {
+        new javax.swing.SwingWorker<String, Void>() {
             @Override
-            protected Boolean doInBackground() {
-                // Chỉ phần DB thuần (finalizeOrder) chạy ở luồng nền.
-                return orderRepository.finalizeOrder(orderId, paymentMethod, totalAmount, "PAID", items);
+            protected String doInBackground() {
+                // 1. Kiểm tra số lượng tồn kho thực tế trước khi lưu
+                repository.ProductRepository prodRepo = new repository.ProductRepository();
+                for (OrderCartController.CartItem ci : cart.getCartItems()) {
+                    entity.Product p = prodRepo.findById(ci.productId);
+                    if (p == null) {
+                        return "NOT_FOUND:" + ci.productName;
+                    }
+                    if (p.getQuantity() < ci.quantity) {
+                        return "INSUFFICIENT_STOCK:" + ci.productName + ":" + p.getQuantity() + ":" + ci.quantity;
+                    }
+                }
+
+                // 2. Tiến hành hoàn tất hóa đơn
+                boolean ok = orderRepository.finalizeOrder(orderId, paymentMethod, totalAmount, "PAID", items);
+                return ok ? "OK" : "DATABASE_ERROR";
             }
 
             @Override
             protected void done() {
                 btnConfirmOrder.setEnabled(true);
-                boolean ok;
+                String result;
                 try {
-                    ok = get();
+                    result = get();
                 } catch (Exception e) {
-                    ok = false;
+                    result = "DATABASE_ERROR";
                 }
-                if (!ok) {
+
+                if (result.startsWith("NOT_FOUND:")) {
+                    String name = result.substring("NOT_FOUND:".length());
+                    javax.swing.JOptionPane.showMessageDialog(SalesCounterFrame.this,
+                            "Sản phẩm \"" + name + "\" không còn tồn tại trên hệ thống.",
+                            "Lỗi", javax.swing.JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+
+                if (result.startsWith("INSUFFICIENT_STOCK:")) {
+                    String[] parts = result.split(":");
+                    String name = parts[1];
+                    String stock = parts[2];
+                    String req = parts[3];
+                    javax.swing.JOptionPane.showMessageDialog(SalesCounterFrame.this,
+                            "Không đủ số lượng trong kho cho sản phẩm: " + name +
+                            "\nSố lượng yêu cầu: " + req +
+                            "\nSố lượng hiện có: " + stock,
+                            "Cảnh báo", javax.swing.JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+
+                if (!"OK".equals(result)) {
                     javax.swing.JOptionPane.showMessageDialog(SalesCounterFrame.this, "Lưu hóa đơn thất bại.",
                             "Lỗi", javax.swing.JOptionPane.ERROR_MESSAGE);
                     return;
                 }
+
                 // dashBoard.refreshAfterNewOrder() đụng vào component Swing -> phải chạy ở EDT (done() đã là EDT)
                 if (dashBoard != null) {
                     dashBoard.refreshAfterNewOrder();
@@ -1526,5 +1587,418 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
     private javax.swing.JTable tableCurrentOrder;
     private javax.swing.JTextField txtBarcodeSearch;
     private javax.swing.JTextField txtCashReceived;
+    private final service.CustomerService customerService = new service.impl.CustomerServiceImpl();
+    private final repository.ProductRepository productRepository = new repository.ProductRepository();
+    private final repository.CategoryRepository categoryRepository = new repository.CategoryRepository();
+    private javax.swing.JTable tableCustomerInSale;
+    private javax.swing.JTextField txtSearchCustomerPhoneInSale;
+    private javax.swing.JButton btnAddCustomerInSale;
+    private javax.swing.JTable tableProductInSale;
+    private javax.swing.JTextField txtSearchProductInSale;
+    private javax.swing.JComboBox<String> cbCategoryInSale;
+    private javax.swing.JButton btnAddProductInSale;
+    private javax.swing.table.TableRowSorter<javax.swing.table.DefaultTableModel> inventorySorterInSale;
+    private final java.util.Map<String, javax.swing.ImageIcon> imageCacheInSale = new java.util.HashMap<>();
+
+    private void initCustomerManagementInSale() {
+        panelCustomer.removeAll();
+        panelCustomer.setLayout(new java.awt.BorderLayout(0, 0));
+        panelCustomer.setBackground(new java.awt.Color(244, 246, 248));
+
+        // 1. Header Panel
+        javax.swing.JPanel headerPanel = new javax.swing.JPanel();
+        headerPanel.setBackground(new java.awt.Color(255, 255, 255));
+        headerPanel.setBorder(javax.swing.BorderFactory.createEmptyBorder(20, 30, 20, 30));
+        headerPanel.setLayout(new java.awt.BorderLayout());
+
+        javax.swing.JPanel titleTextPanel = new javax.swing.JPanel();
+        titleTextPanel.setOpaque(false);
+        titleTextPanel.setLayout(new javax.swing.BoxLayout(titleTextPanel, javax.swing.BoxLayout.Y_AXIS));
+
+        javax.swing.JLabel titleLabel = new javax.swing.JLabel("Customer Management");
+        titleLabel.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 24));
+        titleLabel.setForeground(new java.awt.Color(122, 67, 29));
+
+        javax.swing.JLabel subLabel = new javax.swing.JLabel("Manage the customer information");
+        subLabel.setFont(new java.awt.Font("Segoe UI", java.awt.Font.PLAIN, 14));
+        subLabel.setForeground(new java.awt.Color(102, 102, 102));
+
+        titleTextPanel.add(titleLabel);
+        titleTextPanel.add(javax.swing.Box.createVerticalStrut(4));
+        titleTextPanel.add(subLabel);
+        headerPanel.add(titleTextPanel, java.awt.BorderLayout.WEST);
+
+        panelCustomer.add(headerPanel, java.awt.BorderLayout.NORTH);
+
+        // 2. Main Content Panel
+        javax.swing.JPanel contentPanel = new javax.swing.JPanel();
+        contentPanel.setOpaque(false);
+        contentPanel.setBorder(javax.swing.BorderFactory.createEmptyBorder(20, 30, 20, 30));
+        contentPanel.setLayout(new java.awt.BorderLayout(0, 15));
+
+        // Filter / Action Row
+        javax.swing.JPanel actionRow = new javax.swing.JPanel();
+        actionRow.setOpaque(false);
+        actionRow.setLayout(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 15, 0));
+
+        javax.swing.JLabel phoneLabel = new javax.swing.JLabel("Phone");
+        phoneLabel.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 14));
+        
+        txtSearchCustomerPhoneInSale = new javax.swing.JTextField(20);
+        txtSearchCustomerPhoneInSale.putClientProperty("JTextField.placeholder", "Search phone or name...");
+        txtSearchCustomerPhoneInSale.putClientProperty(com.formdev.flatlaf.FlatClientProperties.STYLE, "arc: 12; margin: 0,10,0,10;");
+
+        btnAddCustomerInSale = new javax.swing.JButton("Add Customer");
+        btnAddCustomerInSale.putClientProperty(com.formdev.flatlaf.FlatClientProperties.STYLE,
+                "background: #E38A45; foreground: #FFFFFF; arc: 12; borderWidth: 0; focusWidth: 0; font: bold;");
+
+        actionRow.add(phoneLabel);
+        actionRow.add(txtSearchCustomerPhoneInSale);
+        actionRow.add(btnAddCustomerInSale);
+
+        contentPanel.add(actionRow, java.awt.BorderLayout.NORTH);
+
+        // Table
+        tableCustomerInSale = new javax.swing.JTable();
+        tableCustomerInSale.setModel(new javax.swing.table.DefaultTableModel(
+                new Object[][]{},
+                new String[]{"STT", "Customer ID", "Full Name", "Phone Number"}
+        ) {
+            boolean[] canEdit = new boolean[]{false, false, false, false};
+
+            @Override
+            public boolean isCellEditable(int rowIndex, int columnIndex) {
+                return canEdit[columnIndex];
+            }
+        });
+        tableCustomerInSale.setRowHeight(48);
+        tableCustomerInSale.setShowHorizontalLines(true);
+        tableCustomerInSale.setShowVerticalLines(false);
+        tableCustomerInSale.setSelectionBackground(new java.awt.Color(248, 246, 242));
+        tableCustomerInSale.setSelectionForeground(new java.awt.Color(15, 23, 42));
+        tableCustomerInSale.putClientProperty(com.formdev.flatlaf.FlatClientProperties.STYLE,
+                "rowSelectionBackground: #F8F6F2; rowSelectionForeground: #0F172A; lineColor: #F1F5F9;");
+
+        javax.swing.table.JTableHeader tableHeader = tableCustomerInSale.getTableHeader();
+        tableHeader.setPreferredSize(new java.awt.Dimension(tableHeader.getPreferredSize().width, 38));
+        tableHeader.setDefaultRenderer(new ui.StandardTableHeaderRenderer(javax.swing.SwingConstants.LEFT, 12));
+
+        javax.swing.JScrollPane scrollPane = new javax.swing.JScrollPane(tableCustomerInSale);
+        scrollPane.setViewport(new ui.EmptyTableViewport(tableCustomerInSale, "No customers found!"));
+        scrollPane.setViewportView(tableCustomerInSale);
+
+        contentPanel.add(scrollPane, java.awt.BorderLayout.CENTER);
+        panelCustomer.add(contentPanel, java.awt.BorderLayout.CENTER);
+
+        // Events
+        txtSearchCustomerPhoneInSale.getDocument().addDocumentListener(
+                new javax.swing.event.DocumentListener() {
+                    private javax.swing.Timer timer = null;
+                    private void triggerSearch() {
+                        if (timer != null && timer.isRunning()) {
+                            timer.stop();
+                        }
+                        timer = new javax.swing.Timer(300, e -> loadCustomerTableDataInSale());
+                        timer.setRepeats(false);
+                        timer.start();
+                    }
+                    public void insertUpdate(javax.swing.event.DocumentEvent e) { triggerSearch(); }
+                    public void removeUpdate(javax.swing.event.DocumentEvent e) { triggerSearch(); }
+                    public void changedUpdate(javax.swing.event.DocumentEvent e) { triggerSearch(); }
+                }
+        );
+
+        btnAddCustomerInSale.addActionListener(e -> {
+            AddCustomerFrame addFrame = new AddCustomerFrame(this::loadCustomerTableDataInSale);
+            addFrame.setVisible(true);
+        });
+
+        loadCustomerTableDataInSale();
+    }
+
+    private void loadCustomerTableDataInSale() {
+        String keyword = (txtSearchCustomerPhoneInSale != null) ? txtSearchCustomerPhoneInSale.getText().trim() : "";
+        new javax.swing.SwingWorker<java.util.List<entity.Customer>, Void>() {
+            @Override
+            protected java.util.List<entity.Customer> doInBackground() {
+                return customerService.searchCustomers(keyword);
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    java.util.List<entity.Customer> customers = get();
+                    javax.swing.table.DefaultTableModel model
+                            = (javax.swing.table.DefaultTableModel) tableCustomerInSale.getModel();
+                    model.setRowCount(0);
+
+                    int stt = 1;
+                    for (var rec : customers) {
+                        model.addRow(new Object[]{
+                            stt++,
+                            String.format("CTM-%04d", rec.getId()),
+                            rec.getFullName(),
+                            rec.getPhone()
+                        });
+                    }
+                    tableCustomerInSale.revalidate();
+                    tableCustomerInSale.repaint();
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            }
+        }.execute();
+    }
+
+    private void initProductManagementInSale() {
+        panelProduct.removeAll();
+        panelProduct.setLayout(new java.awt.BorderLayout(0, 0));
+        panelProduct.setBackground(new java.awt.Color(244, 246, 248));
+
+        // 1. Header Panel
+        javax.swing.JPanel headerPanel = new javax.swing.JPanel();
+        headerPanel.setBackground(new java.awt.Color(255, 255, 255));
+        headerPanel.setBorder(javax.swing.BorderFactory.createEmptyBorder(20, 30, 20, 30));
+        headerPanel.setLayout(new java.awt.BorderLayout());
+
+        javax.swing.JPanel titleTextPanel = new javax.swing.JPanel();
+        titleTextPanel.setOpaque(false);
+        titleTextPanel.setLayout(new javax.swing.BoxLayout(titleTextPanel, javax.swing.BoxLayout.Y_AXIS));
+
+        javax.swing.JLabel titleLabel = new javax.swing.JLabel("Product Management");
+        titleLabel.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 24));
+        titleLabel.setForeground(new java.awt.Color(122, 67, 29));
+
+        javax.swing.JLabel subLabel = new javax.swing.JLabel("Manage the product information and inventory");
+        subLabel.setFont(new java.awt.Font("Segoe UI", java.awt.Font.PLAIN, 14));
+        subLabel.setForeground(new java.awt.Color(102, 102, 102));
+
+        titleTextPanel.add(titleLabel);
+        titleTextPanel.add(javax.swing.Box.createVerticalStrut(4));
+        titleTextPanel.add(subLabel);
+        headerPanel.add(titleTextPanel, java.awt.BorderLayout.WEST);
+
+        panelProduct.add(headerPanel, java.awt.BorderLayout.NORTH);
+
+        // 2. Main Content Panel
+        javax.swing.JPanel contentPanel = new javax.swing.JPanel();
+        contentPanel.setOpaque(false);
+        contentPanel.setBorder(javax.swing.BorderFactory.createEmptyBorder(20, 30, 20, 30));
+        contentPanel.setLayout(new java.awt.BorderLayout(0, 15));
+
+        // Filter / Action Row
+        javax.swing.JPanel actionRow = new javax.swing.JPanel();
+        actionRow.setOpaque(false);
+        actionRow.setLayout(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 15, 0));
+
+        txtSearchProductInSale = new javax.swing.JTextField(20);
+        txtSearchProductInSale.putClientProperty("JTextField.placeholder", "Search products...");
+        txtSearchProductInSale.putClientProperty(com.formdev.flatlaf.FlatClientProperties.STYLE, "arc: 12; margin: 0,10,0,10;");
+
+        cbCategoryInSale = new javax.swing.JComboBox<>();
+        cbCategoryInSale.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 13));
+        cbCategoryInSale.setForeground(new java.awt.Color(102, 102, 102));
+        javax.swing.DefaultComboBoxModel<String> catModel = new javax.swing.DefaultComboBoxModel<>();
+        catModel.addElement("All");
+        categoryRepository.getAll().forEach(cat -> catModel.addElement(cat.getCategoryName()));
+        cbCategoryInSale.setModel(catModel);
+
+        btnAddProductInSale = new javax.swing.JButton("+ Add Product");
+        btnAddProductInSale.putClientProperty(com.formdev.flatlaf.FlatClientProperties.STYLE,
+                "background: #E38A45; foreground: #FFFFFF; arc: 12; borderWidth: 0; focusWidth: 0; font: bold;");
+
+        entity.Employee user = util.UserSession.getInstance().getCurrentUser();
+        if (user == null || user.getRoleId() != 1) {
+            btnAddProductInSale.setVisible(false);
+            btnAddProductInSale.setEnabled(false);
+        }
+
+        actionRow.add(txtSearchProductInSale);
+        actionRow.add(cbCategoryInSale);
+        actionRow.add(btnAddProductInSale);
+
+        contentPanel.add(actionRow, java.awt.BorderLayout.NORTH);
+
+        // Table
+        tableProductInSale = new javax.swing.JTable();
+        tableProductInSale.setModel(new javax.swing.table.DefaultTableModel(
+                new Object[][]{},
+                new String[]{"PRODUCT ID", "IMAGE", "PRODUCT NAME", "CATEGORY", "PRICE", "STOCK"}
+        ) {
+            boolean[] canEdit = new boolean[]{false, false, false, false, false, false};
+
+            @Override
+            public boolean isCellEditable(int rowIndex, int columnIndex) {
+                return canEdit[columnIndex];
+            }
+        });
+        tableProductInSale.setRowHeight(52);
+        tableProductInSale.setShowHorizontalLines(true);
+        tableProductInSale.setShowVerticalLines(false);
+        tableProductInSale.setSelectionBackground(new java.awt.Color(248, 246, 242));
+        tableProductInSale.setSelectionForeground(new java.awt.Color(15, 23, 42));
+        tableProductInSale.putClientProperty(com.formdev.flatlaf.FlatClientProperties.STYLE,
+                "rowSelectionBackground: #F8F6F2; rowSelectionForeground: #0F172A; lineColor: #F1F5F9;");
+
+        javax.swing.table.JTableHeader tableHeader = tableProductInSale.getTableHeader();
+        tableHeader.setPreferredSize(new java.awt.Dimension(tableHeader.getPreferredSize().width, 38));
+        tableHeader.setDefaultRenderer(new ui.StandardTableHeaderRenderer());
+
+        ui.InventoryTableRenderer productRenderer = new ui.InventoryTableRenderer(this::getCachedProductIcon);
+        for (int i = 0; i < tableProductInSale.getColumnCount(); i++) {
+            tableProductInSale.getColumnModel().getColumn(i).setCellRenderer(productRenderer);
+        }
+
+        tableProductInSale.getColumnModel().getColumn(0).setPreferredWidth(70);
+        tableProductInSale.getColumnModel().getColumn(1).setPreferredWidth(70);
+        tableProductInSale.getColumnModel().getColumn(1).setMaxWidth(70);
+        tableProductInSale.getColumnModel().getColumn(2).setPreferredWidth(200);
+        tableProductInSale.getColumnModel().getColumn(3).setPreferredWidth(100);
+        tableProductInSale.getColumnModel().getColumn(4).setPreferredWidth(90);
+        tableProductInSale.getColumnModel().getColumn(5).setPreferredWidth(50);
+
+        javax.swing.JScrollPane scrollPane = new javax.swing.JScrollPane(tableProductInSale);
+        scrollPane.setViewport(new ui.EmptyTableViewport(tableProductInSale, "No products found!"));
+        scrollPane.setViewportView(tableProductInSale);
+
+        contentPanel.add(scrollPane, java.awt.BorderLayout.CENTER);
+        panelProduct.add(contentPanel, java.awt.BorderLayout.CENTER);
+
+        // Filter events
+        txtSearchProductInSale.getDocument().addDocumentListener(
+                new javax.swing.event.DocumentListener() {
+                    public void insertUpdate(javax.swing.event.DocumentEvent e) { performInventoryFilterInSale(); }
+                    public void removeUpdate(javax.swing.event.DocumentEvent e) { performInventoryFilterInSale(); }
+                    public void changedUpdate(javax.swing.event.DocumentEvent e) { performInventoryFilterInSale(); }
+                }
+        );
+        cbCategoryInSale.addActionListener(e -> performInventoryFilterInSale());
+
+        btnAddProductInSale.addActionListener(e -> {
+            views.AddProductFrame addFrame = new views.AddProductFrame(this::loadProductTableDataInSale);
+            addFrame.setVisible(true);
+        });
+
+        loadProductTableDataInSale();
+    }
+
+    private void performInventoryFilterInSale() {
+        if (inventorySorterInSale == null) {
+            return;
+        }
+        String text = txtSearchProductInSale.getText().trim();
+        String cat = cbCategoryInSale.getSelectedItem() != null ? cbCategoryInSale.getSelectedItem().toString() : "All";
+
+        javax.swing.RowFilter<javax.swing.table.DefaultTableModel, Object> rfText = null;
+        javax.swing.RowFilter<javax.swing.table.DefaultTableModel, Object> rfCat = null;
+
+        if (!text.isEmpty()) {
+            rfText = javax.swing.RowFilter.regexFilter("(?i)" + java.util.regex.Pattern.quote(text), 2); // Search name (col 2)
+        }
+
+        if (!"All".equals(cat)) {
+            rfCat = javax.swing.RowFilter.regexFilter("^" + java.util.regex.Pattern.quote(cat) + "$", 3); // Category (col 3)
+        }
+
+        java.util.List<javax.swing.RowFilter<javax.swing.table.DefaultTableModel, Object>> filters = new java.util.ArrayList<>();
+        if (rfText != null) filters.add(rfText);
+        if (rfCat != null) filters.add(rfCat);
+
+        if (filters.isEmpty()) {
+            inventorySorterInSale.setRowFilter(null);
+        } else {
+            inventorySorterInSale.setRowFilter(javax.swing.RowFilter.andFilter(filters));
+        }
+    }
+
+    private void loadProductTableDataInSale() {
+        javax.swing.table.DefaultTableModel model
+                = (javax.swing.table.DefaultTableModel) tableProductInSale.getModel();
+        model.setRowCount(0);
+
+        new javax.swing.SwingWorker<java.util.List<repository.ProductRepository.InventoryRow>, Void>() {
+            @Override
+            protected java.util.List<repository.ProductRepository.InventoryRow> doInBackground() {
+                return productRepository.findAllForInventory();
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    var rows = get();
+                    for (repository.ProductRepository.InventoryRow row : rows) {
+                        model.addRow(new Object[]{
+                            String.format("PRD-%04d", row.id),
+                            row.imagePath,
+                            row.productName,
+                            row.categoryName,
+                            String.format("%,.0f đ", row.price),
+                            row.quantity
+                        });
+                    }
+                    inventorySorterInSale = new javax.swing.table.TableRowSorter<>(model);
+                    tableProductInSale.setRowSorter(inventorySorterInSale);
+                    model.fireTableDataChanged();
+                    performInventoryFilterInSale();
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            }
+        }.execute();
+    }
+
+    private javax.swing.ImageIcon getCachedProductIcon(String imgPath) {
+        if (imgPath == null || imgPath.isEmpty() || "null".equals(imgPath)) {
+            return null;
+        }
+        return imageCacheInSale.computeIfAbsent(imgPath, path -> {
+            try {
+                String fileName = path.contains("/")
+                        ? path.substring(path.lastIndexOf('/') + 1)
+                        : path;
+                String resourcePath = "/images/" + fileName;
+
+                java.net.URL imgUrl = getClass().getResource(resourcePath);
+                if (imgUrl == null) {
+                    System.err.println("⚠️ Không tìm thấy ảnh: " + resourcePath);
+                    return null;
+                }
+
+                java.awt.Image raw = new javax.swing.ImageIcon(imgUrl).getImage();
+
+                int kichThuocLogic = 26;
+                double scale = 1.0;
+                var gc = getGraphicsConfiguration();
+                if (gc != null) {
+                    scale = gc.getDefaultTransform().getScaleX();
+                }
+                int kichThuocThuc = Math.max(kichThuocLogic, (int) Math.round(kichThuocLogic * scale));
+
+                var imgLogic = util.ImageUtil.scale(raw, kichThuocLogic);
+                var imgThuc = (kichThuocThuc == kichThuocLogic)
+                        ? imgLogic
+                        : util.ImageUtil.scale(raw, kichThuocThuc);
+
+                return new javax.swing.ImageIcon(
+                        new java.awt.image.BaseMultiResolutionImage(imgLogic, imgThuc));
+            } catch (Exception ex) {
+                return null;
+            }
+        });
+    }
+
+    @Override
+    public void setVisible(boolean b) {
+        if (b) {
+            if (!util.UserSession.getInstance().isLoggedIn()) {
+                super.setVisible(false);
+                util.AppRouter.showLogin();
+                this.dispose();
+                return;
+            }
+        }
+        super.setVisible(b);
+    }
+
     // End of variables declaration//GEN-END:variables
 }

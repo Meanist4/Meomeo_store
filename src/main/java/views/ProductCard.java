@@ -104,7 +104,7 @@ public class ProductCard extends javax.swing.JPanel {
             lblProductName.setText("<html><body style='width: 105px;'>" + product.getProductName() + "</body></html>");
         }
         if (lblPrice != null) {
-            lblPrice.setText(String.format("$%.2f", product.getPrice()));
+            lblPrice.setText(String.format("%,.0f đ", product.getPrice()));
         }
 
         if (lblImage != null) {

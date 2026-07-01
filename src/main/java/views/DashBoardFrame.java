@@ -26,6 +26,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
 
     private final repository.EmployeeRepository employeeRepository = new repository.EmployeeRepository();
     private final repository.OrderRepository orderRepository = new repository.OrderRepository();
+    private final service.CustomerService customerService = new service.impl.CustomerServiceImpl();
     private final ScheduleRepository scheduleRepository = new ScheduleRepository();
     private final CategoryRepository categoryRepository = new CategoryRepository();
     private final ProductRepository productRepository = new ProductRepository();
@@ -36,7 +37,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
     private ui.TopSalesPanel topSalesNgay;
     private ui.TopSalesPanel topSalesThang;
     private java.awt.CardLayout cardTopSales;
-    private final SalesCounterFrame salesCounter;
+    private SalesCounterFrame salesCounter;
 
     private final java.util.Map<String, javax.swing.ImageIcon> imageCache = new java.util.HashMap<>();
     private javax.swing.table.TableRowSorter<javax.swing.table.DefaultTableModel> inventorySorter;
@@ -75,6 +76,11 @@ public class DashBoardFrame extends javax.swing.JFrame {
         customEmployeeManagementTableAppearance();
         initEmployeeManagementFilterEvents();
         loadEmployeeManagementTableData();
+        
+        customCustomerTableAppearance();
+        initCustomerFilterEvents();
+        loadCustomerTableData();
+
         this.getContentPane().setLayout(new java.awt.BorderLayout(0, 0));
         this.getContentPane().add(panelMenu, java.awt.BorderLayout.WEST);
         this.getContentPane().add(panelContent, java.awt.BorderLayout.CENTER);
@@ -822,6 +828,96 @@ public class DashBoardFrame extends javax.swing.JFrame {
                     searchTimer.start();
                 })
         );
+    }
+
+    private void customCustomerTableAppearance() {
+        jTable1.setModel(new javax.swing.table.DefaultTableModel(
+                new Object[][]{},
+                new String[]{"STT", "Customer ID", "Full Name", "Phone Number"}
+        ) {
+            boolean[] canEdit = new boolean[]{false, false, false, false};
+
+            @Override
+            public boolean isCellEditable(int rowIndex, int columnIndex) {
+                return canEdit[columnIndex];
+            }
+        });
+        jTable1.setRowHeight(48);
+        jTable1.setShowHorizontalLines(true);
+        jTable1.setShowVerticalLines(false);
+
+        jTable1.setSelectionBackground(new java.awt.Color(248, 246, 242));
+        jTable1.setSelectionForeground(new java.awt.Color(15, 23, 42));
+        jTable1.putClientProperty(FlatClientProperties.STYLE,
+                "rowSelectionBackground: #F8F6F2; rowSelectionForeground: #0F172A; lineColor: #F1F5F9;");
+
+        javax.swing.table.JTableHeader header = jTable1.getTableHeader();
+        header.setPreferredSize(new java.awt.Dimension(header.getPreferredSize().width, 38));
+        header.setDefaultRenderer(new ui.StandardTableHeaderRenderer(javax.swing.SwingConstants.LEFT, 12));
+
+        java.awt.Container parent = jTable1.getParent();
+        if (parent instanceof javax.swing.JViewport viewport) {
+            javax.swing.JScrollPane scrollPane = (javax.swing.JScrollPane) viewport.getParent();
+            scrollPane.setViewport(new ui.EmptyTableViewport(jTable1, "No customers found!"));
+            scrollPane.setViewportView(jTable1);
+        }
+    }
+
+    private javax.swing.Timer customerSearchTimer = null;
+
+    private void initCustomerFilterEvents() {
+        jTextField1.getDocument().addDocumentListener(
+                onDocumentChange(() -> {
+                    if (customerSearchTimer != null && customerSearchTimer.isRunning()) {
+                        customerSearchTimer.stop();
+                    }
+                    customerSearchTimer = new javax.swing.Timer(300, event -> {
+                        loadCustomerTableData();
+                    });
+                    customerSearchTimer.setRepeats(false);
+                    customerSearchTimer.start();
+                })
+        );
+
+        btnAddCustomer.addActionListener(e -> {
+            AddCustomerFrame addFrame = new AddCustomerFrame(this::loadCustomerTableData);
+            addFrame.setVisible(true);
+        });
+    }
+
+    private void loadCustomerTableData() {
+        String keyword = (jTextField1 != null) ? jTextField1.getText().trim() : "";
+
+        new javax.swing.SwingWorker<java.util.List<entity.Customer>, Void>() {
+            @Override
+            protected java.util.List<entity.Customer> doInBackground() {
+                return customerService.searchCustomers(keyword);
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    java.util.List<entity.Customer> customers = get();
+                    javax.swing.table.DefaultTableModel model
+                            = (javax.swing.table.DefaultTableModel) jTable1.getModel();
+                    model.setRowCount(0);
+
+                    int stt = 1;
+                    for (var rec : customers) {
+                        model.addRow(new Object[]{
+                            stt++,
+                            String.format("CTM-%04d", rec.getId()),
+                            rec.getFullName(),
+                            rec.getPhone()
+                        });
+                    }
+                    jTable1.revalidate();
+                    jTable1.repaint();
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            }
+        }.execute();
     }
 
     private void loadOrderTableData() {
@@ -1861,6 +1957,8 @@ public class DashBoardFrame extends javax.swing.JFrame {
         jPanel7 = new javax.swing.JPanel();
         jScrollPane7 = new javax.swing.JScrollPane();
         jTable1 = new javax.swing.JTable();
+        jTextField1 = new javax.swing.JTextField();
+        jLabel5 = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
         setBackground(new java.awt.Color(244, 246, 248));
@@ -3307,6 +3405,9 @@ public class DashBoardFrame extends javax.swing.JFrame {
                 .addGap(0, 0, Short.MAX_VALUE))
         );
 
+        jLabel5.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
+        jLabel5.setText("Phone");
+
         javax.swing.GroupLayout panelCustomerLayout = new javax.swing.GroupLayout(panelCustomer);
         panelCustomer.setLayout(panelCustomerLayout);
         panelCustomerLayout.setHorizontalGroup(
@@ -3320,7 +3421,11 @@ public class DashBoardFrame extends javax.swing.JFrame {
                         .addGap(0, 8, Short.MAX_VALUE)))
                 .addContainerGap())
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelCustomerLayout.createSequentialGroup()
-                .addGap(0, 0, Short.MAX_VALUE)
+                .addGap(36, 36, 36)
+                .addComponent(jLabel5)
+                .addGap(18, 18, 18)
+                .addComponent(jTextField1, javax.swing.GroupLayout.PREFERRED_SIZE, 264, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addComponent(btnAddCustomer)
                 .addGap(148, 148, 148))
         );
@@ -3328,11 +3433,14 @@ public class DashBoardFrame extends javax.swing.JFrame {
             panelCustomerLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(panelCustomerLayout.createSequentialGroup()
                 .addComponent(panelCustomerHeader, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(52, 52, 52)
-                .addComponent(btnAddCustomer, javax.swing.GroupLayout.PREFERRED_SIZE, 36, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(51, 51, 51)
+                .addGroup(panelCustomerLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(btnAddCustomer, javax.swing.GroupLayout.PREFERRED_SIZE, 36, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(jTextField1)
+                    .addComponent(jLabel5))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(jPanel7, javax.swing.GroupLayout.PREFERRED_SIZE, 487, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(0, 30, Short.MAX_VALUE))
+                .addGap(0, 31, Short.MAX_VALUE))
         );
 
         panelContent.add(panelCustomer, "CardCustomer");
@@ -3517,6 +3625,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
     private javax.swing.JLabel jLabel29;
     private javax.swing.JLabel jLabel3;
     private javax.swing.JLabel jLabel4;
+    private javax.swing.JLabel jLabel5;
     private javax.swing.JLabel jLabel6;
     private javax.swing.JLabel jLabel7;
     private javax.swing.JLabel jLabel8;
@@ -3536,6 +3645,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
     private javax.swing.JScrollPane jScrollPane6;
     private javax.swing.JScrollPane jScrollPane7;
     private javax.swing.JTable jTable1;
+    private javax.swing.JTextField jTextField1;
     private javax.swing.JLabel lbAvatarShop;
     private javax.swing.JLabel lblAbsentCount;
     private javax.swing.JLabel lblActiveEmployees;
@@ -3603,5 +3713,31 @@ public class DashBoardFrame extends javax.swing.JFrame {
     private javax.swing.JTextField txtSearchEmployee;
     private javax.swing.JTextField txtSearchInvoice;
     private javax.swing.JTextField txtSearchProduct;
+    @Override
+    public void setVisible(boolean b) {
+        if (b) {
+            if (!util.UserSession.getInstance().isLoggedIn()) {
+                super.setVisible(false);
+                util.AppRouter.showLogin();
+                this.dispose();
+                return;
+            }
+            entity.Employee user = util.UserSession.getInstance().getCurrentUser();
+            if (user == null || user.getRoleId() != 1) { // Not manager
+                super.setVisible(false);
+                javax.swing.JOptionPane.showMessageDialog(this, "Chỉ Manager mới được phép truy cập trang quản lý!", "Từ chối truy cập", javax.swing.JOptionPane.ERROR_MESSAGE);
+                this.dispose();
+                java.awt.EventQueue.invokeLater(() -> {
+                    SalesCounterFrame salesFrame = new SalesCounterFrame();
+                    salesFrame.setManagerButtonVisible(false);
+                    salesFrame.hideNonManagerMenus();
+                    salesFrame.setVisible(true);
+                });
+                return;
+            }
+        }
+        super.setVisible(b);
+    }
+
     // End of variables declaration//GEN-END:variables
 }

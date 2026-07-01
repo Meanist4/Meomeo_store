@@ -125,6 +125,35 @@ public class EmployeeRepository {
         return null;
     }
 
+    public Employee findByUsername(String username) {
+        String sql = """
+                SELECT id, role_id, username, password, full_name, phone, barcode, status, is_deleted
+                FROM employees WHERE username = ? AND is_deleted = 0
+                """;
+        try (Connection conn = DatabaseConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, username);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    Employee emp = new Employee();
+                    emp.setId(rs.getInt("id"));
+                    emp.setRoleId(rs.getInt("role_id"));
+                    emp.setUsername(rs.getString("username"));
+                    emp.setPassword(rs.getString("password"));
+                    emp.setFullName(rs.getString("full_name"));
+                    emp.setPhone(rs.getString("phone"));
+                    emp.setBarcode(rs.getString("barcode"));
+                    emp.setStatus(rs.getInt("status"));
+                    emp.setIsDeleted(rs.getInt("is_deleted"));
+                    return emp;
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Lỗi tìm nhân viên theo username: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return null;
+    }
+
     public boolean addEmployee(Employee emp) {
         String sql = """
                 INSERT INTO employees(full_name,username,password,role_id,phone,barcode) VALUES(?,?,?,?,?,?)

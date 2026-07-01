@@ -1,5 +1,7 @@
 package views;
 
+import com.formdev.flatlaf.FlatClientProperties;
+
 import repository.OrderRepository;
 import java.util.List;
 import ui.OrderDetailTableRenderer;
@@ -21,6 +23,7 @@ public class ViewOrderDetailFrame extends javax.swing.JFrame {
 
     private void postInitSetup() {
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
+        applyAppearance();
         tableDetail.setModel(new javax.swing.table.DefaultTableModel(
                 new Object[][]{},
                 new String[]{"No.", "Product Name", "Unit Price", "Qty", "Subtotal"}
@@ -85,6 +88,16 @@ public class ViewOrderDetailFrame extends javax.swing.JFrame {
 
         btnClose.setText("✕ Close");
         btnClose.addActionListener(e -> dispose());
+    }
+
+    private void applyAppearance() {
+        jPanel1.putClientProperty(FlatClientProperties.STYLE, 
+                "border: 1,1,1,1,#CBD5E1,,12;");
+        
+        btnClose.putClientProperty(FlatClientProperties.STYLE,
+                "background: #FFFFFF; foreground: #4A5568; arc: 8; borderWidth: 1; focusWidth: 0;");
+        
+        setLocationRelativeTo(null);
     }
 
     private void applyStatusStyle(String status) {
@@ -423,6 +436,8 @@ public class ViewOrderDetailFrame extends javax.swing.JFrame {
     }// </editor-fold>//GEN-END:initComponents
 
     public static void main(String args[]) {
+        com.formdev.flatlaf.FlatLightLaf.setup();
+        java.awt.EventQueue.invokeLater(() -> new ViewOrderDetailFrame(1).setVisible(true));
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables

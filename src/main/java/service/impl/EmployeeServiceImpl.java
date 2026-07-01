@@ -50,6 +50,17 @@ public class EmployeeServiceImpl implements service.EmployeeService {
     }
 
     @Override
+    public Employee login(String username, String password) {
+        Employee emp = empRepo.findByUsername(username);
+        if (emp != null && emp.getStatus() == 1) {
+            if (util.PasswordEncryptionPlugin.verifyPassword(emp.getPassword(), password)) {
+                return emp;
+            }
+        }
+        return null;
+    }
+
+    @Override
     public List<entity.Role> getAllRole() {
         return empRepo.getAllRole();
     }
