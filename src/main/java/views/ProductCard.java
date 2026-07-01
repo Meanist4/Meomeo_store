@@ -23,6 +23,14 @@ public class ProductCard extends javax.swing.JPanel {
             lblTag.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
             lblTag.putClientProperty(com.formdev.flatlaf.FlatClientProperties.STYLE, "arc: 8; font: 10;");
         }
+        if (lblQuantity != null) {
+            lblQuantity.setBounds(118, 10, 50, 18);
+            lblQuantity.setOpaque(true);
+            lblQuantity.setBackground(new java.awt.Color(247, 242, 237));
+            lblQuantity.setForeground(new java.awt.Color(139, 92, 26));
+            lblQuantity.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+            lblQuantity.putClientProperty(com.formdev.flatlaf.FlatClientProperties.STYLE, "arc: 8; font: 10;");
+        }
         if (lblImage != null) {
             lblImage.setBounds(15, 35, 130, 100);
             lblImage.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
@@ -99,6 +107,9 @@ public class ProductCard extends javax.swing.JPanel {
 
         if (lblTag != null) {
             lblTag.setText(categoryName);
+        }
+        if (lblQuantity != null) {
+            lblQuantity.setText("Còn: " + product.getQuantity());
         }
         if (lblProductName != null) {
             lblProductName.setText("<html><body style='width: 105px;'>" + product.getProductName() + "</body></html>");
@@ -208,6 +219,7 @@ public class ProductCard extends javax.swing.JPanel {
         lblTag = new javax.swing.JLabel();
         lblProductName = new javax.swing.JLabel();
         lblPrice = new javax.swing.JLabel();
+        lblQuantity = new javax.swing.JLabel();
 
         setMinimumSize(new java.awt.Dimension(175, 200));
         setPreferredSize(new java.awt.Dimension(175, 220));
@@ -227,6 +239,8 @@ public class ProductCard extends javax.swing.JPanel {
         lblPrice.setForeground(new java.awt.Color(226, 135, 67));
         lblPrice.setText("Giá");
 
+        lblQuantity.setText("jLabel1");
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
         this.setLayout(layout);
         layout.setHorizontalGroup(
@@ -234,11 +248,12 @@ public class ProductCard extends javax.swing.JPanel {
             .addGroup(layout.createSequentialGroup()
                 .addGap(117, 117, 117)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addComponent(lblQuantity)
                     .addComponent(lblPrice)
                     .addComponent(lblProductName)
                     .addComponent(lblTag)
                     .addComponent(lblImage))
-                .addContainerGap(205, Short.MAX_VALUE))
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -251,7 +266,9 @@ public class ProductCard extends javax.swing.JPanel {
                 .addComponent(lblProductName)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(lblPrice)
-                .addContainerGap(139, Short.MAX_VALUE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(lblQuantity)
+                .addContainerGap(37, Short.MAX_VALUE))
         );
     }// </editor-fold>//GEN-END:initComponents
 
@@ -260,6 +277,7 @@ public class ProductCard extends javax.swing.JPanel {
     private javax.swing.JLabel lblImage;
     private javax.swing.JLabel lblPrice;
     private javax.swing.JLabel lblProductName;
+    private javax.swing.JLabel lblQuantity;
     private javax.swing.JLabel lblTag;
     // End of variables declaration//GEN-END:variables
 }

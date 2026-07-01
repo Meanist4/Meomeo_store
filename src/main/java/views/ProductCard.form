@@ -27,12 +27,13 @@
           <Group type="102" alignment="0" attributes="0">
               <EmptySpace min="-2" pref="117" max="-2" attributes="0"/>
               <Group type="103" groupAlignment="1" attributes="0">
+                  <Component id="lblQuantity" min="-2" max="-2" attributes="0"/>
                   <Component id="lblPrice" min="-2" max="-2" attributes="0"/>
                   <Component id="lblProductName" min="-2" max="-2" attributes="0"/>
                   <Component id="lblTag" min="-2" max="-2" attributes="0"/>
                   <Component id="lblImage" min="-2" max="-2" attributes="0"/>
               </Group>
-              <EmptySpace pref="205" max="32767" attributes="0"/>
+              <EmptySpace max="32767" attributes="0"/>
           </Group>
       </Group>
     </DimensionLayout>
@@ -47,7 +48,9 @@
               <Component id="lblProductName" min="-2" max="-2" attributes="0"/>
               <EmptySpace max="-2" attributes="0"/>
               <Component id="lblPrice" min="-2" max="-2" attributes="0"/>
-              <EmptySpace pref="139" max="32767" attributes="0"/>
+              <EmptySpace max="-2" attributes="0"/>
+              <Component id="lblQuantity" min="-2" max="-2" attributes="0"/>
+              <EmptySpace pref="37" max="32767" attributes="0"/>
           </Group>
       </Group>
     </DimensionLayout>
@@ -90,6 +93,11 @@
           <Color blue="43" green="87" red="e2" type="rgb"/>
         </Property>
         <Property name="text" type="java.lang.String" value="Gi&#xe1;"/>
+      </Properties>
+    </Component>
+    <Component class="javax.swing.JLabel" name="lblQuantity">
+      <Properties>
+        <Property name="text" type="java.lang.String" value="jLabel1"/>
       </Properties>
     </Component>
   </SubComponents>

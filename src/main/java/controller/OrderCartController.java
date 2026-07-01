@@ -17,12 +17,30 @@ public class OrderCartController {
 
     private JTable table;
     private JLabel lbSubtotal;
-    private JLabel lbTotalPay;
     private JLabel lbChangeDue;
     private JTextField txtCashReceived;
     private DoubleConsumer onTotalChanged;
+    private Integer customerId;
+    private String customerName;
 
-    public OrderCartController(JTable table, JLabel lbSubtotal, JLabel lbTotalPay,
+    public Integer getCustomerId() {
+        return customerId;
+    }
+
+    public void setCustomerId(Integer customerId) {
+        this.customerId = customerId;
+    }
+
+    public String getCustomerName() {
+        return customerName;
+    }
+
+    public void setCustomerName(String customerName) {
+        this.customerName = customerName;
+    }
+
+    // CONSTRUCTOR: Chỉ nhận đúng các tham số bạn đang gọi ở View
+    public OrderCartController(JTable table, JLabel lbSubtotal,
             JLabel lbChangeDue, JTextField txtCashReceived, DoubleConsumer onTotalChanged) {
 
         this.ownModel = new DefaultTableModel(
@@ -37,10 +55,10 @@ public class OrderCartController {
 
         this.table = table;
         this.lbSubtotal = lbSubtotal;
-        this.lbTotalPay = lbTotalPay;
         this.lbChangeDue = lbChangeDue;
         this.txtCashReceived = txtCashReceived;
         this.onTotalChanged = onTotalChanged;
+
         if (table != null) {
             table.setModel(this.ownModel);
             hideProductIdColumn(table);
@@ -62,13 +80,12 @@ public class OrderCartController {
         int rowCount = model.getRowCount();
         boolean isExist = false;
 
-        // Query latest stock quantity from database to avoid race conditions or out of sync data
         repository.ProductRepository productRepo = new repository.ProductRepository();
         Product latestProduct = productRepo.findById(product.getId());
         if (latestProduct == null) {
-            javax.swing.JOptionPane.showMessageDialog(null, 
-                "Sản phẩm không tồn tại trên hệ thống.", 
-                "Lỗi", javax.swing.JOptionPane.ERROR_MESSAGE);
+            javax.swing.JOptionPane.showMessageDialog(null,
+                    "Sản phẩm không tồn tại trên hệ thống.",
+                    "Lỗi", javax.swing.JOptionPane.ERROR_MESSAGE);
             return;
         }
         int stockQty = latestProduct.getQuantity();
@@ -76,19 +93,19 @@ public class OrderCartController {
         for (int i = 0; i < rowCount; i++) {
             String productNameInTable = model.getValueAt(i, 1).toString();
             if (productNameInTable.equals(product.getProductName())) {
-                int currentQty = Integer.parseInt(model.getValueAt(i, 3).toString()); // Index 3 is Cart Qty
+                int currentQty = Integer.parseInt(model.getValueAt(i, 3).toString());
                 int newQty = currentQty + 1;
                 if (newQty > stockQty) {
-                    javax.swing.JOptionPane.showMessageDialog(null, 
-                        "Sản phẩm " + product.getProductName() + " chỉ còn " + stockQty + " trong kho.",
-                        "Cảnh báo", javax.swing.JOptionPane.WARNING_MESSAGE);
+                    javax.swing.JOptionPane.showMessageDialog(null,
+                            "Sản phẩm " + product.getProductName() + " chỉ còn " + stockQty + " trong kho.",
+                            "Cảnh báo", javax.swing.JOptionPane.WARNING_MESSAGE);
                     return;
                 }
                 BigDecimal unitPrice = product.getPrice();
                 BigDecimal newSubTotal = unitPrice.multiply(BigDecimal.valueOf(newQty));
-                model.setValueAt(stockQty, i, 2); // Update latest stock quantity in column
+                model.setValueAt(stockQty, i, 2);
                 model.setValueAt(newQty, i, 3);
-                model.setValueAt(formatMoney(newSubTotal), i, 5); // Index 5 is Subtotal
+                model.setValueAt(formatMoney(newSubTotal), i, 5);
                 isExist = true;
                 break;
             }
@@ -96,9 +113,9 @@ public class OrderCartController {
 
         if (!isExist) {
             if (stockQty < 1) {
-                javax.swing.JOptionPane.showMessageDialog(null, 
-                    "Sản phẩm " + product.getProductName() + " đã hết hàng.",
-                    "Cảnh báo", javax.swing.JOptionPane.WARNING_MESSAGE);
+                javax.swing.JOptionPane.showMessageDialog(null,
+                        "Sản phẩm " + product.getProductName() + " đã hết hàng.",
+                        "Cảnh báo", javax.swing.JOptionPane.WARNING_MESSAGE);
                 return;
             }
             int stt = rowCount + 1;
@@ -129,15 +146,15 @@ public class OrderCartController {
         List<CartItem> items = new ArrayList<>();
         DefaultTableModel model = model();
         for (int i = 0; i < model.getRowCount(); i++) {
-            Object pid = model.getValueAt(i, 7); // ProductID is at index 7
+            Object pid = model.getValueAt(i, 7);
             if (pid == null) {
                 continue;
             }
             CartItem item = new CartItem();
             item.productId = Integer.parseInt(pid.toString());
             item.productName = model.getValueAt(i, 1).toString();
-            item.quantity = Integer.parseInt(model.getValueAt(i, 3).toString()); // Cart Qty is at index 3
-            item.unitPrice = parseMoney(model.getValueAt(i, 4).toString());       // Unit Price is at index 4
+            item.quantity = Integer.parseInt(model.getValueAt(i, 3).toString());
+            item.unitPrice = parseMoney(model.getValueAt(i, 4).toString());
             items.add(item);
         }
         return items;
@@ -148,9 +165,9 @@ public class OrderCartController {
     }
 
     public double getTotalAmount() {
-        if (lbTotalPay != null) {
+        if (lbSubtotal != null) {
             try {
-                return parseMoney(lbTotalPay.getText());
+                return parseMoney(lbSubtotal.getText());
             } catch (NumberFormatException ignored) {
             }
         }
@@ -163,17 +180,16 @@ public class OrderCartController {
 
     public void removeOne(int rowIndex) {
         DefaultTableModel model = model();
-        int currentQty = Integer.parseInt(model.getValueAt(rowIndex, 3).toString()); // Cart Qty is at index 3
+        int currentQty = Integer.parseInt(model.getValueAt(rowIndex, 3).toString());
 
         if (currentQty > 1) {
             int newQty = currentQty - 1;
-            model.setValueAt(newQty, rowIndex, 3); // Cart Qty index 3
+            model.setValueAt(newQty, rowIndex, 3);
 
-            double unitPrice = parseMoney(model.getValueAt(rowIndex, 4).toString()); // Unit Price index 4
+            double unitPrice = parseMoney(model.getValueAt(rowIndex, 4).toString());
             double newSubTotal = newQty * unitPrice;
-            model.setValueAt(formatMoney(newSubTotal), rowIndex, 5); // Subtotal index 5
-            
-            // Update latest stock quantity in column 2
+            model.setValueAt(formatMoney(newSubTotal), rowIndex, 5);
+
             try {
                 int productId = Integer.parseInt(model.getValueAt(rowIndex, 7).toString());
                 repository.ProductRepository productRepo = new repository.ProductRepository();
@@ -181,7 +197,8 @@ public class OrderCartController {
                 if (p != null) {
                     model.setValueAt(p.getQuantity(), rowIndex, 2);
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            }
         } else {
             model.removeRow(rowIndex);
             for (int i = 0; i < model.getRowCount(); i++) {
@@ -197,36 +214,29 @@ public class OrderCartController {
         BigDecimal subtotal = BigDecimal.ZERO;
 
         for (int i = 0; i < model.getRowCount(); i++) {
-            subtotal = subtotal.add(BigDecimal.valueOf(parseMoney(model.getValueAt(i, 5).toString()))); // Subtotal index 5
+            subtotal = subtotal.add(BigDecimal.valueOf(parseMoney(model.getValueAt(i, 5).toString())));
         }
-
-        BigDecimal discount = BigDecimal.ZERO; // chỗ này để mở rộng khuyến mãi sau
-        BigDecimal totalPay = subtotal.subtract(discount);
 
         if (lbSubtotal != null) {
-            lbSubtotal.setText(formatMoney(totalPay));
-        }
-        if (lbTotalPay != null) {
-            lbTotalPay.setText(formatMoney(totalPay));
+            lbSubtotal.setText(formatMoney(subtotal));
         }
 
         calculateChangeDue();
 
         if (onTotalChanged != null) {
-            onTotalChanged.accept(totalPay.doubleValue());
+            onTotalChanged.accept(subtotal.doubleValue());
         }
     }
 
-    public void rebindTo(JTable table,
-            JLabel lbSubtotal, JLabel lbTotalPay,
-            JLabel lbChangeDue, JTextField txtCashReceived,
-            DoubleConsumer onTotalChanged) {
+    // REBIND: Đã loại bỏ hoàn toàn lbTotalPay thừa, khớp với switchToOrder() ở View
+    public void rebindTo(JTable table, JLabel lbSubtotal,
+            JLabel lbChangeDue, JTextField txtCashReceived, DoubleConsumer onTotalChanged) {
         this.table = table;
         this.lbSubtotal = lbSubtotal;
-        this.lbTotalPay = lbTotalPay;
         this.lbChangeDue = lbChangeDue;
         this.txtCashReceived = txtCashReceived;
         this.onTotalChanged = onTotalChanged;
+
         if (table != null) {
             table.setModel(this.ownModel);
             hideProductIdColumn(table);
@@ -236,10 +246,10 @@ public class OrderCartController {
 
     public void calculateChangeDue() {
         try {
-            if (lbTotalPay == null) {
+            if (lbSubtotal == null) {
                 return;
             }
-            double totalPay = parseMoney(lbTotalPay.getText());
+            double totalPay = parseMoney(lbSubtotal.getText());
 
             if (totalPay <= 0) {
                 if (lbChangeDue != null) {
@@ -275,10 +285,14 @@ public class OrderCartController {
             }
         } catch (NumberFormatException e) {
             if (lbChangeDue != null) {
-                lbChangeDue.setText("Số tiền lỗi!");
-                lbChangeDue.setForeground(Color.RED);
+                boxErrorDue();
             }
         }
+    }
+
+    private void boxErrorDue() {
+        lbChangeDue.setText("Số tiền lỗi!");
+        lbChangeDue.setForeground(Color.RED);
     }
 
     private static String formatMoney(BigDecimal amount) {
@@ -291,6 +305,9 @@ public class OrderCartController {
 
     private static double parseMoney(String text) {
         String clean = text.replace("đ", "").replace(",", "").trim();
+        if (clean.contains("Thiếu:")) {
+            clean = clean.replace("Thiếu:", "").trim();
+        }
         return Double.parseDouble(clean);
     }
 }

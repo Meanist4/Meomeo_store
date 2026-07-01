@@ -40,4 +40,6 @@ public class UserSession {
     public boolean isLoggedIn() {
         return currentUser != null;
     }
+    
+    
 }

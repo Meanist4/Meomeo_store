@@ -19,9 +19,15 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
 
     private final CategoryService categoryService = new CategoryServiceImpl();
     private final ProductService productService = new ProductServiceImpl();
+    private final repository.CustomerRepository customerRepository = new repository.CustomerRepository();
+    private entity.Customer selectedCustomer;
+    private javax.swing.JPopupMenu customerSuggestPopup;
+    private javax.swing.Timer customerSearchTimer;
     private DashBoardFrame dashBoard;
     private final OrderRepository orderRepository = new repository.OrderRepository();
     private final List<Integer> sessionOrderIds = new ArrayList<>();
+    private java.util.List<entity.Product> cachedProductList = new ArrayList<>();
+    private java.util.List<entity.Category> cachedCategoryList = new ArrayList<>();
 
     private OrderCartController activeCart() {
         return orderSessions.get(activeIndex);
@@ -354,8 +360,10 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
             return;
         }
         activeIndex = index;
-        orderSessions.get(index).rebindTo(tableCurrentOrder, lbSubtotal, lbTotalPay,
-                lbChangeDue, txtCashReceived, this::handleCartTotalChanged);
+        OrderCartController cart = orderSessions.get(index);
+        cart.rebindTo(tableCurrentOrder, lbSubtotal, lbChangeDue, txtCashReceived, this::handleCartTotalChanged);
+        txtSearchCustomer.setText(cart.getCustomerName() != null ? cart.getCustomerName() : "");
+        lblCurrentOrder.setText(cart.getCustomerName() != null ? "Current Order - " + cart.getCustomerName() : "Current Order");
         applyTableStyling();
         reapplyButtonEditor();
         refreshTabUI();
@@ -363,10 +371,12 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
 
     private void createNewOrder() {
         OrderCartController newCart = new OrderCartController(
-                tableCurrentOrder, lbSubtotal, lbTotalPay,
+                tableCurrentOrder, lbSubtotal,
                 lbChangeDue, txtCashReceived, this::handleCartTotalChanged
         );
         orderSessions.add(newCart);
+        txtSearchCustomer.setText("");
+        lblCurrentOrder.setText("Current Order");
         activeIndex = orderSessions.size() - 1;
         applyTableStyling();
         reapplyButtonEditor();
@@ -393,7 +403,8 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
     private void refreshTabUI() {
         for (int i = 0; i < tabButtons.size(); i++) {
             JButton btn = tabButtons.get(i);
-            String base = "HD #" + (i + 1);
+            String customerName = orderSessions.get(i).getCustomerName();
+            String base = (customerName != null) ? customerName : "HD #" + (i + 1);
             btn.setText(i == activeIndex ? base + " ●" : base);
 
             if (i == activeIndex) {
@@ -536,20 +547,115 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
                 orderRepository.updateOrderTotal(orderId, amount);
                 return null;
             }
-
-            @Override
-            protected void done() {
-                if (dashBoard != null) {
-                    dashBoard.refreshOrderTableOnly();
-                }
-            }
         }.execute();
     }
 
+    private javax.swing.event.DocumentListener onDocumentChange(Runnable action) {
+        return new javax.swing.event.DocumentListener() {
+            @Override
+            public void insertUpdate(javax.swing.event.DocumentEvent e) {
+                action.run();
+            }
+
+            @Override
+            public void removeUpdate(javax.swing.event.DocumentEvent e) {
+                action.run();
+            }
+
+            @Override
+            public void changedUpdate(javax.swing.event.DocumentEvent e) {
+                action.run();
+            }
+        };
+    }
+
+    private void initCustomerManagementInSale() {
+        customerSuggestPopup = new javax.swing.JPopupMenu();
+        customerSuggestPopup.setFocusable(false);
+
+        txtSearchCustomer.getDocument().addDocumentListener(onDocumentChange(() -> {
+            String keyword = txtSearchCustomer.getText().trim();
+            if (customerSearchTimer != null && customerSearchTimer.isRunning()) {
+                customerSearchTimer.stop();
+            }
+            if (keyword.isEmpty()) {
+                customerSuggestPopup.setVisible(false);
+                return;
+            }
+            customerSearchTimer = new javax.swing.Timer(300, e -> showCustomerSuggestions(keyword));
+            customerSearchTimer.setRepeats(false);
+            customerSearchTimer.start();
+        }));
+
+        btnAddCustomer.addActionListener(e -> {
+            views.AddCustomerFrame addFrame = new views.AddCustomerFrame(() -> {
+                String phone = txtSearchCustomer.getText().trim();
+                if (!phone.isEmpty()) {
+                    java.util.List<entity.Customer> found = customerRepository.search(phone);
+                    if (!found.isEmpty()) {
+                        selectCustomerForOrder(found.get(0));
+                    }
+                }
+            });
+            addFrame.setVisible(true);
+        });
+    }
+
+    private void showCustomerSuggestions(String keyword) {
+        java.util.List<entity.Customer> results = customerRepository.search(keyword);
+        customerSuggestPopup.removeAll();
+        if (results.isEmpty()) {
+            customerSuggestPopup.setVisible(false);
+            return;
+        }
+        for (entity.Customer c : results) {
+            javax.swing.JMenuItem item = new javax.swing.JMenuItem(c.getFullName() + " - " + c.getPhone());
+            item.addActionListener(ev -> selectCustomerForOrder(c));
+            customerSuggestPopup.add(item);
+        }
+        customerSuggestPopup.show(txtSearchCustomer, 0, txtSearchCustomer.getHeight());
+    }
+
+    private void selectCustomerForOrder(entity.Customer c) {
+        activeCart().setCustomerId(c.getId());
+        activeCart().setCustomerName(c.getFullName());
+        txtSearchCustomer.setText(c.getFullName());
+        customerSuggestPopup.setVisible(false);
+        lblCurrentOrder.setText("Current Order - " + c.getFullName());
+        refreshTabUI();
+    }
+
+    private void initProductManagementInSale() {
+        javax.swing.DefaultComboBoxModel<String> model = new javax.swing.DefaultComboBoxModel<>();
+        model.addElement("All");
+        categoryService.getCategoryForFilter().forEach(cat -> model.addElement(cat.getCategoryName()));
+        cbCategory.setModel(model);
+
+        cbCategory.addActionListener(e -> {
+            String selectedCategory = String.valueOf(cbCategory.getSelectedItem()).trim();
+            if (selectedCategory.equalsIgnoreCase("All") || selectedCategory.contains("All")) {
+                renderProductGrid(cachedProductList);
+            } else {
+                java.util.List<entity.Product> filtered = cachedProductList.stream()
+                        .filter(p -> cachedCategoryList.stream()
+                        .anyMatch(c -> c.getId() == p.getCategoryId()
+                        && c.getCategoryName().equalsIgnoreCase(selectedCategory)))
+                        .collect(java.util.stream.Collectors.toList());
+                renderProductGrid(filtered);
+            }
+        });
+    }
+
     public void loadProductGrid() {
-        panelProductGrid.removeAll();
         java.util.List<entity.Product> listProduct = productService.getPopularProducts();
         java.util.List<entity.Category> listCategory = categoryService.getCategoryForFilter();
+        cachedProductList = listProduct != null ? listProduct : new ArrayList<>();
+        cachedCategoryList = listCategory != null ? listCategory : new ArrayList<>();
+        renderProductGrid(cachedProductList);
+    }
+
+    private void renderProductGrid(java.util.List<entity.Product> listProduct) {
+        panelProductGrid.removeAll();
 
         if (listProduct == null || listProduct.isEmpty()) {
             System.out.println("⚠️ [DEBUG GRID]: Không lấy được sản phẩm nào từ Database!");
@@ -561,7 +667,7 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         }
 
         for (entity.Product p : listProduct) {
-            String catName = listCategory.stream()
+            String catName = cachedCategoryList.stream()
                     .filter(c -> c.getId() == p.getCategoryId())
                     .map(entity.Category::getCategoryName)
                     .findFirst()
@@ -638,7 +744,7 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         panelOrderSplit = new javax.swing.JPanel();
         btnAddOrder = new javax.swing.JButton();
         panelCurrentOrder = new javax.swing.JPanel();
-        jLabel1 = new javax.swing.JLabel();
+        lblCurrentOrder = new javax.swing.JLabel();
         jScrollPane1 = new javax.swing.JScrollPane();
         tableCurrentOrder = new javax.swing.JTable();
         panelPopular = new javax.swing.JPanel();
@@ -651,9 +757,6 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         labelStatus = new javax.swing.JLabel();
         panelOrderSummary = new javax.swing.JPanel();
         jLabel8 = new javax.swing.JLabel();
-        jPanel1 = new javax.swing.JPanel();
-        jLabel10 = new javax.swing.JLabel();
-        lbTotalPay = new javax.swing.JLabel();
         panelCardParent = new javax.swing.JPanel();
         panelCashView = new javax.swing.JPanel();
         jLabel12 = new javax.swing.JLabel();
@@ -664,14 +767,18 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         lbChangeDue = new javax.swing.JLabel();
         panelQRView = new javax.swing.JPanel();
         lbQRCode = new javax.swing.JLabel();
-        btnConfirmOrder = new javax.swing.JButton();
-        btnCancelOrder = new javax.swing.JButton();
         jLabel16 = new javax.swing.JLabel();
         lbSubtotal = new javax.swing.JLabel();
         cashBtn = new javax.swing.JButton();
         qrBtn = new javax.swing.JButton();
         jLabel19 = new javax.swing.JLabel();
         jSeparator1 = new javax.swing.JSeparator();
+        btnConfirmOrder = new javax.swing.JButton();
+        btnCancelOrder = new javax.swing.JButton();
+        panelEmployeeCheckIn = new javax.swing.JPanel();
+        cbCategory = new javax.swing.JComboBox<>();
+        btnAddCustomer = new javax.swing.JButton();
+        txtSearchCustomer = new javax.swing.JTextField();
         panelProduct = new javax.swing.JPanel();
         panelOrder = new javax.swing.JPanel();
         panelEmployee = new javax.swing.JPanel();
@@ -712,7 +819,7 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
                 .addGroup(panelHeaderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(jLabel3)
                     .addComponent(jLabel2))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 768, Short.MAX_VALUE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addComponent(managerBtn, javax.swing.GroupLayout.PREFERRED_SIZE, 172, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(19, 19, 19))
         );
@@ -777,7 +884,7 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
                     .addComponent(btnOrder, javax.swing.GroupLayout.PREFERRED_SIZE, 212, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(btnProductInventory, javax.swing.GroupLayout.PREFERRED_SIZE, 212, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(btnMain, javax.swing.GroupLayout.PREFERRED_SIZE, 212, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addContainerGap(15, Short.MAX_VALUE))
         );
         panelNavLayout.setVerticalGroup(
             panelNavLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -792,7 +899,7 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
                 .addComponent(btnEmployee, javax.swing.GroupLayout.PREFERRED_SIZE, 47, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(18, 18, 18)
                 .addComponent(btnCustomer, javax.swing.GroupLayout.PREFERRED_SIZE, 47, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(363, Short.MAX_VALUE))
+                .addContainerGap(367, Short.MAX_VALUE))
         );
 
         panelMenu.setPreferredSize(new java.awt.Dimension(682, 100));
@@ -855,9 +962,9 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         panelCurrentOrder.setBackground(new java.awt.Color(248, 246, 242));
         panelCurrentOrder.setForeground(new java.awt.Color(248, 246, 242));
 
-        jLabel1.setFont(new java.awt.Font("Segoe UI", 1, 15)); // NOI18N
-        jLabel1.setForeground(new java.awt.Color(110, 58, 25));
-        jLabel1.setText("Current Order");
+        lblCurrentOrder.setFont(new java.awt.Font("Segoe UI", 1, 15)); // NOI18N
+        lblCurrentOrder.setForeground(new java.awt.Color(110, 58, 25));
+        lblCurrentOrder.setText("Current Order");
 
         tableCurrentOrder.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
@@ -883,7 +990,7 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
                 .addGroup(panelCurrentOrderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(jScrollPane1)
                     .addGroup(panelCurrentOrderLayout.createSequentialGroup()
-                        .addComponent(jLabel1)
+                        .addComponent(lblCurrentOrder)
                         .addGap(0, 0, Short.MAX_VALUE)))
                 .addContainerGap())
         );
@@ -891,7 +998,7 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
             panelCurrentOrderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(panelCurrentOrderLayout.createSequentialGroup()
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addComponent(jLabel1)
+                .addComponent(lblCurrentOrder)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 96, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(18, 18, 18))
@@ -902,7 +1009,7 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         lblPopular.setBackground(new java.awt.Color(248, 246, 242));
         lblPopular.setFont(new java.awt.Font("Segoe UI", 0, 18)); // NOI18N
         lblPopular.setForeground(new java.awt.Color(110, 58, 25));
-        lblPopular.setText("Quick Access - Popular Items");
+        lblPopular.setText("Product - Items");
 
         panelProductGrid.setBackground(new java.awt.Color(255, 255, 255));
         scrollPopular.setViewportView(panelProductGrid);
@@ -912,11 +1019,12 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         panelPopularLayout.setHorizontalGroup(
             panelPopularLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(panelPopularLayout.createSequentialGroup()
-                .addComponent(lblPopular, javax.swing.GroupLayout.PREFERRED_SIZE, 618, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(0, 0, Short.MAX_VALUE))
-            .addGroup(panelPopularLayout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(scrollPopular)
+                .addGroup(panelPopularLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(scrollPopular, javax.swing.GroupLayout.DEFAULT_SIZE, 606, Short.MAX_VALUE)
+                    .addGroup(panelPopularLayout.createSequentialGroup()
+                        .addComponent(lblPopular)
+                        .addGap(0, 0, Short.MAX_VALUE)))
                 .addContainerGap())
         );
         panelPopularLayout.setVerticalGroup(
@@ -924,7 +1032,7 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
             .addGroup(panelPopularLayout.createSequentialGroup()
                 .addComponent(lblPopular)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(scrollPopular)
+                .addComponent(scrollPopular, javax.swing.GroupLayout.DEFAULT_SIZE, 315, Short.MAX_VALUE)
                 .addContainerGap())
         );
 
@@ -973,40 +1081,6 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         jLabel8.setFont(new java.awt.Font("Segoe UI", 0, 18)); // NOI18N
         jLabel8.setForeground(new java.awt.Color(110, 58, 25));
         jLabel8.setText("Order Summary");
-
-        jPanel1.setBackground(new java.awt.Color(248, 246, 242));
-
-        jLabel10.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
-        jLabel10.setForeground(new java.awt.Color(110, 58, 25));
-        jLabel10.setText("TOTAL TO PAY");
-
-        lbTotalPay.setFont(new java.awt.Font("Segoe UI", 1, 24)); // NOI18N
-        lbTotalPay.setForeground(new java.awt.Color(227, 138, 69));
-        lbTotalPay.setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
-        lbTotalPay.setText("0 đ");
-
-        javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
-        jPanel1.setLayout(jPanel1Layout);
-        jPanel1Layout.setHorizontalGroup(
-            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel1Layout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(jLabel10)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(lbTotalPay, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addContainerGap())
-        );
-        jPanel1Layout.setVerticalGroup(
-            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel1Layout.createSequentialGroup()
-                .addGap(8, 8, 8)
-                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(jPanel1Layout.createSequentialGroup()
-                        .addComponent(lbTotalPay, javax.swing.GroupLayout.PREFERRED_SIZE, 43, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addGap(0, 0, Short.MAX_VALUE))
-                    .addComponent(jLabel10, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                .addContainerGap())
-        );
 
         panelCardParent.setPreferredSize(new java.awt.Dimension(300, 400));
         panelCardParent.setLayout(new java.awt.CardLayout());
@@ -1107,17 +1181,6 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
 
         panelCardParent.add(panelQRView, "panelQRView");
 
-        btnConfirmOrder.setBackground(new java.awt.Color(30, 188, 97));
-        btnConfirmOrder.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
-        btnConfirmOrder.setForeground(new java.awt.Color(255, 255, 255));
-        btnConfirmOrder.setText("Confirm");
-        btnConfirmOrder.addActionListener(this::btnConfirmOrderActionPerformed);
-
-        btnCancelOrder.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
-        btnCancelOrder.setForeground(new java.awt.Color(225, 59, 53));
-        btnCancelOrder.setText("Cancel");
-        btnCancelOrder.addActionListener(this::btnCancelOrderActionPerformed);
-
         jLabel16.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
         jLabel16.setForeground(new java.awt.Color(102, 102, 102));
         jLabel16.setText("Subtotal");
@@ -1140,42 +1203,45 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         jLabel19.setForeground(new java.awt.Color(102, 102, 102));
         jLabel19.setText("Payment Method");
 
+        btnConfirmOrder.setBackground(new java.awt.Color(30, 188, 97));
+        btnConfirmOrder.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
+        btnConfirmOrder.setForeground(new java.awt.Color(255, 255, 255));
+        btnConfirmOrder.setText("Confirm");
+        btnConfirmOrder.addActionListener(this::btnConfirmOrderActionPerformed);
+
+        btnCancelOrder.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
+        btnCancelOrder.setForeground(new java.awt.Color(225, 59, 53));
+        btnCancelOrder.setText("Cancel");
+        btnCancelOrder.addActionListener(this::btnCancelOrderActionPerformed);
+
         javax.swing.GroupLayout panelOrderSummaryLayout = new javax.swing.GroupLayout(panelOrderSummary);
         panelOrderSummary.setLayout(panelOrderSummaryLayout);
         panelOrderSummaryLayout.setHorizontalGroup(
             panelOrderSummaryLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelOrderSummaryLayout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(panelOrderSummaryLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(panelOrderSummaryLayout.createSequentialGroup()
-                        .addGap(0, 0, Short.MAX_VALUE)
-                        .addComponent(jSeparator1, javax.swing.GroupLayout.PREFERRED_SIZE, 267, javax.swing.GroupLayout.PREFERRED_SIZE))
-                    .addComponent(lbSubtotal, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                .addGap(17, 17, 17))
-            .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-            .addGroup(panelOrderSummaryLayout.createSequentialGroup()
-                .addGap(30, 30, 30)
-                .addGroup(panelOrderSummaryLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(panelOrderSummaryLayout.createSequentialGroup()
-                        .addComponent(jLabel19)
-                        .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                    .addGroup(panelOrderSummaryLayout.createSequentialGroup()
-                        .addComponent(cashBtn, javax.swing.GroupLayout.PREFERRED_SIZE, 114, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addComponent(qrBtn, javax.swing.GroupLayout.PREFERRED_SIZE, 118, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addGap(27, 27, 27))))
-            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelOrderSummaryLayout.createSequentialGroup()
-                .addGap(0, 0, Short.MAX_VALUE)
-                .addGroup(panelOrderSummaryLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(btnCancelOrder, javax.swing.GroupLayout.PREFERRED_SIZE, 286, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(btnConfirmOrder, javax.swing.GroupLayout.PREFERRED_SIZE, 286, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addGap(14, 14, 14))
             .addComponent(panelCardParent, javax.swing.GroupLayout.DEFAULT_SIZE, 317, Short.MAX_VALUE)
             .addGroup(panelOrderSummaryLayout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(panelOrderSummaryLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(jLabel8)
-                    .addComponent(jLabel16))
+                    .addComponent(jLabel16)
+                    .addGroup(panelOrderSummaryLayout.createSequentialGroup()
+                        .addGap(18, 18, 18)
+                        .addGroup(panelOrderSummaryLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addGroup(panelOrderSummaryLayout.createSequentialGroup()
+                                .addComponent(jLabel19)
+                                .addGap(0, 0, Short.MAX_VALUE))
+                            .addGroup(panelOrderSummaryLayout.createSequentialGroup()
+                                .addComponent(cashBtn, javax.swing.GroupLayout.PREFERRED_SIZE, 114, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                .addComponent(qrBtn, javax.swing.GroupLayout.PREFERRED_SIZE, 118, javax.swing.GroupLayout.PREFERRED_SIZE))
+                            .addComponent(jSeparator1)
+                            .addComponent(lbSubtotal, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))))
+                .addGap(15, 15, 15))
+            .addGroup(panelOrderSummaryLayout.createSequentialGroup()
+                .addGap(25, 25, 25)
+                .addComponent(btnConfirmOrder, javax.swing.GroupLayout.PREFERRED_SIZE, 130, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addComponent(btnCancelOrder, javax.swing.GroupLayout.PREFERRED_SIZE, 130, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
         panelOrderSummaryLayout.setVerticalGroup(
@@ -1185,13 +1251,11 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
                 .addComponent(jLabel8, javax.swing.GroupLayout.PREFERRED_SIZE, 25, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(jLabel16)
-                .addGap(4, 4, 4)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(lbSubtotal, javax.swing.GroupLayout.PREFERRED_SIZE, 33, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(jSeparator1, javax.swing.GroupLayout.PREFERRED_SIZE, 10, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(18, 18, 18)
-                .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(34, 34, 34)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(jLabel19)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(panelOrderSummaryLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
@@ -1199,12 +1263,29 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
                     .addComponent(qrBtn, javax.swing.GroupLayout.PREFERRED_SIZE, 33, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(panelCardParent, javax.swing.GroupLayout.PREFERRED_SIZE, 217, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(btnConfirmOrder, javax.swing.GroupLayout.PREFERRED_SIZE, 43, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(btnCancelOrder, javax.swing.GroupLayout.PREFERRED_SIZE, 43, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(8, Short.MAX_VALUE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addGroup(panelOrderSummaryLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(btnConfirmOrder)
+                    .addComponent(btnCancelOrder))
+                .addGap(0, 18, Short.MAX_VALUE))
         );
+
+        panelEmployeeCheckIn.setBackground(new java.awt.Color(255, 255, 255));
+
+        javax.swing.GroupLayout panelEmployeeCheckInLayout = new javax.swing.GroupLayout(panelEmployeeCheckIn);
+        panelEmployeeCheckIn.setLayout(panelEmployeeCheckInLayout);
+        panelEmployeeCheckInLayout.setHorizontalGroup(
+            panelEmployeeCheckInLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGap(0, 0, Short.MAX_VALUE)
+        );
+        panelEmployeeCheckInLayout.setVerticalGroup(
+            panelEmployeeCheckInLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGap(0, 142, Short.MAX_VALUE)
+        );
+
+        cbCategory.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Item 1", "Item 2", "Item 3", "Item 4" }));
+
+        btnAddCustomer.setText("Add customer");
 
         javax.swing.GroupLayout panelSaleCounterLayout = new javax.swing.GroupLayout(panelSaleCounter);
         panelSaleCounter.setLayout(panelSaleCounterLayout);
@@ -1213,14 +1294,24 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
             .addGroup(panelSaleCounterLayout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(panelSaleCounterLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                    .addComponent(panelCurrentOrder, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(panelOrderSplit, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(panelBarcode, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 618, Short.MAX_VALUE)
-                    .addComponent(panelPopular, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                    .addGroup(panelSaleCounterLayout.createSequentialGroup()
+                        .addGroup(panelSaleCounterLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                            .addComponent(panelCurrentOrder, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                            .addComponent(panelOrderSplit, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                            .addComponent(panelBarcode, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 618, Short.MAX_VALUE)
+                            .addComponent(panelPopular, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED))
+                    .addGroup(panelSaleCounterLayout.createSequentialGroup()
+                        .addComponent(cbCategory, javax.swing.GroupLayout.PREFERRED_SIZE, 120, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(txtSearchCustomer, javax.swing.GroupLayout.PREFERRED_SIZE, 260, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                        .addComponent(btnAddCustomer)
+                        .addGap(14, 14, 14)))
                 .addGroup(panelSaleCounterLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(panelCashier, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(panelOrderSummary, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addComponent(panelOrderSummary, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(panelEmployeeCheckIn, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addContainerGap())
         );
         panelSaleCounterLayout.setVerticalGroup(
@@ -1228,19 +1319,26 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
             .addGroup(panelSaleCounterLayout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(panelSaleCounterLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(panelBarcode, javax.swing.GroupLayout.PREFERRED_SIZE, 67, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(panelCashier, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGroup(panelSaleCounterLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(panelSaleCounterLayout.createSequentialGroup()
-                        .addComponent(panelBarcode, javax.swing.GroupLayout.PREFERRED_SIZE, 67, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addGap(8, 8, 8)
                         .addComponent(panelOrderSplit, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(panelCurrentOrder, javax.swing.GroupLayout.PREFERRED_SIZE, 136, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                        .addComponent(panelPopular, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addContainerGap())
+                        .addComponent(panelCurrentOrder, javax.swing.GroupLayout.PREFERRED_SIZE, 136, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(18, 18, 18)
+                        .addGroup(panelSaleCounterLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
+                            .addComponent(btnAddCustomer, javax.swing.GroupLayout.DEFAULT_SIZE, 34, Short.MAX_VALUE)
+                            .addComponent(txtSearchCustomer)
+                            .addComponent(cbCategory))
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(panelPopular, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                     .addGroup(panelSaleCounterLayout.createSequentialGroup()
-                        .addComponent(panelCashier, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(panelEmployeeCheckIn, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(panelOrderSummary, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))))
+                        .addComponent(panelOrderSummary, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                .addContainerGap())
         );
 
         panelMenu.add(panelSaleCounter, "cardSaleCounter");
@@ -1253,7 +1351,7 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         );
         panelProductLayout.setVerticalGroup(
             panelProductLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 686, Short.MAX_VALUE)
+            .addGap(0, 690, Short.MAX_VALUE)
         );
 
         panelMenu.add(panelProduct, "cardProduct");
@@ -1266,7 +1364,7 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         );
         panelOrderLayout.setVerticalGroup(
             panelOrderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 686, Short.MAX_VALUE)
+            .addGap(0, 690, Short.MAX_VALUE)
         );
 
         panelMenu.add(panelOrder, "cardOrder");
@@ -1279,7 +1377,7 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         );
         panelEmployeeLayout.setVerticalGroup(
             panelEmployeeLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 686, Short.MAX_VALUE)
+            .addGap(0, 690, Short.MAX_VALUE)
         );
 
         panelMenu.add(panelEmployee, "cardEmployee");
@@ -1292,7 +1390,7 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         );
         panelCustomerLayout.setVerticalGroup(
             panelCustomerLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 686, Short.MAX_VALUE)
+            .addGap(0, 690, Short.MAX_VALUE)
         );
 
         panelMenu.add(panelCustomer, "cardCustomer");
@@ -1360,7 +1458,15 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         }
         double totalAmount = cart.getTotalAmount();
         final int finishedIndex = activeIndex;
-
+        int confirm = javax.swing.JOptionPane.showConfirmDialog(this,
+                String.format("Xác nhận thanh toán%nPhương thức: %s%nTổng tiền: %,.0f đ",
+                        paymentMethod, totalAmount),
+                "Xác nhận đơn hàng",
+                javax.swing.JOptionPane.YES_NO_OPTION,
+                javax.swing.JOptionPane.QUESTION_MESSAGE);
+        if (confirm != javax.swing.JOptionPane.YES_OPTION) {
+            return;
+        }
         btnConfirmOrder.setEnabled(false); // chặn bấm lại trong lúc xử lý nền
 
         new javax.swing.SwingWorker<String, Void>() {
@@ -1407,9 +1513,9 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
                     String stock = parts[2];
                     String req = parts[3];
                     javax.swing.JOptionPane.showMessageDialog(SalesCounterFrame.this,
-                            "Không đủ số lượng trong kho cho sản phẩm: " + name +
-                            "\nSố lượng yêu cầu: " + req +
-                            "\nSố lượng hiện có: " + stock,
+                            "Không đủ số lượng trong kho cho sản phẩm: " + name
+                            + "\nSố lượng yêu cầu: " + req
+                            + "\nSố lượng hiện có: " + stock,
                             "Cảnh báo", javax.swing.JOptionPane.WARNING_MESSAGE);
                     return;
                 }
@@ -1433,9 +1539,6 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
                     createNewOrder();
                 } else {
                     activeIndex = Math.max(0, finishedIndex - 1);
-                    for (int i = 0; i < tabButtons.size(); i++) {
-                        tabButtons.get(i).setText("HD #" + (i + 1));
-                    }
                     switchToOrder(activeIndex);
                 }
             }
@@ -1445,10 +1548,6 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
     private void btnOrderActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnOrderActionPerformed
         // TODO add your handling code here:
     }//GEN-LAST:event_btnOrderActionPerformed
-
-    private void btnEmployeeActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnEmployeeActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_btnEmployeeActionPerformed
 
     private void btnCustomerActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnCustomerActionPerformed
         // TODO add your handling code here:
@@ -1472,12 +1571,13 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
             createNewOrder();
         } else {
             activeIndex = Math.max(0, activeIndex - 1);
-            for (int i = 0; i < tabButtons.size(); i++) {
-                tabButtons.get(i).setText("HD #" + (i + 1));
-            }
             switchToOrder(activeIndex);
         }
     }//GEN-LAST:event_btnCancelOrderActionPerformed
+
+    private void btnEmployeeActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnEmployeeActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_btnEmployeeActionPerformed
 
     private void cashBtnActionPerformed(java.awt.event.ActionEvent evt) {
         java.awt.CardLayout cl = (java.awt.CardLayout) panelCardParent.getLayout();
@@ -1530,6 +1630,7 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JButton btnAddCustomer;
     private javax.swing.JButton btnAddOrder;
     private javax.swing.JButton btnBarcode;
     private javax.swing.JButton btnCancelOrder;
@@ -1541,8 +1642,7 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
     private javax.swing.JButton btnProductInventory;
     private javax.swing.JButton btnScan;
     private javax.swing.JButton cashBtn;
-    private javax.swing.JLabel jLabel1;
-    private javax.swing.JLabel jLabel10;
+    private javax.swing.JComboBox<String> cbCategory;
     private javax.swing.JLabel jLabel12;
     private javax.swing.JLabel jLabel13;
     private javax.swing.JLabel jLabel14;
@@ -1552,7 +1652,6 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
     private javax.swing.JLabel jLabel3;
     private javax.swing.JLabel jLabel4;
     private javax.swing.JLabel jLabel8;
-    private javax.swing.JPanel jPanel1;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JSeparator jSeparator1;
     private javax.swing.JLabel labelStatus;
@@ -1560,7 +1659,7 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
     private javax.swing.JLabel lbChangeDue;
     private javax.swing.JLabel lbQRCode;
     private javax.swing.JLabel lbSubtotal;
-    private javax.swing.JLabel lbTotalPay;
+    private javax.swing.JLabel lblCurrentOrder;
     private javax.swing.JLabel lblPopular;
     private javax.swing.JButton managerBtn;
     private javax.swing.JPanel panelBarcode;
@@ -1571,6 +1670,7 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
     private javax.swing.JPanel panelCurrentOrder;
     private javax.swing.JPanel panelCustomer;
     private javax.swing.JPanel panelEmployee;
+    private javax.swing.JPanel panelEmployeeCheckIn;
     private javax.swing.JPanel panelHeader;
     private javax.swing.JPanel panelMenu;
     private javax.swing.JPanel panelNav;
@@ -1587,418 +1687,6 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
     private javax.swing.JTable tableCurrentOrder;
     private javax.swing.JTextField txtBarcodeSearch;
     private javax.swing.JTextField txtCashReceived;
-    private final service.CustomerService customerService = new service.impl.CustomerServiceImpl();
-    private final repository.ProductRepository productRepository = new repository.ProductRepository();
-    private final repository.CategoryRepository categoryRepository = new repository.CategoryRepository();
-    private javax.swing.JTable tableCustomerInSale;
-    private javax.swing.JTextField txtSearchCustomerPhoneInSale;
-    private javax.swing.JButton btnAddCustomerInSale;
-    private javax.swing.JTable tableProductInSale;
-    private javax.swing.JTextField txtSearchProductInSale;
-    private javax.swing.JComboBox<String> cbCategoryInSale;
-    private javax.swing.JButton btnAddProductInSale;
-    private javax.swing.table.TableRowSorter<javax.swing.table.DefaultTableModel> inventorySorterInSale;
-    private final java.util.Map<String, javax.swing.ImageIcon> imageCacheInSale = new java.util.HashMap<>();
-
-    private void initCustomerManagementInSale() {
-        panelCustomer.removeAll();
-        panelCustomer.setLayout(new java.awt.BorderLayout(0, 0));
-        panelCustomer.setBackground(new java.awt.Color(244, 246, 248));
-
-        // 1. Header Panel
-        javax.swing.JPanel headerPanel = new javax.swing.JPanel();
-        headerPanel.setBackground(new java.awt.Color(255, 255, 255));
-        headerPanel.setBorder(javax.swing.BorderFactory.createEmptyBorder(20, 30, 20, 30));
-        headerPanel.setLayout(new java.awt.BorderLayout());
-
-        javax.swing.JPanel titleTextPanel = new javax.swing.JPanel();
-        titleTextPanel.setOpaque(false);
-        titleTextPanel.setLayout(new javax.swing.BoxLayout(titleTextPanel, javax.swing.BoxLayout.Y_AXIS));
-
-        javax.swing.JLabel titleLabel = new javax.swing.JLabel("Customer Management");
-        titleLabel.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 24));
-        titleLabel.setForeground(new java.awt.Color(122, 67, 29));
-
-        javax.swing.JLabel subLabel = new javax.swing.JLabel("Manage the customer information");
-        subLabel.setFont(new java.awt.Font("Segoe UI", java.awt.Font.PLAIN, 14));
-        subLabel.setForeground(new java.awt.Color(102, 102, 102));
-
-        titleTextPanel.add(titleLabel);
-        titleTextPanel.add(javax.swing.Box.createVerticalStrut(4));
-        titleTextPanel.add(subLabel);
-        headerPanel.add(titleTextPanel, java.awt.BorderLayout.WEST);
-
-        panelCustomer.add(headerPanel, java.awt.BorderLayout.NORTH);
-
-        // 2. Main Content Panel
-        javax.swing.JPanel contentPanel = new javax.swing.JPanel();
-        contentPanel.setOpaque(false);
-        contentPanel.setBorder(javax.swing.BorderFactory.createEmptyBorder(20, 30, 20, 30));
-        contentPanel.setLayout(new java.awt.BorderLayout(0, 15));
-
-        // Filter / Action Row
-        javax.swing.JPanel actionRow = new javax.swing.JPanel();
-        actionRow.setOpaque(false);
-        actionRow.setLayout(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 15, 0));
-
-        javax.swing.JLabel phoneLabel = new javax.swing.JLabel("Phone");
-        phoneLabel.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 14));
-        
-        txtSearchCustomerPhoneInSale = new javax.swing.JTextField(20);
-        txtSearchCustomerPhoneInSale.putClientProperty("JTextField.placeholder", "Search phone or name...");
-        txtSearchCustomerPhoneInSale.putClientProperty(com.formdev.flatlaf.FlatClientProperties.STYLE, "arc: 12; margin: 0,10,0,10;");
-
-        btnAddCustomerInSale = new javax.swing.JButton("Add Customer");
-        btnAddCustomerInSale.putClientProperty(com.formdev.flatlaf.FlatClientProperties.STYLE,
-                "background: #E38A45; foreground: #FFFFFF; arc: 12; borderWidth: 0; focusWidth: 0; font: bold;");
-
-        actionRow.add(phoneLabel);
-        actionRow.add(txtSearchCustomerPhoneInSale);
-        actionRow.add(btnAddCustomerInSale);
-
-        contentPanel.add(actionRow, java.awt.BorderLayout.NORTH);
-
-        // Table
-        tableCustomerInSale = new javax.swing.JTable();
-        tableCustomerInSale.setModel(new javax.swing.table.DefaultTableModel(
-                new Object[][]{},
-                new String[]{"STT", "Customer ID", "Full Name", "Phone Number"}
-        ) {
-            boolean[] canEdit = new boolean[]{false, false, false, false};
-
-            @Override
-            public boolean isCellEditable(int rowIndex, int columnIndex) {
-                return canEdit[columnIndex];
-            }
-        });
-        tableCustomerInSale.setRowHeight(48);
-        tableCustomerInSale.setShowHorizontalLines(true);
-        tableCustomerInSale.setShowVerticalLines(false);
-        tableCustomerInSale.setSelectionBackground(new java.awt.Color(248, 246, 242));
-        tableCustomerInSale.setSelectionForeground(new java.awt.Color(15, 23, 42));
-        tableCustomerInSale.putClientProperty(com.formdev.flatlaf.FlatClientProperties.STYLE,
-                "rowSelectionBackground: #F8F6F2; rowSelectionForeground: #0F172A; lineColor: #F1F5F9;");
-
-        javax.swing.table.JTableHeader tableHeader = tableCustomerInSale.getTableHeader();
-        tableHeader.setPreferredSize(new java.awt.Dimension(tableHeader.getPreferredSize().width, 38));
-        tableHeader.setDefaultRenderer(new ui.StandardTableHeaderRenderer(javax.swing.SwingConstants.LEFT, 12));
-
-        javax.swing.JScrollPane scrollPane = new javax.swing.JScrollPane(tableCustomerInSale);
-        scrollPane.setViewport(new ui.EmptyTableViewport(tableCustomerInSale, "No customers found!"));
-        scrollPane.setViewportView(tableCustomerInSale);
-
-        contentPanel.add(scrollPane, java.awt.BorderLayout.CENTER);
-        panelCustomer.add(contentPanel, java.awt.BorderLayout.CENTER);
-
-        // Events
-        txtSearchCustomerPhoneInSale.getDocument().addDocumentListener(
-                new javax.swing.event.DocumentListener() {
-                    private javax.swing.Timer timer = null;
-                    private void triggerSearch() {
-                        if (timer != null && timer.isRunning()) {
-                            timer.stop();
-                        }
-                        timer = new javax.swing.Timer(300, e -> loadCustomerTableDataInSale());
-                        timer.setRepeats(false);
-                        timer.start();
-                    }
-                    public void insertUpdate(javax.swing.event.DocumentEvent e) { triggerSearch(); }
-                    public void removeUpdate(javax.swing.event.DocumentEvent e) { triggerSearch(); }
-                    public void changedUpdate(javax.swing.event.DocumentEvent e) { triggerSearch(); }
-                }
-        );
-
-        btnAddCustomerInSale.addActionListener(e -> {
-            AddCustomerFrame addFrame = new AddCustomerFrame(this::loadCustomerTableDataInSale);
-            addFrame.setVisible(true);
-        });
-
-        loadCustomerTableDataInSale();
-    }
-
-    private void loadCustomerTableDataInSale() {
-        String keyword = (txtSearchCustomerPhoneInSale != null) ? txtSearchCustomerPhoneInSale.getText().trim() : "";
-        new javax.swing.SwingWorker<java.util.List<entity.Customer>, Void>() {
-            @Override
-            protected java.util.List<entity.Customer> doInBackground() {
-                return customerService.searchCustomers(keyword);
-            }
-
-            @Override
-            protected void done() {
-                try {
-                    java.util.List<entity.Customer> customers = get();
-                    javax.swing.table.DefaultTableModel model
-                            = (javax.swing.table.DefaultTableModel) tableCustomerInSale.getModel();
-                    model.setRowCount(0);
-
-                    int stt = 1;
-                    for (var rec : customers) {
-                        model.addRow(new Object[]{
-                            stt++,
-                            String.format("CTM-%04d", rec.getId()),
-                            rec.getFullName(),
-                            rec.getPhone()
-                        });
-                    }
-                    tableCustomerInSale.revalidate();
-                    tableCustomerInSale.repaint();
-                } catch (Exception ex) {
-                    ex.printStackTrace();
-                }
-            }
-        }.execute();
-    }
-
-    private void initProductManagementInSale() {
-        panelProduct.removeAll();
-        panelProduct.setLayout(new java.awt.BorderLayout(0, 0));
-        panelProduct.setBackground(new java.awt.Color(244, 246, 248));
-
-        // 1. Header Panel
-        javax.swing.JPanel headerPanel = new javax.swing.JPanel();
-        headerPanel.setBackground(new java.awt.Color(255, 255, 255));
-        headerPanel.setBorder(javax.swing.BorderFactory.createEmptyBorder(20, 30, 20, 30));
-        headerPanel.setLayout(new java.awt.BorderLayout());
-
-        javax.swing.JPanel titleTextPanel = new javax.swing.JPanel();
-        titleTextPanel.setOpaque(false);
-        titleTextPanel.setLayout(new javax.swing.BoxLayout(titleTextPanel, javax.swing.BoxLayout.Y_AXIS));
-
-        javax.swing.JLabel titleLabel = new javax.swing.JLabel("Product Management");
-        titleLabel.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 24));
-        titleLabel.setForeground(new java.awt.Color(122, 67, 29));
-
-        javax.swing.JLabel subLabel = new javax.swing.JLabel("Manage the product information and inventory");
-        subLabel.setFont(new java.awt.Font("Segoe UI", java.awt.Font.PLAIN, 14));
-        subLabel.setForeground(new java.awt.Color(102, 102, 102));
-
-        titleTextPanel.add(titleLabel);
-        titleTextPanel.add(javax.swing.Box.createVerticalStrut(4));
-        titleTextPanel.add(subLabel);
-        headerPanel.add(titleTextPanel, java.awt.BorderLayout.WEST);
-
-        panelProduct.add(headerPanel, java.awt.BorderLayout.NORTH);
-
-        // 2. Main Content Panel
-        javax.swing.JPanel contentPanel = new javax.swing.JPanel();
-        contentPanel.setOpaque(false);
-        contentPanel.setBorder(javax.swing.BorderFactory.createEmptyBorder(20, 30, 20, 30));
-        contentPanel.setLayout(new java.awt.BorderLayout(0, 15));
-
-        // Filter / Action Row
-        javax.swing.JPanel actionRow = new javax.swing.JPanel();
-        actionRow.setOpaque(false);
-        actionRow.setLayout(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 15, 0));
-
-        txtSearchProductInSale = new javax.swing.JTextField(20);
-        txtSearchProductInSale.putClientProperty("JTextField.placeholder", "Search products...");
-        txtSearchProductInSale.putClientProperty(com.formdev.flatlaf.FlatClientProperties.STYLE, "arc: 12; margin: 0,10,0,10;");
-
-        cbCategoryInSale = new javax.swing.JComboBox<>();
-        cbCategoryInSale.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 13));
-        cbCategoryInSale.setForeground(new java.awt.Color(102, 102, 102));
-        javax.swing.DefaultComboBoxModel<String> catModel = new javax.swing.DefaultComboBoxModel<>();
-        catModel.addElement("All");
-        categoryRepository.getAll().forEach(cat -> catModel.addElement(cat.getCategoryName()));
-        cbCategoryInSale.setModel(catModel);
-
-        btnAddProductInSale = new javax.swing.JButton("+ Add Product");
-        btnAddProductInSale.putClientProperty(com.formdev.flatlaf.FlatClientProperties.STYLE,
-                "background: #E38A45; foreground: #FFFFFF; arc: 12; borderWidth: 0; focusWidth: 0; font: bold;");
-
-        entity.Employee user = util.UserSession.getInstance().getCurrentUser();
-        if (user == null || user.getRoleId() != 1) {
-            btnAddProductInSale.setVisible(false);
-            btnAddProductInSale.setEnabled(false);
-        }
-
-        actionRow.add(txtSearchProductInSale);
-        actionRow.add(cbCategoryInSale);
-        actionRow.add(btnAddProductInSale);
-
-        contentPanel.add(actionRow, java.awt.BorderLayout.NORTH);
-
-        // Table
-        tableProductInSale = new javax.swing.JTable();
-        tableProductInSale.setModel(new javax.swing.table.DefaultTableModel(
-                new Object[][]{},
-                new String[]{"PRODUCT ID", "IMAGE", "PRODUCT NAME", "CATEGORY", "PRICE", "STOCK"}
-        ) {
-            boolean[] canEdit = new boolean[]{false, false, false, false, false, false};
-
-            @Override
-            public boolean isCellEditable(int rowIndex, int columnIndex) {
-                return canEdit[columnIndex];
-            }
-        });
-        tableProductInSale.setRowHeight(52);
-        tableProductInSale.setShowHorizontalLines(true);
-        tableProductInSale.setShowVerticalLines(false);
-        tableProductInSale.setSelectionBackground(new java.awt.Color(248, 246, 242));
-        tableProductInSale.setSelectionForeground(new java.awt.Color(15, 23, 42));
-        tableProductInSale.putClientProperty(com.formdev.flatlaf.FlatClientProperties.STYLE,
-                "rowSelectionBackground: #F8F6F2; rowSelectionForeground: #0F172A; lineColor: #F1F5F9;");
-
-        javax.swing.table.JTableHeader tableHeader = tableProductInSale.getTableHeader();
-        tableHeader.setPreferredSize(new java.awt.Dimension(tableHeader.getPreferredSize().width, 38));
-        tableHeader.setDefaultRenderer(new ui.StandardTableHeaderRenderer());
-
-        ui.InventoryTableRenderer productRenderer = new ui.InventoryTableRenderer(this::getCachedProductIcon);
-        for (int i = 0; i < tableProductInSale.getColumnCount(); i++) {
-            tableProductInSale.getColumnModel().getColumn(i).setCellRenderer(productRenderer);
-        }
-
-        tableProductInSale.getColumnModel().getColumn(0).setPreferredWidth(70);
-        tableProductInSale.getColumnModel().getColumn(1).setPreferredWidth(70);
-        tableProductInSale.getColumnModel().getColumn(1).setMaxWidth(70);
-        tableProductInSale.getColumnModel().getColumn(2).setPreferredWidth(200);
-        tableProductInSale.getColumnModel().getColumn(3).setPreferredWidth(100);
-        tableProductInSale.getColumnModel().getColumn(4).setPreferredWidth(90);
-        tableProductInSale.getColumnModel().getColumn(5).setPreferredWidth(50);
-
-        javax.swing.JScrollPane scrollPane = new javax.swing.JScrollPane(tableProductInSale);
-        scrollPane.setViewport(new ui.EmptyTableViewport(tableProductInSale, "No products found!"));
-        scrollPane.setViewportView(tableProductInSale);
-
-        contentPanel.add(scrollPane, java.awt.BorderLayout.CENTER);
-        panelProduct.add(contentPanel, java.awt.BorderLayout.CENTER);
-
-        // Filter events
-        txtSearchProductInSale.getDocument().addDocumentListener(
-                new javax.swing.event.DocumentListener() {
-                    public void insertUpdate(javax.swing.event.DocumentEvent e) { performInventoryFilterInSale(); }
-                    public void removeUpdate(javax.swing.event.DocumentEvent e) { performInventoryFilterInSale(); }
-                    public void changedUpdate(javax.swing.event.DocumentEvent e) { performInventoryFilterInSale(); }
-                }
-        );
-        cbCategoryInSale.addActionListener(e -> performInventoryFilterInSale());
-
-        btnAddProductInSale.addActionListener(e -> {
-            views.AddProductFrame addFrame = new views.AddProductFrame(this::loadProductTableDataInSale);
-            addFrame.setVisible(true);
-        });
-
-        loadProductTableDataInSale();
-    }
-
-    private void performInventoryFilterInSale() {
-        if (inventorySorterInSale == null) {
-            return;
-        }
-        String text = txtSearchProductInSale.getText().trim();
-        String cat = cbCategoryInSale.getSelectedItem() != null ? cbCategoryInSale.getSelectedItem().toString() : "All";
-
-        javax.swing.RowFilter<javax.swing.table.DefaultTableModel, Object> rfText = null;
-        javax.swing.RowFilter<javax.swing.table.DefaultTableModel, Object> rfCat = null;
-
-        if (!text.isEmpty()) {
-            rfText = javax.swing.RowFilter.regexFilter("(?i)" + java.util.regex.Pattern.quote(text), 2); // Search name (col 2)
-        }
-
-        if (!"All".equals(cat)) {
-            rfCat = javax.swing.RowFilter.regexFilter("^" + java.util.regex.Pattern.quote(cat) + "$", 3); // Category (col 3)
-        }
-
-        java.util.List<javax.swing.RowFilter<javax.swing.table.DefaultTableModel, Object>> filters = new java.util.ArrayList<>();
-        if (rfText != null) filters.add(rfText);
-        if (rfCat != null) filters.add(rfCat);
-
-        if (filters.isEmpty()) {
-            inventorySorterInSale.setRowFilter(null);
-        } else {
-            inventorySorterInSale.setRowFilter(javax.swing.RowFilter.andFilter(filters));
-        }
-    }
-
-    private void loadProductTableDataInSale() {
-        javax.swing.table.DefaultTableModel model
-                = (javax.swing.table.DefaultTableModel) tableProductInSale.getModel();
-        model.setRowCount(0);
-
-        new javax.swing.SwingWorker<java.util.List<repository.ProductRepository.InventoryRow>, Void>() {
-            @Override
-            protected java.util.List<repository.ProductRepository.InventoryRow> doInBackground() {
-                return productRepository.findAllForInventory();
-            }
-
-            @Override
-            protected void done() {
-                try {
-                    var rows = get();
-                    for (repository.ProductRepository.InventoryRow row : rows) {
-                        model.addRow(new Object[]{
-                            String.format("PRD-%04d", row.id),
-                            row.imagePath,
-                            row.productName,
-                            row.categoryName,
-                            String.format("%,.0f đ", row.price),
-                            row.quantity
-                        });
-                    }
-                    inventorySorterInSale = new javax.swing.table.TableRowSorter<>(model);
-                    tableProductInSale.setRowSorter(inventorySorterInSale);
-                    model.fireTableDataChanged();
-                    performInventoryFilterInSale();
-                } catch (Exception ex) {
-                    ex.printStackTrace();
-                }
-            }
-        }.execute();
-    }
-
-    private javax.swing.ImageIcon getCachedProductIcon(String imgPath) {
-        if (imgPath == null || imgPath.isEmpty() || "null".equals(imgPath)) {
-            return null;
-        }
-        return imageCacheInSale.computeIfAbsent(imgPath, path -> {
-            try {
-                String fileName = path.contains("/")
-                        ? path.substring(path.lastIndexOf('/') + 1)
-                        : path;
-                String resourcePath = "/images/" + fileName;
-
-                java.net.URL imgUrl = getClass().getResource(resourcePath);
-                if (imgUrl == null) {
-                    System.err.println("⚠️ Không tìm thấy ảnh: " + resourcePath);
-                    return null;
-                }
-
-                java.awt.Image raw = new javax.swing.ImageIcon(imgUrl).getImage();
-
-                int kichThuocLogic = 26;
-                double scale = 1.0;
-                var gc = getGraphicsConfiguration();
-                if (gc != null) {
-                    scale = gc.getDefaultTransform().getScaleX();
-                }
-                int kichThuocThuc = Math.max(kichThuocLogic, (int) Math.round(kichThuocLogic * scale));
-
-                var imgLogic = util.ImageUtil.scale(raw, kichThuocLogic);
-                var imgThuc = (kichThuocThuc == kichThuocLogic)
-                        ? imgLogic
-                        : util.ImageUtil.scale(raw, kichThuocThuc);
-
-                return new javax.swing.ImageIcon(
-                        new java.awt.image.BaseMultiResolutionImage(imgLogic, imgThuc));
-            } catch (Exception ex) {
-                return null;
-            }
-        });
-    }
-
-    @Override
-    public void setVisible(boolean b) {
-        if (b) {
-            if (!util.UserSession.getInstance().isLoggedIn()) {
-                super.setVisible(false);
-                util.AppRouter.showLogin();
-                this.dispose();
-                return;
-            }
-        }
-        super.setVisible(b);
-    }
-
+    private javax.swing.JTextField txtSearchCustomer;
     // End of variables declaration//GEN-END:variables
 }

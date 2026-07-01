@@ -53,12 +53,9 @@ public class DashBoardFrame extends javax.swing.JFrame {
         setupTopSales();
         initHRTabEvents();
         loadOverviewCardsData();
-        initCancelOrderEvent();
-        customTableAppearance();
         customInventoryAppearance();
         loadInventoryTableData();
         loadCategoryComboBox();
-        loadOrderTableData();
         initInventoryFilterEvents();
         initStatusFilter();
         initSearchInvoiceFilter();
@@ -67,7 +64,6 @@ public class DashBoardFrame extends javax.swing.JFrame {
         refreshOrderHistory();
         customDashboardComponentsStyle();
         customHistoryComponentsStyle();
-        ui.CancelButtonStyler.apply(btnCancelOrder);
         updateAttendanceTitle();
         initAttendanceDateFilter();
         customAttendanceTableAppearance();
@@ -189,13 +185,9 @@ public class DashBoardFrame extends javax.swing.JFrame {
 
     public void refreshAfterNewOrder() {
         loadOverviewCardsData();
-        loadOrderTableData();
+        dateTo.setDate(new java.util.Date());
         refreshOrderHistory();
         loadInventoryTableData();
-    }
-
-    public void refreshOrderTableOnly() {
-        loadOrderTableData();
     }
 
     private void setupScrollArea() {
@@ -515,61 +507,6 @@ public class DashBoardFrame extends javax.swing.JFrame {
 
         lblMonthDayYear.setText(text);
         lblEmployeeSchedule.setText(employeeCount + (employeeCount == 1 ? " employee scheduled" : " employees scheduled"));
-    }
-
-    private void initCancelOrderEvent() {
-        btnCancelOrder.addActionListener(e -> {
-            javax.swing.table.DefaultTableModel model = (javax.swing.table.DefaultTableModel) tableDashboard.getModel();
-            int[] selectedRows = tableDashboard.getSelectedRows();
-
-            if (selectedRows.length == 0) {
-                javax.swing.JOptionPane.showMessageDialog(this,
-                        "Vui lòng chọn ít nhất một hóa đơn 'PAID' để hủy.",
-                        "Chưa chọn hóa đơn",
-                        javax.swing.JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-
-            java.util.List<Integer> selectedOrderIds = new java.util.ArrayList<>();
-            for (int i : selectedRows) {
-                String status = model.getValueAt(i, 5).toString(); // cột TRẠNG THÁI
-                if ("PAID".equals(status)) {
-                    String maHD = model.getValueAt(i, 1).toString(); // "HD001"
-                    try {
-                        int id = Integer.parseInt(maHD.substring(2)); // bỏ "HD"
-                        selectedOrderIds.add(id);
-                    } catch (Exception ex) {
-                        System.err.println("Lỗi parse ID: " + ex.getMessage());
-                    }
-                }
-            }
-
-            if (selectedOrderIds.isEmpty()) {
-                javax.swing.JOptionPane.showMessageDialog(this,
-                        "Chỉ có thể hủy hóa đơn có trạng thái 'PAID'.",
-                        "Không hợp lệ",
-                        javax.swing.JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-
-            int confirm = javax.swing.JOptionPane.showConfirmDialog(this,
-                    "Bạn có chắc muốn hủy " + selectedOrderIds.size() + " hóa đơn đã chọn?",
-                    "Xác nhận hủy",
-                    javax.swing.JOptionPane.YES_NO_OPTION);
-
-            if (confirm == javax.swing.JOptionPane.YES_OPTION) {
-                updateOrdersToCanceled(selectedOrderIds);
-            }
-        });
-    }
-
-    private void updateOrdersToCanceled(java.util.List<Integer> orderIds) {
-        int updatedRows = orderRepository.cancelOrders(orderIds);
-        if (updatedRows > 0) {
-            loadOverviewCardsData();
-            loadOrderTableData();
-            javax.swing.JOptionPane.showMessageDialog(this, "Successfully canceled " + updatedRows + " order(s).");
-        }
     }
 
     private void customEmployeeManagementTableAppearance() {
@@ -920,33 +857,6 @@ public class DashBoardFrame extends javax.swing.JFrame {
         }.execute();
     }
 
-    private void loadOrderTableData() {
-        javax.swing.table.DefaultTableModel model = (javax.swing.table.DefaultTableModel) tableDashboard.getModel();
-        model.setRowCount(0);
-
-        java.util.List<repository.OrderRepository.OrderRow> rows = orderRepository.findTodayOrders();
-
-        if (rows.isEmpty()) {
-            System.out.println("⚠️ Kết nối DB thành công nhưng hôm nay chưa có đơn hàng nào trong bảng orders!");
-        }
-
-        int stt = 1; // Khởi tạo số thứ tự bắt đầu từ 1
-
-        for (repository.OrderRepository.OrderRow row : rows) {
-            model.addRow(new Object[]{
-                stt++,
-                String.format("HD%03d", row.id), // Định dạng hóa đơn mới: HD001, HD002...
-                row.customerName, // Tên khách hàng
-                row.customerPhone, // Số điện thoại khách hàng
-                String.format("%,.0f đ", row.totalAmount), // Định dạng tiền tệ
-                row.status // Trạng thái chuỗi (PAID, CANCELED...)
-            });
-        }
-
-        tableDashboard.repaint();
-        tableDashboard.revalidate();
-    }
-
     private void loadInventoryTableData() {
 
         javax.swing.table.DefaultTableModel model
@@ -1203,7 +1113,6 @@ public class DashBoardFrame extends javax.swing.JFrame {
         int updatedRows = orderRepository.cancelOrders(java.util.Collections.singletonList(extractHistoryOrderId(rowIndex)));
         if (updatedRows > 0) {
             loadOverviewCardsData();
-            loadOrderTableData();
             refreshOrderHistory();
             initPaymentMethodFilter();
             javax.swing.JOptionPane.showMessageDialog(this,
@@ -1442,52 +1351,6 @@ public class DashBoardFrame extends javax.swing.JFrame {
                 return null;
             }
         });
-    }
-
-    private void customTableAppearance() {
-        tableDashboard.setSelectionBackground(new java.awt.Color(248, 246, 242));
-        tableDashboard.setSelectionForeground(new java.awt.Color(15, 23, 42));
-        tableDashboard.setModel(new javax.swing.table.DefaultTableModel(
-                new Object[][]{},
-                new String[]{"No.", "Order ID", "Customer name", "Phone", "Total", "Status"}
-        ) {
-            Class[] types = new Class[]{java.lang.Object.class, java.lang.Object.class, java.lang.Object.class, java.lang.Object.class, java.lang.Object.class, java.lang.Object.class};
-            boolean[] canEdit = new boolean[]{false, false, false, false, false, false, true};
-
-            @Override
-            public Class getColumnClass(int columnIndex) {
-                return types[columnIndex];
-            }
-
-            @Override
-            public boolean isCellEditable(int rowIndex, int columnIndex) {
-                return canEdit[columnIndex];
-            }
-        });
-
-        tableDashboard.getColumnModel().getColumn(0).setPreferredWidth(50);
-        tableDashboard.getColumnModel().getColumn(0).setMaxWidth(60);
-        tableDashboard.getColumnModel().getColumn(1).setPreferredWidth(110);
-        tableDashboard.getColumnModel().getColumn(2).setPreferredWidth(200);
-        tableDashboard.getColumnModel().getColumn(3).setPreferredWidth(150);
-        tableDashboard.getColumnModel().getColumn(4).setPreferredWidth(130);
-        tableDashboard.getColumnModel().getColumn(5).setPreferredWidth(120);
-
-        tableDashboard.setRowHeight(42);
-        tableDashboard.setShowHorizontalLines(true);
-        tableDashboard.setShowVerticalLines(false);
-        tableDashboard.putClientProperty(FlatClientProperties.STYLE,
-                "rowSelectionBackground: #F8F6F2; "
-                + "rowSelectionForeground: #0F172A; "
-                + "lineColor: #F1F5F9;");
-        javax.swing.table.JTableHeader header = tableDashboard.getTableHeader();
-        header.setPreferredSize(new java.awt.Dimension(header.getPreferredSize().width, 38));
-        header.setDefaultRenderer(new ui.StandardTableHeaderRenderer());
-
-        ui.OrderTableRenderer orderRenderer = new ui.OrderTableRenderer();
-        for (int i = 0; i < tableDashboard.getColumnCount(); i++) {
-            tableDashboard.getColumnModel().getColumn(i).setCellRenderer(orderRenderer);
-        }
     }
 
     private void loadCategoryComboBox() {
@@ -1843,11 +1706,6 @@ public class DashBoardFrame extends javax.swing.JFrame {
         panelCanceledOrders = new javax.swing.JPanel();
         jLabel18 = new javax.swing.JLabel();
         lblRevenueMonth = new javax.swing.JLabel();
-        panelOrderManagement = new javax.swing.JPanel();
-        jScrollPane1 = new javax.swing.JScrollPane();
-        tableDashboard = new javax.swing.JTable();
-        jLabel19 = new javax.swing.JLabel();
-        btnCancelOrder = new javax.swing.JButton();
         panelActiveEmployees = new javax.swing.JPanel();
         jLabel16 = new javax.swing.JLabel();
         lblActiveEmployees = new javax.swing.JLabel();
@@ -2209,59 +2067,6 @@ public class DashBoardFrame extends javax.swing.JFrame {
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
-        panelOrderManagement.setBackground(new java.awt.Color(247, 246, 242));
-
-        tableDashboard.setModel(new javax.swing.table.DefaultTableModel(
-            new Object [][] {
-                {null, null, null, null},
-                {null, null, null, null},
-                {null, null, null, null},
-                {null, null, null, null}
-            },
-            new String [] {
-                "Title 1", "Title 2", "Title 3", "Title 4"
-            }
-        ));
-        jScrollPane1.setViewportView(tableDashboard);
-
-        jLabel19.setBackground(new java.awt.Color(122, 67, 29));
-        jLabel19.setFont(new java.awt.Font("Segoe UI", 0, 19)); // NOI18N
-        jLabel19.setForeground(new java.awt.Color(122, 67, 29));
-        jLabel19.setText("Today's bill");
-
-        btnCancelOrder.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
-        btnCancelOrder.setForeground(new java.awt.Color(255, 77, 77));
-        btnCancelOrder.setText("Cancel Selected Invoice");
-        btnCancelOrder.setPreferredSize(new java.awt.Dimension(155, 35));
-        btnCancelOrder.addActionListener(this::btnCancelOrderActionPerformed);
-
-        javax.swing.GroupLayout panelOrderManagementLayout = new javax.swing.GroupLayout(panelOrderManagement);
-        panelOrderManagement.setLayout(panelOrderManagementLayout);
-        panelOrderManagementLayout.setHorizontalGroup(
-            panelOrderManagementLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(panelOrderManagementLayout.createSequentialGroup()
-                .addGap(27, 27, 27)
-                .addComponent(jLabel19)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addComponent(btnCancelOrder, javax.swing.GroupLayout.PREFERRED_SIZE, 247, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(21, 21, 21))
-            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelOrderManagementLayout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(jScrollPane1)
-                .addContainerGap())
-        );
-        panelOrderManagementLayout.setVerticalGroup(
-            panelOrderManagementLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelOrderManagementLayout.createSequentialGroup()
-                .addGap(14, 14, 14)
-                .addGroup(panelOrderManagementLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(jLabel19)
-                    .addComponent(btnCancelOrder, javax.swing.GroupLayout.PREFERRED_SIZE, 26, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 136, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(87, Short.MAX_VALUE))
-        );
-
         panelActiveEmployees.setBackground(new java.awt.Color(255, 255, 255));
         panelActiveEmployees.setPreferredSize(new java.awt.Dimension(220, 90));
 
@@ -2356,22 +2161,19 @@ public class DashBoardFrame extends javax.swing.JFrame {
             .addComponent(panelDashboardHeader, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelDashboardLayout.createSequentialGroup()
                 .addGap(23, 23, 23)
-                .addGroup(panelDashboardLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                    .addComponent(panelOrderManagement, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addGroup(panelDashboardLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addGroup(panelDashboardLayout.createSequentialGroup()
-                        .addGroup(panelDashboardLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                            .addGroup(panelDashboardLayout.createSequentialGroup()
-                                .addComponent(panelRevenueToday, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                .addGap(18, 18, 18)
-                                .addComponent(panelCanceledOrders, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                            .addComponent(panelRevenueDate, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                        .addComponent(panelRevenueToday, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addGap(18, 18, 18)
-                        .addGroup(panelDashboardLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addGroup(panelDashboardLayout.createSequentialGroup()
-                                .addComponent(panelActiveOrders, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 21, Short.MAX_VALUE)
-                                .addComponent(panelActiveEmployees, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                            .addComponent(panelTopSales, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))))
+                        .addComponent(panelCanceledOrders, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addComponent(panelRevenueDate, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addGap(18, 18, 18)
+                .addGroup(panelDashboardLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(panelDashboardLayout.createSequentialGroup()
+                        .addComponent(panelActiveOrders, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 21, Short.MAX_VALUE)
+                        .addComponent(panelActiveEmployees, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addComponent(panelTopSales, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addGap(24, 24, 24))
         );
         panelDashboardLayout.setVerticalGroup(
@@ -2388,9 +2190,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
                 .addGroup(panelDashboardLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addComponent(panelRevenueDate, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(panelTopSales, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                .addGap(18, 18, 18)
-                .addComponent(panelOrderManagement, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addContainerGap(211, Short.MAX_VALUE))
         );
 
         panelContent.add(panelDashboard, "CardDashboard");
@@ -3551,10 +3351,6 @@ public class DashBoardFrame extends javax.swing.JFrame {
         loadEmployeeManagementTableData();
     }
 
-    private void btnCancelOrderActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnCancelOrderActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_btnCancelOrderActionPerformed
-
     private void btnAddScheduleActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnAddScheduleActionPerformed
         AddScheduleFrame addScheduleFrame = new AddScheduleFrame(this::loadWeeklyScheduleData);
         addScheduleFrame.setLocationRelativeTo(this);
@@ -3578,7 +3374,6 @@ public class DashBoardFrame extends javax.swing.JFrame {
     private javax.swing.JButton btnAddSchedule;
     private javax.swing.JButton btnAttendance;
     private javax.swing.JButton btnBackToSaleCounter;
-    private javax.swing.JButton btnCancelOrder;
     private javax.swing.JButton btnCustomerManagement;
     private javax.swing.JButton btnDashBoard;
     private javax.swing.JButton btnEmployeeManagement;
@@ -3612,7 +3407,6 @@ public class DashBoardFrame extends javax.swing.JFrame {
     private javax.swing.JLabel jLabel16;
     private javax.swing.JLabel jLabel17;
     private javax.swing.JLabel jLabel18;
-    private javax.swing.JLabel jLabel19;
     private javax.swing.JLabel jLabel2;
     private javax.swing.JLabel jLabel20;
     private javax.swing.JLabel jLabel21;
@@ -3637,7 +3431,6 @@ public class DashBoardFrame extends javax.swing.JFrame {
     private javax.swing.JPanel jPanel5;
     private javax.swing.JPanel jPanel6;
     private javax.swing.JPanel jPanel7;
-    private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JScrollPane jScrollPane2;
     private javax.swing.JScrollPane jScrollPane3;
     private javax.swing.JScrollPane jScrollPane4;
@@ -3692,7 +3485,6 @@ public class DashBoardFrame extends javax.swing.JFrame {
     private javax.swing.JPanel panelLogo;
     private javax.swing.JPanel panelMenu;
     private javax.swing.JPanel panelOrder;
-    private javax.swing.JPanel panelOrderManagement;
     private javax.swing.JPanel panelOrderManagement1;
     private javax.swing.JPanel panelOrderManagement2;
     private javax.swing.JPanel panelOrderManagement4;
@@ -3705,7 +3497,6 @@ public class DashBoardFrame extends javax.swing.JFrame {
     private javax.swing.JPanel panelTopSales;
     private javax.swing.JPanel panelTotalRevenue;
     private javax.swing.JTable tableAttendance;
-    private javax.swing.JTable tableDashboard;
     private javax.swing.JTable tableEmployeeManagement;
     private javax.swing.JTable tableProduct;
     private javax.swing.JTable tableSchedule;
@@ -3713,31 +3504,5 @@ public class DashBoardFrame extends javax.swing.JFrame {
     private javax.swing.JTextField txtSearchEmployee;
     private javax.swing.JTextField txtSearchInvoice;
     private javax.swing.JTextField txtSearchProduct;
-    @Override
-    public void setVisible(boolean b) {
-        if (b) {
-            if (!util.UserSession.getInstance().isLoggedIn()) {
-                super.setVisible(false);
-                util.AppRouter.showLogin();
-                this.dispose();
-                return;
-            }
-            entity.Employee user = util.UserSession.getInstance().getCurrentUser();
-            if (user == null || user.getRoleId() != 1) { // Not manager
-                super.setVisible(false);
-                javax.swing.JOptionPane.showMessageDialog(this, "Chỉ Manager mới được phép truy cập trang quản lý!", "Từ chối truy cập", javax.swing.JOptionPane.ERROR_MESSAGE);
-                this.dispose();
-                java.awt.EventQueue.invokeLater(() -> {
-                    SalesCounterFrame salesFrame = new SalesCounterFrame();
-                    salesFrame.setManagerButtonVisible(false);
-                    salesFrame.hideNonManagerMenus();
-                    salesFrame.setVisible(true);
-                });
-                return;
-            }
-        }
-        super.setVisible(b);
-    }
-
     // End of variables declaration//GEN-END:variables
 }
