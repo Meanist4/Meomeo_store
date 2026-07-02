@@ -10,8 +10,8 @@ public final class SmsService {
     private static final Logger logger = Logger.getLogger(SmsService.class.getName());
 
     // Cấu hình Twilio (dành cho môi trường Production, thay thế khi deploy thực tế)
-    private static final String TWILIO_ACCOUNT_SID = "AC2718257a59ae21479269e7b035a85fdc";
-    private static final String TWILIO_AUTH_TOKEN = "a34554aca6d6e07901427f95d6ff3416";
+    private static final String TWILIO_ACCOUNT_SID = "TWILIO_ACCOUNT_SID";
+    private static final String TWILIO_AUTH_TOKEN = "TWILIO_AUTH_TOKEN";
     private static final String TWILIO_PHONE_FROM = "+17373217335";
 
     private SmsService() {}
