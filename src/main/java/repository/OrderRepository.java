@@ -614,12 +614,11 @@ public class OrderRepository {
     }
 
 // Cập nhật đơn từ PENDING → PAID/CANCELLED + ghi items
-    public boolean finalizeOrder(int orderId, String paymentMethod,
+    public boolean finalizeOrder(int orderId, Integer customerId, String paymentMethod,
             double totalAmount, String status, List<NewOrderItem> items) {
 
-        String updateSql = "UPDATE orders SET payment_method=?, total_amount=?, status=? WHERE id=?";
+        String updateSql = "UPDATE orders SET customer_id=?, payment_method=?, total_amount=?, status=? WHERE id=?";
         String detailSql = "INSERT INTO order_details (order_id, product_id, quantity, price) VALUES (?,?,?,?)";
-        // Chỉ trừ kho nếu còn đủ số lượng (quantity >= ?) để tránh chạy âm kho khi có race-condition
         String deductStockSql = "UPDATE products SET quantity = quantity - ? "
                 + "WHERE id = ? AND is_deleted = 0 AND quantity >= ?";
 
@@ -629,10 +628,15 @@ public class OrderRepository {
             conn.setAutoCommit(false);
 
             try (PreparedStatement ps = conn.prepareStatement(updateSql)) {
-                ps.setString(1, paymentMethod != null ? paymentMethod : "Cash");
-                ps.setDouble(2, totalAmount);
-                ps.setString(3, normalizeHistoryStatus(status));
-                ps.setInt(4, orderId);
+                if (customerId != null) {
+                    ps.setInt(1, customerId);
+                } else {
+                    ps.setNull(1, Types.INTEGER);
+                }
+                ps.setString(2, paymentMethod != null ? paymentMethod : "Cash");
+                ps.setDouble(3, totalAmount);
+                ps.setString(4, normalizeHistoryStatus(status));
+                ps.setInt(5, orderId);
                 ps.executeUpdate();
             }
 
@@ -648,7 +652,6 @@ public class OrderRepository {
                     ps.executeBatch();
                 }
 
-                // Trừ số lượng tồn kho tương ứng cho từng sản phẩm trong đơn
                 try (PreparedStatement ps = conn.prepareStatement(deductStockSql)) {
                     for (NewOrderItem item : items) {
                         ps.setInt(1, item.quantity);
@@ -659,7 +662,6 @@ public class OrderRepository {
                     int[] results = ps.executeBatch();
                     for (int updated : results) {
                         if (updated == 0) {
-                            // Không đủ hàng tồn (hoặc sản phẩm không tồn tại) -> hủy toàn bộ giao dịch
                             throw new SQLException("Không đủ số lượng tồn kho để trừ cho một sản phẩm trong đơn hàng.");
                         }
                     }

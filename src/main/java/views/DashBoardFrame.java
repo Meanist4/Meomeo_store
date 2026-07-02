@@ -63,7 +63,6 @@ public class DashBoardFrame extends javax.swing.JFrame {
         customHistoryTableAppearance();
         refreshOrderHistory();
         customDashboardComponentsStyle();
-        customHistoryComponentsStyle();
         updateAttendanceTitle();
         initAttendanceDateFilter();
         customAttendanceTableAppearance();
@@ -401,54 +400,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
         });
     }
 
-    private void customHistoryComponentsStyle() {
-        int CARD_HEIGHT = 108;
-        java.awt.Dimension cardSize;
-
-        cardSize = new java.awt.Dimension(225, CARD_HEIGHT);
-        panelTotalRevenue.setPreferredSize(cardSize);
-        panelTotalRevenue.setMinimumSize(cardSize);
-        panelTotalRevenue.setMaximumSize(new java.awt.Dimension(300, CARD_HEIGHT));
-
-        cardSize = new java.awt.Dimension(225, CARD_HEIGHT);
-        jPanel1.setPreferredSize(cardSize);
-        jPanel1.setMinimumSize(cardSize);
-        jPanel1.setMaximumSize(new java.awt.Dimension(300, CARD_HEIGHT));
-
-        cardSize = new java.awt.Dimension(225, CARD_HEIGHT);
-        panelPaidOrders.setPreferredSize(cardSize);
-        panelPaidOrders.setMinimumSize(cardSize);
-        panelPaidOrders.setMaximumSize(new java.awt.Dimension(300, CARD_HEIGHT));
-
-        cardSize = new java.awt.Dimension(225, CARD_HEIGHT);
-        panelCanceledOrder.setPreferredSize(cardSize);
-        panelCanceledOrder.setMinimumSize(cardSize);
-        panelCanceledOrder.setMaximumSize(new java.awt.Dimension(300, CARD_HEIGHT));
-
-        java.awt.Color borderColor = java.awt.Color.decode("#F1F5F9");
-        com.formdev.flatlaf.ui.FlatLineBorder cardBorder
-                = new com.formdev.flatlaf.ui.FlatLineBorder(new java.awt.Insets(0, 0, 0, 0), borderColor, 1, 14);
-
-        for (javax.swing.JPanel p : new javax.swing.JPanel[]{
-            panelTotalRevenue, jPanel1, panelPaidOrders, panelCanceledOrder}) {
-            p.setOpaque(true);
-            p.setBackground(java.awt.Color.WHITE);
-            p.setBorder(cardBorder);
-        }
-
-        int PAD = 18;
-        setCardPadding(panelTotalRevenue, PAD);
-        setCardPadding(jPanel1, PAD);
-        setCardPadding(panelPaidOrders, PAD);
-        setCardPadding(panelCanceledOrder, PAD);
-
-        panelBelowHeader.setBackground(java.awt.Color.WHITE);
-        panelBelowHeader.setBorder(new com.formdev.flatlaf.ui.FlatLineBorder(
-                new java.awt.Insets(0, 0, 0, 0), borderColor, 1, 14));
-        panelBelowHeader.setPreferredSize(new java.awt.Dimension(panelBelowHeader.getPreferredSize().width, 80));
-        panelBelowHeader.setMinimumSize(new java.awt.Dimension(100, 80));
-        panelBelowHeader.setMaximumSize(new java.awt.Dimension(Short.MAX_VALUE, 80));
-    }
+    
 
     private void setCardPadding(javax.swing.JPanel panel, int leftPad) {
         panel.setBorder(javax.swing.BorderFactory.createCompoundBorder(
@@ -1127,47 +1079,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
         }
     }
 
-    private void loadOrderHistoryOverview() {
-        java.util.List<repository.OrderRepository.OrderHistoryRow> rows = getFilteredOrderHistoryRows();
-
-        double totalRevenue = 0;
-        int paidCount = 0;
-        int canceledCount = 0;
-
-        for (repository.OrderRepository.OrderHistoryRow row : rows) {
-            totalRevenue += row.totalAmount;
-
-            String statusValue = row.status != null
-                    ? row.status.trim().toUpperCase(java.util.Locale.ROOT)
-                    : "PENDING";
-
-            if ("PAID".equals(statusValue)) {
-                paidCount++;
-            } else if ("CANCELLED".equals(statusValue) || "CANCELED".equals(statusValue)) {
-                canceledCount++;
-            }
-        }
-
-        lblTotalRevenue.setText(String.format("%,.0f đ", totalRevenue));
-        lblPaidOrders.setText(String.valueOf(paidCount));
-        lblOrdersCanceled.setText(String.valueOf(canceledCount));
-
-        int total = paidCount + canceledCount;
-
-        if (lblPaidOrder != null) {
-            lblPaidOrder.setText(paidCount + (paidCount == 1 ? " paid order" : " paid orders"));
-        }
-
-        if (lblPercentTotal != null) {
-            double pct = total > 0 ? (paidCount * 100.0) / total : 0;
-            lblPercentTotal.setText(String.format("%.1f%% of total", pct));
-        }
-
-        if (lblPercentCanceledOrder != null) {
-            double pct = total > 0 ? (canceledCount * 100.0) / total : 0;
-            lblPercentCanceledOrder.setText(String.format("%.1f%% of total", pct));
-        }
-    }
+    
 
     private void performInventoryFilter() {
         if (inventorySorter == null) {
@@ -1517,7 +1429,6 @@ public class DashBoardFrame extends javax.swing.JFrame {
     }
 
     private void refreshOrderHistory() {
-        loadOrderHistoryOverview();
         loadOrderHistoryLog();
     }
 
@@ -1602,7 +1513,6 @@ public class DashBoardFrame extends javax.swing.JFrame {
 
         java.beans.PropertyChangeListener dateChangeListener = evt -> {
             if ("date".equals(evt.getPropertyName())) {
-                loadOrderHistoryOverview();
                 loadOrderHistoryLog();
             }
         };
@@ -1728,30 +1638,6 @@ public class DashBoardFrame extends javax.swing.JFrame {
         cbAll = new javax.swing.JComboBox<>();
         btnAddProduct = new javax.swing.JButton();
         panelOrder = new javax.swing.JPanel();
-        panelOrderManagement2 = new javax.swing.JPanel();
-        jScrollPane3 = new javax.swing.JScrollPane();
-        tableTransactionHistory = new javax.swing.JTable();
-        jLabel27 = new javax.swing.JLabel();
-        lblRecordLog = new javax.swing.JLabel();
-        jPanel3 = new javax.swing.JPanel();
-        jLabel11 = new javax.swing.JLabel();
-        jLabel12 = new javax.swing.JLabel();
-        panelTotalRevenue = new javax.swing.JPanel();
-        jLabel23 = new javax.swing.JLabel();
-        lblTotalRevenue = new javax.swing.JLabel();
-        lblPaidOrder = new javax.swing.JLabel();
-        panelPaidOrders = new javax.swing.JPanel();
-        jLabel22 = new javax.swing.JLabel();
-        lblPaidOrders = new javax.swing.JLabel();
-        lblPercentTotal = new javax.swing.JLabel();
-        panelCanceledOrder = new javax.swing.JPanel();
-        jLabel21 = new javax.swing.JLabel();
-        lblOrdersCanceled = new javax.swing.JLabel();
-        lblPercentCanceledOrder = new javax.swing.JLabel();
-        jPanel1 = new javax.swing.JPanel();
-        jLabel26 = new javax.swing.JLabel();
-        lblAvgOrderValue = new javax.swing.JLabel();
-        jLabel29 = new javax.swing.JLabel();
         panelBelowHeader = new javax.swing.JPanel();
         panelDate = new javax.swing.JPanel();
         dateTo = new com.toedter.calendar.JDateChooser();
@@ -1764,6 +1650,14 @@ public class DashBoardFrame extends javax.swing.JFrame {
         cbPaymentMethod = new javax.swing.JComboBox<>();
         lblPaidOrder4 = new javax.swing.JLabel();
         txtSearchInvoice = new javax.swing.JTextField();
+        panelOrderManagement2 = new javax.swing.JPanel();
+        jScrollPane3 = new javax.swing.JScrollPane();
+        tableTransactionHistory = new javax.swing.JTable();
+        jLabel27 = new javax.swing.JLabel();
+        lblRecordLog = new javax.swing.JLabel();
+        jPanel3 = new javax.swing.JPanel();
+        jLabel11 = new javax.swing.JLabel();
+        jLabel12 = new javax.swing.JLabel();
         panelHRMain = new javax.swing.JPanel();
         panelHRHeader = new javax.swing.JPanel();
         jLabel13 = new javax.swing.JLabel();
@@ -2320,240 +2214,6 @@ public class DashBoardFrame extends javax.swing.JFrame {
 
         panelOrder.setBackground(new java.awt.Color(244, 246, 248));
 
-        panelOrderManagement2.setBackground(new java.awt.Color(247, 246, 242));
-
-        tableTransactionHistory.setModel(new javax.swing.table.DefaultTableModel(
-            new Object [][] {
-                {null, null, null, null},
-                {null, null, null, null},
-                {null, null, null, null},
-                {null, null, null, null}
-            },
-            new String [] {
-                "Title 1", "Title 2", "Title 3", "Title 4"
-            }
-        ));
-        jScrollPane3.setViewportView(tableTransactionHistory);
-
-        jLabel27.setBackground(new java.awt.Color(122, 67, 29));
-        jLabel27.setFont(new java.awt.Font("Segoe UI", 0, 19)); // NOI18N
-        jLabel27.setForeground(new java.awt.Color(122, 67, 29));
-        jLabel27.setText("Transaction Log ");
-
-        lblRecordLog.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
-        lblRecordLog.setForeground(new java.awt.Color(102, 102, 102));
-        lblRecordLog.setText("(0 records)");
-
-        javax.swing.GroupLayout panelOrderManagement2Layout = new javax.swing.GroupLayout(panelOrderManagement2);
-        panelOrderManagement2.setLayout(panelOrderManagement2Layout);
-        panelOrderManagement2Layout.setHorizontalGroup(
-            panelOrderManagement2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(panelOrderManagement2Layout.createSequentialGroup()
-                .addGap(33, 33, 33)
-                .addComponent(jLabel27)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(lblRecordLog)
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-            .addComponent(jScrollPane3, javax.swing.GroupLayout.DEFAULT_SIZE, 933, Short.MAX_VALUE)
-        );
-        panelOrderManagement2Layout.setVerticalGroup(
-            panelOrderManagement2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelOrderManagement2Layout.createSequentialGroup()
-                .addGap(26, 26, 26)
-                .addGroup(panelOrderManagement2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(jLabel27)
-                    .addComponent(lblRecordLog))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(jScrollPane3, javax.swing.GroupLayout.DEFAULT_SIZE, 281, Short.MAX_VALUE))
-        );
-
-        jPanel3.setBackground(new java.awt.Color(255, 255, 255));
-
-        jLabel11.setBackground(new java.awt.Color(122, 67, 29));
-        jLabel11.setFont(new java.awt.Font("Segoe UI", 0, 24)); // NOI18N
-        jLabel11.setForeground(new java.awt.Color(122, 67, 29));
-        jLabel11.setText("Order History");
-
-        jLabel12.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
-        jLabel12.setForeground(new java.awt.Color(102, 102, 102));
-        jLabel12.setText("View and manage all transactions");
-
-        javax.swing.GroupLayout jPanel3Layout = new javax.swing.GroupLayout(jPanel3);
-        jPanel3.setLayout(jPanel3Layout);
-        jPanel3Layout.setHorizontalGroup(
-            jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel3Layout.createSequentialGroup()
-                .addGap(35, 35, 35)
-                .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jLabel11)
-                    .addComponent(jLabel12))
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-        );
-        jPanel3Layout.setVerticalGroup(
-            jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel3Layout.createSequentialGroup()
-                .addContainerGap(26, Short.MAX_VALUE)
-                .addComponent(jLabel11)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(jLabel12)
-                .addGap(16, 16, 16))
-        );
-
-        panelTotalRevenue.setBackground(new java.awt.Color(255, 255, 255));
-        panelTotalRevenue.setPreferredSize(new java.awt.Dimension(300, 150));
-
-        jLabel23.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
-        jLabel23.setForeground(new java.awt.Color(102, 102, 102));
-        jLabel23.setText("Total Revenue");
-
-        lblTotalRevenue.setFont(new java.awt.Font("Segoe UI", 1, 20)); // NOI18N
-        lblTotalRevenue.setForeground(new java.awt.Color(38, 205, 111));
-        lblTotalRevenue.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
-        lblTotalRevenue.setText("0đ");
-
-        lblPaidOrder.setForeground(new java.awt.Color(102, 102, 102));
-        lblPaidOrder.setText("0 paid orders");
-
-        javax.swing.GroupLayout panelTotalRevenueLayout = new javax.swing.GroupLayout(panelTotalRevenue);
-        panelTotalRevenue.setLayout(panelTotalRevenueLayout);
-        panelTotalRevenueLayout.setHorizontalGroup(
-            panelTotalRevenueLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(panelTotalRevenueLayout.createSequentialGroup()
-                .addGap(48, 48, 48)
-                .addGroup(panelTotalRevenueLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(lblPaidOrder)
-                    .addComponent(jLabel23)
-                    .addComponent(lblTotalRevenue, javax.swing.GroupLayout.PREFERRED_SIZE, 163, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addContainerGap(14, Short.MAX_VALUE))
-        );
-        panelTotalRevenueLayout.setVerticalGroup(
-            panelTotalRevenueLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(panelTotalRevenueLayout.createSequentialGroup()
-                .addGap(17, 17, 17)
-                .addComponent(jLabel23)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(lblTotalRevenue)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(lblPaidOrder)
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-        );
-
-        panelPaidOrders.setBackground(new java.awt.Color(255, 255, 255));
-        panelPaidOrders.setPreferredSize(new java.awt.Dimension(300, 150));
-
-        jLabel22.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
-        jLabel22.setForeground(new java.awt.Color(102, 102, 102));
-        jLabel22.setText("Paid Orders");
-
-        lblPaidOrders.setFont(new java.awt.Font("Segoe UI", 1, 20)); // NOI18N
-        lblPaidOrders.setForeground(new java.awt.Color(47, 116, 255));
-        lblPaidOrders.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
-        lblPaidOrders.setText("0");
-
-        lblPercentTotal.setForeground(new java.awt.Color(102, 102, 102));
-        lblPercentTotal.setText("0% of total");
-
-        javax.swing.GroupLayout panelPaidOrdersLayout = new javax.swing.GroupLayout(panelPaidOrders);
-        panelPaidOrders.setLayout(panelPaidOrdersLayout);
-        panelPaidOrdersLayout.setHorizontalGroup(
-            panelPaidOrdersLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(panelPaidOrdersLayout.createSequentialGroup()
-                .addGap(45, 45, 45)
-                .addGroup(panelPaidOrdersLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(lblPercentTotal)
-                    .addComponent(jLabel22)
-                    .addComponent(lblPaidOrders, javax.swing.GroupLayout.PREFERRED_SIZE, 157, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addContainerGap(23, Short.MAX_VALUE))
-        );
-        panelPaidOrdersLayout.setVerticalGroup(
-            panelPaidOrdersLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelPaidOrdersLayout.createSequentialGroup()
-                .addGap(16, 16, 16)
-                .addComponent(jLabel22)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(lblPaidOrders)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(lblPercentTotal)
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-        );
-
-        panelCanceledOrder.setBackground(new java.awt.Color(255, 255, 255));
-        panelCanceledOrder.setPreferredSize(new java.awt.Dimension(300, 150));
-
-        jLabel21.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
-        jLabel21.setForeground(new java.awt.Color(102, 102, 102));
-        jLabel21.setText("Canceled Orders");
-
-        lblOrdersCanceled.setFont(new java.awt.Font("Segoe UI", 1, 20)); // NOI18N
-        lblOrdersCanceled.setForeground(new java.awt.Color(255, 77, 77));
-        lblOrdersCanceled.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
-        lblOrdersCanceled.setText("0");
-
-        lblPercentCanceledOrder.setForeground(new java.awt.Color(102, 102, 102));
-        lblPercentCanceledOrder.setText("0% of total");
-
-        javax.swing.GroupLayout panelCanceledOrderLayout = new javax.swing.GroupLayout(panelCanceledOrder);
-        panelCanceledOrder.setLayout(panelCanceledOrderLayout);
-        panelCanceledOrderLayout.setHorizontalGroup(
-            panelCanceledOrderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(panelCanceledOrderLayout.createSequentialGroup()
-                .addGap(45, 45, 45)
-                .addGroup(panelCanceledOrderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(lblPercentCanceledOrder)
-                    .addComponent(jLabel21)
-                    .addComponent(lblOrdersCanceled, javax.swing.GroupLayout.PREFERRED_SIZE, 149, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addContainerGap(31, Short.MAX_VALUE))
-        );
-        panelCanceledOrderLayout.setVerticalGroup(
-            panelCanceledOrderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(panelCanceledOrderLayout.createSequentialGroup()
-                .addGap(18, 18, 18)
-                .addComponent(jLabel21)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(lblOrdersCanceled)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(lblPercentCanceledOrder)
-                .addContainerGap(9, Short.MAX_VALUE))
-        );
-
-        jPanel1.setBackground(new java.awt.Color(255, 255, 255));
-
-        jLabel26.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
-        jLabel26.setForeground(new java.awt.Color(102, 102, 102));
-        jLabel26.setText("Avg. Order Value");
-
-        lblAvgOrderValue.setFont(new java.awt.Font("Segoe UI", 1, 20)); // NOI18N
-        lblAvgOrderValue.setForeground(new java.awt.Color(38, 205, 111));
-        lblAvgOrderValue.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
-        lblAvgOrderValue.setText("0đ");
-
-        jLabel29.setForeground(new java.awt.Color(102, 102, 102));
-        jLabel29.setText("Per paid order");
-
-        javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
-        jPanel1.setLayout(jPanel1Layout);
-        jPanel1Layout.setHorizontalGroup(
-            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel1Layout.createSequentialGroup()
-                .addGap(46, 46, 46)
-                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jLabel29)
-                    .addComponent(lblAvgOrderValue, javax.swing.GroupLayout.PREFERRED_SIZE, 157, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(jLabel26))
-                .addContainerGap(22, Short.MAX_VALUE))
-        );
-        jPanel1Layout.setVerticalGroup(
-            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel1Layout.createSequentialGroup()
-                .addGap(16, 16, 16)
-                .addComponent(jLabel26)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(lblAvgOrderValue)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(jLabel29)
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-        );
-
         panelDate.setBackground(new java.awt.Color(255, 255, 255));
 
         dateTo.setPreferredSize(new java.awt.Dimension(80, 22));
@@ -2639,7 +2299,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                         .addComponent(txtSearchInvoice, javax.swing.GroupLayout.PREFERRED_SIZE, 301, javax.swing.GroupLayout.PREFERRED_SIZE))
                     .addComponent(lblPaidOrder4))
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addContainerGap(15, Short.MAX_VALUE))
         );
         panelBelowHeaderLayout.setVerticalGroup(
             panelBelowHeaderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -2661,27 +2321,97 @@ public class DashBoardFrame extends javax.swing.JFrame {
                 .addGap(14, 14, 14))
         );
 
+        panelOrderManagement2.setBackground(new java.awt.Color(247, 246, 242));
+
+        tableTransactionHistory.setModel(new javax.swing.table.DefaultTableModel(
+            new Object [][] {
+                {null, null, null, null},
+                {null, null, null, null},
+                {null, null, null, null},
+                {null, null, null, null}
+            },
+            new String [] {
+                "Title 1", "Title 2", "Title 3", "Title 4"
+            }
+        ));
+        jScrollPane3.setViewportView(tableTransactionHistory);
+
+        jLabel27.setBackground(new java.awt.Color(122, 67, 29));
+        jLabel27.setFont(new java.awt.Font("Segoe UI", 0, 19)); // NOI18N
+        jLabel27.setForeground(new java.awt.Color(122, 67, 29));
+        jLabel27.setText("Transaction Log ");
+
+        lblRecordLog.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
+        lblRecordLog.setForeground(new java.awt.Color(102, 102, 102));
+        lblRecordLog.setText("(0 records)");
+
+        javax.swing.GroupLayout panelOrderManagement2Layout = new javax.swing.GroupLayout(panelOrderManagement2);
+        panelOrderManagement2.setLayout(panelOrderManagement2Layout);
+        panelOrderManagement2Layout.setHorizontalGroup(
+            panelOrderManagement2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(panelOrderManagement2Layout.createSequentialGroup()
+                .addGap(33, 33, 33)
+                .addComponent(jLabel27)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(lblRecordLog)
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+            .addComponent(jScrollPane3, javax.swing.GroupLayout.DEFAULT_SIZE, 937, Short.MAX_VALUE)
+        );
+        panelOrderManagement2Layout.setVerticalGroup(
+            panelOrderManagement2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelOrderManagement2Layout.createSequentialGroup()
+                .addGap(26, 26, 26)
+                .addGroup(panelOrderManagement2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel27)
+                    .addComponent(lblRecordLog))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jScrollPane3, javax.swing.GroupLayout.DEFAULT_SIZE, 437, Short.MAX_VALUE))
+        );
+
+        jPanel3.setBackground(new java.awt.Color(255, 255, 255));
+
+        jLabel11.setBackground(new java.awt.Color(122, 67, 29));
+        jLabel11.setFont(new java.awt.Font("Segoe UI", 0, 24)); // NOI18N
+        jLabel11.setForeground(new java.awt.Color(122, 67, 29));
+        jLabel11.setText("Order History");
+
+        jLabel12.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
+        jLabel12.setForeground(new java.awt.Color(102, 102, 102));
+        jLabel12.setText("View and manage all transactions");
+
+        javax.swing.GroupLayout jPanel3Layout = new javax.swing.GroupLayout(jPanel3);
+        jPanel3.setLayout(jPanel3Layout);
+        jPanel3Layout.setHorizontalGroup(
+            jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel3Layout.createSequentialGroup()
+                .addGap(35, 35, 35)
+                .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(jLabel11)
+                    .addComponent(jLabel12))
+                .addContainerGap(739, Short.MAX_VALUE))
+        );
+        jPanel3Layout.setVerticalGroup(
+            jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel3Layout.createSequentialGroup()
+                .addContainerGap(26, Short.MAX_VALUE)
+                .addComponent(jLabel11)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jLabel12)
+                .addGap(16, 16, 16))
+        );
+
         javax.swing.GroupLayout panelOrderLayout = new javax.swing.GroupLayout(panelOrder);
         panelOrder.setLayout(panelOrderLayout);
         panelOrderLayout.setHorizontalGroup(
             panelOrderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addComponent(jPanel3, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addGroup(panelOrderLayout.createSequentialGroup()
-                .addGap(24, 24, 24)
-                .addGroup(panelOrderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                    .addGroup(panelOrderLayout.createSequentialGroup()
-                        .addComponent(panelTotalRevenue, javax.swing.GroupLayout.PREFERRED_SIZE, 225, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                        .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                        .addComponent(panelPaidOrders, javax.swing.GroupLayout.PREFERRED_SIZE, 225, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                        .addComponent(panelCanceledOrder, javax.swing.GroupLayout.PREFERRED_SIZE, 225, javax.swing.GroupLayout.PREFERRED_SIZE))
-                    .addComponent(panelBelowHeader, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                .addContainerGap(24, Short.MAX_VALUE))
+                .addGap(19, 19, 19)
+                .addComponent(panelBelowHeader, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
             .addGroup(panelOrderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                 .addGroup(panelOrderLayout.createSequentialGroup()
-                    .addGap(24, 24, 24)
+                    .addGap(20, 20, 20)
                     .addComponent(panelOrderManagement2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addContainerGap(27, Short.MAX_VALUE)))
         );
@@ -2689,18 +2419,12 @@ public class DashBoardFrame extends javax.swing.JFrame {
             panelOrderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(panelOrderLayout.createSequentialGroup()
                 .addComponent(jPanel3, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(38, 38, 38)
-                .addGroup(panelOrderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
-                    .addComponent(panelPaidOrders, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, 102, Short.MAX_VALUE)
-                    .addComponent(panelTotalRevenue, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, 102, Short.MAX_VALUE)
-                    .addComponent(panelCanceledOrder, javax.swing.GroupLayout.DEFAULT_SIZE, 102, Short.MAX_VALUE)
-                    .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                .addGap(24, 24, 24)
+                .addGap(18, 18, 18)
                 .addComponent(panelBelowHeader, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(378, Short.MAX_VALUE))
+                .addContainerGap(524, Short.MAX_VALUE))
             .addGroup(panelOrderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                 .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelOrderLayout.createSequentialGroup()
-                    .addContainerGap(367, Short.MAX_VALUE)
+                    .addContainerGap(211, Short.MAX_VALUE)
                     .addComponent(panelOrderManagement2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addGap(17, 17, 17)))
         );
@@ -3409,14 +3133,9 @@ public class DashBoardFrame extends javax.swing.JFrame {
     private javax.swing.JLabel jLabel18;
     private javax.swing.JLabel jLabel2;
     private javax.swing.JLabel jLabel20;
-    private javax.swing.JLabel jLabel21;
-    private javax.swing.JLabel jLabel22;
-    private javax.swing.JLabel jLabel23;
     private javax.swing.JLabel jLabel24;
     private javax.swing.JLabel jLabel25;
-    private javax.swing.JLabel jLabel26;
     private javax.swing.JLabel jLabel27;
-    private javax.swing.JLabel jLabel29;
     private javax.swing.JLabel jLabel3;
     private javax.swing.JLabel jLabel4;
     private javax.swing.JLabel jLabel5;
@@ -3424,7 +3143,6 @@ public class DashBoardFrame extends javax.swing.JFrame {
     private javax.swing.JLabel jLabel7;
     private javax.swing.JLabel jLabel8;
     private javax.swing.JLabel jLabel9;
-    private javax.swing.JPanel jPanel1;
     private javax.swing.JPanel jPanel2;
     private javax.swing.JPanel jPanel3;
     private javax.swing.JPanel jPanel4;
@@ -3443,34 +3161,26 @@ public class DashBoardFrame extends javax.swing.JFrame {
     private javax.swing.JLabel lblAbsentCount;
     private javax.swing.JLabel lblActiveEmployees;
     private javax.swing.JLabel lblAttendance;
-    private javax.swing.JLabel lblAvgOrderValue;
     private javax.swing.JLabel lblEmployeeSchedule;
     private javax.swing.JLabel lblLateCount;
     private javax.swing.JLabel lblMonthDayYear;
     private javax.swing.JLabel lblOnLeaveCount;
     private javax.swing.JLabel lblOnTimeCount;
-    private javax.swing.JLabel lblOrdersCanceled;
-    private javax.swing.JLabel lblPaidOrder;
     private javax.swing.JLabel lblPaidOrder1;
     private javax.swing.JLabel lblPaidOrder2;
     private javax.swing.JLabel lblPaidOrder3;
     private javax.swing.JLabel lblPaidOrder4;
-    private javax.swing.JLabel lblPaidOrders;
     private javax.swing.JLabel lblPendingInvoice;
-    private javax.swing.JLabel lblPercentCanceledOrder;
-    private javax.swing.JLabel lblPercentTotal;
     private javax.swing.JLabel lblRecordAttendance;
     private javax.swing.JLabel lblRecordLog;
     private javax.swing.JLabel lblRevenueMonth;
     private javax.swing.JLabel lblRevenueToday;
     private javax.swing.JLabel lblTotalItem;
-    private javax.swing.JLabel lblTotalRevenue;
     private javax.swing.JLabel lblWeekRange;
     private javax.swing.JPanel panelActiveEmployees;
     private javax.swing.JPanel panelActiveOrders;
     private javax.swing.JPanel panelAttendance;
     private javax.swing.JPanel panelBelowHeader;
-    private javax.swing.JPanel panelCanceledOrder;
     private javax.swing.JPanel panelCanceledOrders;
     private javax.swing.JPanel panelContent;
     private javax.swing.JPanel panelCustomer;
@@ -3488,14 +3198,12 @@ public class DashBoardFrame extends javax.swing.JFrame {
     private javax.swing.JPanel panelOrderManagement1;
     private javax.swing.JPanel panelOrderManagement2;
     private javax.swing.JPanel panelOrderManagement4;
-    private javax.swing.JPanel panelPaidOrders;
     private javax.swing.JPanel panelProduct;
     private javax.swing.JPanel panelRevenueDate;
     private javax.swing.JPanel panelRevenueToday;
     private javax.swing.JPanel panelSchedule;
     private javax.swing.JPanel panelSelection;
     private javax.swing.JPanel panelTopSales;
-    private javax.swing.JPanel panelTotalRevenue;
     private javax.swing.JTable tableAttendance;
     private javax.swing.JTable tableEmployeeManagement;
     private javax.swing.JTable tableProduct;

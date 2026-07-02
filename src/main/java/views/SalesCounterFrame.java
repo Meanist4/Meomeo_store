@@ -10,6 +10,7 @@ import service.CategoryService;
 import service.ProductService;
 import service.impl.CategoryServiceImpl;
 import service.impl.ProductServiceImpl;
+import ui.InventoryTableRenderer;
 import ui.MenuIcons;
 import ui.ScannerButtonUI;
 import util.ImageUtil;
@@ -28,6 +29,9 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
     private final List<Integer> sessionOrderIds = new ArrayList<>();
     private java.util.List<entity.Product> cachedProductList = new ArrayList<>();
     private java.util.List<entity.Category> cachedCategoryList = new ArrayList<>();
+    private javax.swing.table.TableRowSorter<javax.swing.table.DefaultTableModel> productTableSorter;
+    private final java.util.Map<String, javax.swing.ImageIcon> productImageCache = new java.util.HashMap<>();
+    private final repository.OrderRepository orderRepositoryHistory = orderRepository; // dùng lại orderRepository đã có sẵn
 
     private OrderCartController activeCart() {
         return orderSessions.get(activeIndex);
@@ -353,6 +357,377 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
 
         initCustomerManagementInSale();
         initProductManagementInSale();
+        customProductTableAppearance();
+        loadCategoryComboBoxForTable();
+        loadProductGrid();          // đã có sẵn, sẽ nạp cachedProductList/cachedCategoryList
+        loadProductTableData();     // nạp dữ liệu cho bảng dựa trên cache vừa nạp
+        initProductTableFilterEvents();
+        customTransactionHistoryAppearance();
+        initTransactionStatusFilter();
+        initSearchInvoiceFilterInSale();
+        initTransactionDateFilters();
+        refreshTransactionHistory();
+    }
+
+    private void customTransactionHistoryAppearance() {
+        tableTransactionHistory.setAutoResizeMode(javax.swing.JTable.AUTO_RESIZE_OFF);
+        tableTransactionHistory.setModel(new javax.swing.table.DefaultTableModel(
+                new Object[][]{},
+                new String[]{"ORDER ID", "DATE & TIME", "CASHIER", "CUSTOMER", "PAYMENT", "TOTAL", "STATUS"}
+        ) {
+            @Override
+            public boolean isCellEditable(int rowIndex, int columnIndex) {
+                return false; // chỉ xem, không cho sửa/hủy trực tiếp
+            }
+        });
+
+        tableTransactionHistory.setRowHeight(52);
+        tableTransactionHistory.setShowHorizontalLines(true);
+        tableTransactionHistory.setShowVerticalLines(false);
+        tableTransactionHistory.setFillsViewportHeight(true);
+        tableTransactionHistory.setSelectionBackground(new java.awt.Color(248, 246, 242));
+        tableTransactionHistory.setSelectionForeground(new java.awt.Color(15, 23, 42));
+        tableTransactionHistory.putClientProperty(FlatClientProperties.STYLE,
+                "rowSelectionBackground: #F8F6F2; rowSelectionForeground: #0F172A; lineColor: #F1F5F9;");
+
+        javax.swing.table.JTableHeader h = tableTransactionHistory.getTableHeader();
+        h.setPreferredSize(new java.awt.Dimension(h.getPreferredSize().width, 38));
+        h.setDefaultRenderer(new ui.StandardTableHeaderRenderer(javax.swing.SwingConstants.LEFT, 12));
+
+        ui.HistoryTableRenderer renderer = new ui.HistoryTableRenderer();
+        for (int i = 0; i < tableTransactionHistory.getColumnCount(); i++) {
+            tableTransactionHistory.getColumnModel().getColumn(i).setCellRenderer(renderer);
+        }
+
+        tableTransactionHistory.getColumnModel().getColumn(0).setPreferredWidth(135); // ORDER ID
+        tableTransactionHistory.getColumnModel().getColumn(1).setPreferredWidth(155); // DATE & TIME
+        tableTransactionHistory.getColumnModel().getColumn(2).setPreferredWidth(145); // CASHIER
+        tableTransactionHistory.getColumnModel().getColumn(3).setPreferredWidth(175); // CUSTOMER
+        tableTransactionHistory.getColumnModel().getColumn(4).setPreferredWidth(95);  // PAYMENT
+        tableTransactionHistory.getColumnModel().getColumn(5).setPreferredWidth(120); // TOTAL
+        tableTransactionHistory.getColumnModel().getColumn(6).setPreferredWidth(110); // STATUS
+        java.awt.Container parent = tableTransactionHistory.getParent();
+        if (parent instanceof javax.swing.JViewport viewport) {
+            javax.swing.JScrollPane scrollPane = (javax.swing.JScrollPane) viewport.getParent();
+            scrollPane.setViewport(new ui.EmptyTableViewport(tableTransactionHistory, "No transactions found"));
+            scrollPane.setViewportView(tableTransactionHistory);
+        }
+    }
+
+    private void loadTransactionHistoryLog() {
+        java.util.List<repository.OrderRepository.OrderHistoryRow> rows = getFilteredTransactionHistoryRows();
+
+        javax.swing.table.DefaultTableModel model
+                = (javax.swing.table.DefaultTableModel) tableTransactionHistory.getModel();
+        model.setRowCount(0);
+
+        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm");
+
+        for (repository.OrderRepository.OrderHistoryRow row : rows) {
+            String paymentValue = normalizeTransactionPayment(row.paymentMethod);
+            String statusValue = row.status != null
+                    ? row.status.trim().toUpperCase(java.util.Locale.ROOT)
+                    : "PENDING";
+            String orderIdStr = String.format("ORD-2026-%04d", row.id);
+            String dateStr = (row.orderDate != null) ? sdf.format(row.orderDate) : "";
+            String amountStr = String.format("%,.0f đ", row.totalAmount);
+            String cashier = row.cashierName != null ? row.cashierName : "";
+            String customer = (row.customerName != null && !row.customerName.isBlank())
+                    ? row.customerName
+                    : "Walk-in customer";
+
+            model.addRow(new Object[]{
+                orderIdStr,
+                dateStr,
+                cashier,
+                customer,
+                paymentValue,
+                amountStr,
+                statusValue
+            });
+        }
+
+        lblRecordLog.setText("(" + rows.size() + " records)");
+        tableTransactionHistory.revalidate();
+        java.awt.Container vp = tableTransactionHistory.getParent();
+        if (vp != null) {
+            vp.revalidate();
+            vp.repaint();
+        }
+
+    }
+
+    private java.util.List<repository.OrderRepository.OrderHistoryRow> getFilteredTransactionHistoryRows() {
+        String selectedStatus = cbStatus.getSelectedItem() != null
+                ? cbStatus.getSelectedItem().toString() : "All";
+        java.util.Date startDate = dateFrom.getDate();
+        java.util.Date endDate = dateTo.getDate();
+
+        java.util.List<repository.OrderRepository.OrderHistoryRow> rows
+                = orderRepository.findOrderHistory(selectedStatus, startDate, endDate);
+        String paymentFilter = (cbPaymentMethod != null && cbPaymentMethod.getSelectedItem() != null)
+                ? cbPaymentMethod.getSelectedItem().toString() : "All";
+        String searchText = (txtSearchInvoice != null)
+                ? txtSearchInvoice.getText().trim().toLowerCase() : "";
+
+        java.util.List<repository.OrderRepository.OrderHistoryRow> filteredRows = new java.util.ArrayList<>();
+        for (repository.OrderRepository.OrderHistoryRow row : rows) {
+            String paymentValue = normalizeTransactionPayment(row.paymentMethod);
+            String orderIdStr = String.format("ORD-2026-%04d", row.id);
+            String cashier = row.cashierName != null ? row.cashierName : "";
+            String customer = (row.customerName != null && !row.customerName.isBlank())
+                    ? row.customerName
+                    : "Walk-in customer";
+
+            if (!"All".equalsIgnoreCase(paymentFilter)
+                    && !paymentFilter.equalsIgnoreCase(paymentValue)) {
+                continue;
+            }
+
+            if (!searchText.isEmpty()) {
+                boolean matchId = orderIdStr.toLowerCase().contains(searchText)
+                        || String.valueOf(row.id).contains(searchText);
+                boolean matchCashier = cashier.toLowerCase().contains(searchText);
+                boolean matchCustomer = customer.toLowerCase().contains(searchText);
+                if (!matchId && !matchCashier && !matchCustomer) {
+                    continue;
+                }
+            }
+
+            filteredRows.add(row);
+        }
+
+        return filteredRows;
+    }
+
+    private String normalizeTransactionPayment(String paymentMethod) {
+        if (paymentMethod == null || paymentMethod.isBlank()) {
+            return "";
+        }
+        String normalized = paymentMethod.trim().toUpperCase(java.util.Locale.ROOT);
+        if (normalized.contains("BANK") && normalized.contains("TRANSFER")) {
+            return "TRANSFER";
+        }
+        if (normalized.contains("CASH") || normalized.contains("TIỀN MẶT") || normalized.contains("TIEN MAT")) {
+            return "CASH";
+        }
+        if (normalized.contains("TRANSFER") || normalized.contains("CHUYỂN KHOẢN") || normalized.contains("CHUYEN KHOAN")) {
+            return "TRANSFER";
+        }
+        if (normalized.contains("CARD") || normalized.contains("THẺ") || normalized.contains("THE")) {
+            return "CARD";
+        }
+        if (normalized.contains("E-WALLET") || normalized.contains("EWALLET") || normalized.contains("VÍ ĐIỆN TỬ") || normalized.contains("VI DIEN TU")) {
+            return "E-WALLET";
+        }
+        return normalized;
+    }
+
+    private void initTransactionStatusFilter() {
+        cbStatus.setModel(new javax.swing.DefaultComboBoxModel<>(new String[]{"All", "PAID", "PENDING", "CANCELLED"}));
+        cbStatus.putClientProperty(FlatClientProperties.STYLE, "arc: 12; background: #FFFFFF;");
+        cbStatus.addActionListener(e -> refreshTransactionHistory());
+
+        initTransactionPaymentMethodFilter();
+    }
+
+    private void initTransactionPaymentMethodFilter() {
+        java.util.LinkedHashSet<String> paymentOptions = new java.util.LinkedHashSet<>();
+        paymentOptions.add("All");
+        for (String paymentMethod : orderRepository.findDistinctPaymentMethods()) {
+            String normalized = normalizeTransactionPayment(paymentMethod);
+            if (!normalized.isBlank()) {
+                paymentOptions.add(normalized);
+            }
+        }
+
+        cbPaymentMethod.setModel(new javax.swing.DefaultComboBoxModel<>(
+                paymentOptions.toArray(String[]::new)));
+        cbPaymentMethod.putClientProperty(FlatClientProperties.STYLE, "arc: 12; background: #FFFFFF;");
+        for (java.awt.event.ActionListener listener : cbPaymentMethod.getActionListeners()) {
+            cbPaymentMethod.removeActionListener(listener);
+        }
+        cbPaymentMethod.addActionListener(e -> refreshTransactionHistory());
+    }
+
+    private void initSearchInvoiceFilterInSale() {
+        if (txtSearchInvoice == null) {
+            return;
+        }
+        txtSearchInvoice.putClientProperty("JTextField.placeholder", "Search Order ID, customer, cashier...");
+        txtSearchInvoice.putClientProperty(FlatClientProperties.STYLE, "arc: 12; margin: 0,10,0,10;");
+        txtSearchInvoice.getDocument().addDocumentListener(onDocumentChange(this::refreshTransactionHistory));
+    }
+
+    private void refreshTransactionHistory() {
+        loadTransactionHistoryLog();
+    }
+
+    private void initTransactionDateFilters() {
+        dateFrom.setDateFormatString("dd/MM/yyyy");
+        dateTo.setDateFormatString("dd/MM/yyyy");
+
+        java.util.Calendar cal = java.util.Calendar.getInstance();
+        cal.set(java.util.Calendar.DAY_OF_MONTH, 1);
+        dateFrom.setDate(cal.getTime());
+        dateTo.setDate(new java.util.Date());
+
+        styleTransactionDateChooser(dateFrom);
+        styleTransactionDateChooser(dateTo);
+
+        panelDate.setOpaque(false);
+        panelDate.putClientProperty(FlatClientProperties.STYLE,
+                "background: #FFFFFF; arc: 12; border: 2,6,2,6; borderWidth: 1; borderColor: #E2E8F0;");
+
+        java.beans.PropertyChangeListener dateChangeListener = evt -> {
+            if ("date".equals(evt.getPropertyName())) {
+                loadTransactionHistoryLog();
+            }
+        };
+        dateFrom.addPropertyChangeListener(dateChangeListener);
+        dateTo.addPropertyChangeListener(dateChangeListener);
+    }
+
+    private void styleTransactionDateChooser(com.toedter.calendar.JDateChooser choser) {
+        choser.setOpaque(false);
+        choser.setBorder(javax.swing.BorderFactory.createEmptyBorder());
+        if (choser.getDateEditor() instanceof com.toedter.calendar.JTextFieldDateEditor editor) {
+            editor.setOpaque(false);
+            editor.setEditable(false);
+            editor.setBorder(javax.swing.BorderFactory.createEmptyBorder(0, 4, 0, 4));
+            editor.putClientProperty(FlatClientProperties.STYLE, "foreground: #334155; font: 11pt;");
+        }
+        for (java.awt.Component comp : choser.getComponents()) {
+            if (comp instanceof javax.swing.JButton btn) {
+                btn.setContentAreaFilled(false);
+                btn.setFocusable(false);
+                btn.setBorder(javax.swing.BorderFactory.createEmptyBorder(0, 4, 0, 4));
+                btn.putClientProperty(FlatClientProperties.BUTTON_TYPE, "toolBarButton");
+                btn.setIcon(ui.MenuIcons.calendar());
+            }
+        }
+    }
+
+    private javax.swing.event.DocumentListener onDocumentChange(Runnable action) {
+        return new javax.swing.event.DocumentListener() {
+            @Override
+            public void insertUpdate(javax.swing.event.DocumentEvent e) {
+                action.run();
+            }
+
+            @Override
+            public void removeUpdate(javax.swing.event.DocumentEvent e) {
+                action.run();
+            }
+
+            @Override
+            public void changedUpdate(javax.swing.event.DocumentEvent e) {
+                action.run();
+            }
+        };
+    }
+
+    private void customProductTableAppearance() {
+        txtSearchProduct.putClientProperty("JTextField.placeholder", "Search products...");
+        txtSearchProduct.putClientProperty(FlatClientProperties.STYLE, "arc: 12; margin: 0,10,0,10;");
+
+        tableProduct.setModel(new javax.swing.table.DefaultTableModel(
+                new Object[][]{},
+                new String[]{"PRODUCT ID", "IMAGE", "PRODUCT NAME", "CATEGORY", "PRICE", "STOCK"}
+        ) {
+            @Override
+            public boolean isCellEditable(int rowIndex, int columnIndex) {
+                return false; // chỉ xem, không cho sửa trực tiếp trên bảng
+            }
+        });
+
+        tableProduct.setRowHeight(52);
+        tableProduct.setShowHorizontalLines(true);
+        tableProduct.setShowVerticalLines(false);
+        tableProduct.setSelectionBackground(new java.awt.Color(248, 246, 242));
+        tableProduct.setSelectionForeground(new java.awt.Color(15, 23, 42));
+        tableProduct.putClientProperty(FlatClientProperties.STYLE,
+                "rowSelectionBackground: #F8F6F2; rowSelectionForeground: #0F172A; lineColor: #F1F5F9;");
+
+        javax.swing.table.JTableHeader header = tableProduct.getTableHeader();
+        header.setPreferredSize(new java.awt.Dimension(header.getPreferredSize().width, 38));
+        header.setDefaultRenderer(new ui.StandardTableHeaderRenderer());
+
+        InventoryTableRenderer renderer = new ui.InventoryTableRenderer(this::getCachedProductIcon);
+        for (int i = 0; i < tableProduct.getColumnCount(); i++) {
+            tableProduct.getColumnModel().getColumn(i).setCellRenderer(renderer);
+        }
+
+        tableProduct.getColumnModel().getColumn(0).setPreferredWidth(70);   // PRODUCT ID
+        tableProduct.getColumnModel().getColumn(1).setPreferredWidth(70);   // IMAGE
+        tableProduct.getColumnModel().getColumn(1).setMaxWidth(70);
+        tableProduct.getColumnModel().getColumn(2).setPreferredWidth(200);  // PRODUCT NAME
+        tableProduct.getColumnModel().getColumn(3).setPreferredWidth(100);  // CATEGORY
+        tableProduct.getColumnModel().getColumn(4).setPreferredWidth(90);   // PRICE
+        tableProduct.getColumnModel().getColumn(5).setPreferredWidth(50);   // STOCK
+
+        java.awt.Container parent = tableProduct.getParent();
+        if (parent instanceof javax.swing.JViewport viewport) {
+            javax.swing.JScrollPane scrollPane = (javax.swing.JScrollPane) viewport.getParent();
+            scrollPane.setViewport(new ui.EmptyTableViewport(tableProduct, "Nothing found!"));
+            scrollPane.setViewportView(tableProduct);
+        }
+    }
+
+    private void loadCategoryComboBoxForTable() {
+        javax.swing.DefaultComboBoxModel<String> model = new javax.swing.DefaultComboBoxModel<>();
+        model.addElement("All");
+        categoryService.getCategoryForFilter().forEach(cat -> model.addElement(cat.getCategoryName()));
+        cbAll.setModel(model);
+    }
+
+    private javax.swing.ImageIcon getCachedProductIcon(String imgPath) {
+        if (imgPath == null || imgPath.isEmpty() || "null".equals(imgPath)) {
+            return null;
+        }
+        return productImageCache.computeIfAbsent(imgPath, path -> {
+            try {
+                String fileName = path.contains("/") ? path.substring(path.lastIndexOf('/') + 1) : path;
+                java.net.URL imgUrl = getClass().getResource("/images/" + fileName);
+                if (imgUrl == null) {
+                    return null;
+                }
+                java.awt.Image raw = new javax.swing.ImageIcon(imgUrl).getImage();
+                java.awt.Image scaled = util.ImageUtil.scale(raw, 26);
+                return new javax.swing.ImageIcon(scaled);
+            } catch (Exception ex) {
+                return null;
+            }
+        });
+    }
+
+    private void loadProductTableData() {
+        javax.swing.table.DefaultTableModel model
+                = (javax.swing.table.DefaultTableModel) tableProduct.getModel();
+        model.setRowCount(0);
+
+        for (entity.Product p : cachedProductList) {
+            String catName = cachedCategoryList.stream()
+                    .filter(c -> c.getId() == p.getCategoryId())
+                    .map(entity.Category::getCategoryName)
+                    .findFirst()
+                    .orElse("Item");
+
+            model.addRow(new Object[]{
+                String.format("PRD-%04d", p.getId()),
+                p.getImagePath(),
+                p.getProductName(),
+                catName,
+                String.format("%,.0f đ", p.getPrice()),
+                p.getQuantity()
+            });
+        }
+
+        lblTotalItem.setText("(" + cachedProductList.size() + " items)");
+
+        productTableSorter = new javax.swing.table.TableRowSorter<>(model);
+        tableProduct.setRowSorter(productTableSorter);
+        model.fireTableDataChanged();
     }
 
     private void switchToOrder(int index) {
@@ -367,6 +742,44 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         applyTableStyling();
         reapplyButtonEditor();
         refreshTabUI();
+    }
+
+    private void performProductTableFilter() {
+        if (productTableSorter == null) {
+            return;
+        }
+        String text = txtSearchProduct.getText().trim();
+        productTableSorter.setRowFilter(text.isEmpty() ? null
+                : javax.swing.RowFilter.regexFilter("(?i)" + java.util.regex.Pattern.quote(text), 2));
+        tableProduct.revalidate();
+        java.awt.Container vp = tableProduct.getParent();
+        if (vp != null) {
+            vp.revalidate();
+            vp.repaint();
+        }
+    }
+
+    private void initProductTableFilterEvents() {
+        txtSearchProduct.getDocument().addDocumentListener(onDocumentChange(this::performProductTableFilter));
+
+        cbAll.addActionListener(e -> {
+            if (productTableSorter == null) {
+                return;
+            }
+            String selectedCategory = String.valueOf(cbAll.getSelectedItem()).trim();
+            if (selectedCategory.equalsIgnoreCase("All") || selectedCategory.contains("All")) {
+                productTableSorter.setRowFilter(null);
+            } else {
+                productTableSorter.setRowFilter(
+                        javax.swing.RowFilter.regexFilter("(?i)^" + java.util.regex.Pattern.quote(selectedCategory) + "$", 3));
+            }
+            tableProduct.revalidate();
+            java.awt.Container vp = tableProduct.getParent();
+            if (vp != null) {
+                vp.revalidate();
+                vp.repaint();
+            }
+        });
     }
 
     private void createNewOrder() {
@@ -548,25 +961,6 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
                 return null;
             }
         }.execute();
-    }
-
-    private javax.swing.event.DocumentListener onDocumentChange(Runnable action) {
-        return new javax.swing.event.DocumentListener() {
-            @Override
-            public void insertUpdate(javax.swing.event.DocumentEvent e) {
-                action.run();
-            }
-
-            @Override
-            public void removeUpdate(javax.swing.event.DocumentEvent e) {
-                action.run();
-            }
-
-            @Override
-            public void changedUpdate(javax.swing.event.DocumentEvent e) {
-                action.run();
-            }
-        };
     }
 
     private void initCustomerManagementInSale() {
@@ -780,7 +1174,31 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         btnAddCustomer = new javax.swing.JButton();
         txtSearchCustomer = new javax.swing.JTextField();
         panelProduct = new javax.swing.JPanel();
+        txtSearchProduct = new javax.swing.JTextField();
+        panelOrderManagement1 = new javax.swing.JPanel();
+        jScrollPane2 = new javax.swing.JScrollPane();
+        tableProduct = new javax.swing.JTable();
+        jLabel20 = new javax.swing.JLabel();
+        lblTotalItem = new javax.swing.JLabel();
+        cbAll = new javax.swing.JComboBox<>();
         panelOrder = new javax.swing.JPanel();
+        panelBelowHeader = new javax.swing.JPanel();
+        panelDate = new javax.swing.JPanel();
+        dateTo = new com.toedter.calendar.JDateChooser();
+        dateFrom = new com.toedter.calendar.JDateChooser();
+        jLabel1 = new javax.swing.JLabel();
+        cbStatus = new javax.swing.JComboBox<>();
+        lblPaidOrder1 = new javax.swing.JLabel();
+        lblPaidOrder2 = new javax.swing.JLabel();
+        lblPaidOrder3 = new javax.swing.JLabel();
+        cbPaymentMethod = new javax.swing.JComboBox<>();
+        lblPaidOrder4 = new javax.swing.JLabel();
+        txtSearchInvoice = new javax.swing.JTextField();
+        panelOrderManagement2 = new javax.swing.JPanel();
+        jScrollPane3 = new javax.swing.JScrollPane();
+        tableTransactionHistory = new javax.swing.JTable();
+        jLabel27 = new javax.swing.JLabel();
+        lblRecordLog = new javax.swing.JLabel();
         panelEmployee = new javax.swing.JPanel();
         panelCustomer = new javax.swing.JPanel();
 
@@ -1343,28 +1761,269 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
 
         panelMenu.add(panelSaleCounter, "cardSaleCounter");
 
+        panelOrderManagement1.setBackground(new java.awt.Color(247, 246, 242));
+
+        tableProduct.setModel(new javax.swing.table.DefaultTableModel(
+            new Object [][] {
+                {null, null, null, null},
+                {null, null, null, null},
+                {null, null, null, null},
+                {null, null, null, null}
+            },
+            new String [] {
+                "Title 1", "Title 2", "Title 3", "Title 4"
+            }
+        ));
+        jScrollPane2.setViewportView(tableProduct);
+
+        jLabel20.setBackground(new java.awt.Color(122, 67, 29));
+        jLabel20.setFont(new java.awt.Font("Segoe UI", 0, 19)); // NOI18N
+        jLabel20.setForeground(new java.awt.Color(122, 67, 29));
+        jLabel20.setText("All Products");
+
+        lblTotalItem.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
+        lblTotalItem.setForeground(new java.awt.Color(102, 102, 102));
+        lblTotalItem.setText("(0 items)");
+
+        javax.swing.GroupLayout panelOrderManagement1Layout = new javax.swing.GroupLayout(panelOrderManagement1);
+        panelOrderManagement1.setLayout(panelOrderManagement1Layout);
+        panelOrderManagement1Layout.setHorizontalGroup(
+            panelOrderManagement1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(panelOrderManagement1Layout.createSequentialGroup()
+                .addGap(33, 33, 33)
+                .addComponent(jLabel20)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(lblTotalItem, javax.swing.GroupLayout.PREFERRED_SIZE, 80, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+            .addComponent(jScrollPane2, javax.swing.GroupLayout.DEFAULT_SIZE, 933, Short.MAX_VALUE)
+        );
+        panelOrderManagement1Layout.setVerticalGroup(
+            panelOrderManagement1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelOrderManagement1Layout.createSequentialGroup()
+                .addGap(21, 21, 21)
+                .addGroup(panelOrderManagement1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel20)
+                    .addComponent(lblTotalItem))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 16, Short.MAX_VALUE)
+                .addComponent(jScrollPane2, javax.swing.GroupLayout.PREFERRED_SIZE, 455, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap())
+        );
+
+        cbAll.setFont(new java.awt.Font("Segoe UI", 1, 13)); // NOI18N
+        cbAll.setForeground(new java.awt.Color(102, 102, 102));
+        cbAll.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Item 1", "Item 2", "Item 3", "Item 4" }));
+
         javax.swing.GroupLayout panelProductLayout = new javax.swing.GroupLayout(panelProduct);
         panelProduct.setLayout(panelProductLayout);
         panelProductLayout.setHorizontalGroup(
             panelProductLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 953, Short.MAX_VALUE)
+            .addGroup(panelProductLayout.createSequentialGroup()
+                .addGap(23, 23, 23)
+                .addComponent(txtSearchProduct, javax.swing.GroupLayout.PREFERRED_SIZE, 305, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(42, 42, 42)
+                .addComponent(cbAll, javax.swing.GroupLayout.PREFERRED_SIZE, 106, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap(477, Short.MAX_VALUE))
+            .addGroup(panelProductLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                .addGroup(panelProductLayout.createSequentialGroup()
+                    .addContainerGap()
+                    .addComponent(panelOrderManagement1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addContainerGap(14, Short.MAX_VALUE)))
         );
         panelProductLayout.setVerticalGroup(
             panelProductLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 690, Short.MAX_VALUE)
+            .addGroup(panelProductLayout.createSequentialGroup()
+                .addGap(48, 48, 48)
+                .addGroup(panelProductLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(txtSearchProduct, javax.swing.GroupLayout.PREFERRED_SIZE, 36, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(cbAll, javax.swing.GroupLayout.PREFERRED_SIZE, 37, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addContainerGap(605, Short.MAX_VALUE))
+            .addGroup(panelProductLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelProductLayout.createSequentialGroup()
+                    .addContainerGap(160, Short.MAX_VALUE)
+                    .addComponent(panelOrderManagement1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addContainerGap()))
         );
 
         panelMenu.add(panelProduct, "cardProduct");
+
+        panelDate.setBackground(new java.awt.Color(255, 255, 255));
+
+        dateTo.setPreferredSize(new java.awt.Dimension(80, 22));
+
+        dateFrom.setPreferredSize(new java.awt.Dimension(80, 22));
+
+        jLabel1.setFont(new java.awt.Font("Segoe UI", 1, 24)); // NOI18N
+        jLabel1.setForeground(new java.awt.Color(102, 102, 102));
+        jLabel1.setText("-");
+
+        javax.swing.GroupLayout panelDateLayout = new javax.swing.GroupLayout(panelDate);
+        panelDate.setLayout(panelDateLayout);
+        panelDateLayout.setHorizontalGroup(
+            panelDateLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelDateLayout.createSequentialGroup()
+                .addGap(17, 17, 17)
+                .addComponent(dateFrom, javax.swing.GroupLayout.PREFERRED_SIZE, 128, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 21, Short.MAX_VALUE)
+                .addComponent(jLabel1, javax.swing.GroupLayout.PREFERRED_SIZE, 18, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addComponent(dateTo, javax.swing.GroupLayout.PREFERRED_SIZE, 129, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(15, 15, 15))
+        );
+        panelDateLayout.setVerticalGroup(
+            panelDateLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(panelDateLayout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(panelDateLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(dateFrom, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(dateTo, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+            .addGroup(panelDateLayout.createSequentialGroup()
+                .addComponent(jLabel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addContainerGap())
+        );
+
+        cbStatus.setFont(new java.awt.Font("Segoe UI", 1, 13)); // NOI18N
+        cbStatus.setForeground(new java.awt.Color(102, 102, 102));
+        cbStatus.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Item 1", "Item 2", "Item 3", "Item 4" }));
+        cbStatus.setPreferredSize(new java.awt.Dimension(74, 38));
+
+        lblPaidOrder1.setForeground(new java.awt.Color(102, 102, 102));
+        lblPaidOrder1.setText("From");
+
+        lblPaidOrder2.setForeground(new java.awt.Color(102, 102, 102));
+        lblPaidOrder2.setText("To");
+
+        lblPaidOrder3.setForeground(new java.awt.Color(102, 102, 102));
+        lblPaidOrder3.setText("Status");
+
+        cbPaymentMethod.setFont(new java.awt.Font("Segoe UI", 1, 13)); // NOI18N
+        cbPaymentMethod.setForeground(new java.awt.Color(102, 102, 102));
+        cbPaymentMethod.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Item 1", "Item 2", "Item 3", "Item 4" }));
+        cbPaymentMethod.setPreferredSize(new java.awt.Dimension(74, 38));
+
+        lblPaidOrder4.setForeground(new java.awt.Color(102, 102, 102));
+        lblPaidOrder4.setText("Payment");
+
+        txtSearchInvoice.addActionListener(this::txtSearchInvoiceActionPerformed);
+
+        javax.swing.GroupLayout panelBelowHeaderLayout = new javax.swing.GroupLayout(panelBelowHeader);
+        panelBelowHeader.setLayout(panelBelowHeaderLayout);
+        panelBelowHeaderLayout.setHorizontalGroup(
+            panelBelowHeaderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(panelBelowHeaderLayout.createSequentialGroup()
+                .addGroup(panelBelowHeaderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(panelBelowHeaderLayout.createSequentialGroup()
+                        .addGap(18, 18, 18)
+                        .addComponent(panelDate, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addGroup(panelBelowHeaderLayout.createSequentialGroup()
+                        .addGap(36, 36, 36)
+                        .addComponent(lblPaidOrder1)
+                        .addGap(151, 151, 151)
+                        .addComponent(lblPaidOrder2)))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addGroup(panelBelowHeaderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(lblPaidOrder3)
+                    .addComponent(cbStatus, javax.swing.GroupLayout.PREFERRED_SIZE, 113, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addGroup(panelBelowHeaderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(panelBelowHeaderLayout.createSequentialGroup()
+                        .addComponent(cbPaymentMethod, javax.swing.GroupLayout.PREFERRED_SIZE, 113, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                        .addComponent(txtSearchInvoice, javax.swing.GroupLayout.PREFERRED_SIZE, 315, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addComponent(lblPaidOrder4))
+                .addContainerGap(18, Short.MAX_VALUE))
+        );
+        panelBelowHeaderLayout.setVerticalGroup(
+            panelBelowHeaderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(panelBelowHeaderLayout.createSequentialGroup()
+                .addContainerGap(7, Short.MAX_VALUE)
+                .addGroup(panelBelowHeaderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(lblPaidOrder1, javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addComponent(lblPaidOrder2, javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelBelowHeaderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                        .addComponent(lblPaidOrder3)
+                        .addComponent(lblPaidOrder4)))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGroup(panelBelowHeaderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                    .addComponent(panelDate, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(cbStatus, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addGroup(panelBelowHeaderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                        .addComponent(cbPaymentMethod, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(txtSearchInvoice, javax.swing.GroupLayout.PREFERRED_SIZE, 38, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                .addGap(14, 14, 14))
+        );
+
+        panelOrderManagement2.setBackground(new java.awt.Color(247, 246, 242));
+
+        tableTransactionHistory.setModel(new javax.swing.table.DefaultTableModel(
+            new Object [][] {
+                {null, null, null, null},
+                {null, null, null, null},
+                {null, null, null, null},
+                {null, null, null, null}
+            },
+            new String [] {
+                "Title 1", "Title 2", "Title 3", "Title 4"
+            }
+        ));
+        jScrollPane3.setViewportView(tableTransactionHistory);
+
+        jLabel27.setBackground(new java.awt.Color(122, 67, 29));
+        jLabel27.setFont(new java.awt.Font("Segoe UI", 0, 19)); // NOI18N
+        jLabel27.setForeground(new java.awt.Color(122, 67, 29));
+        jLabel27.setText("Transaction Log ");
+
+        lblRecordLog.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
+        lblRecordLog.setForeground(new java.awt.Color(102, 102, 102));
+        lblRecordLog.setText("(0 records)");
+
+        javax.swing.GroupLayout panelOrderManagement2Layout = new javax.swing.GroupLayout(panelOrderManagement2);
+        panelOrderManagement2.setLayout(panelOrderManagement2Layout);
+        panelOrderManagement2Layout.setHorizontalGroup(
+            panelOrderManagement2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(panelOrderManagement2Layout.createSequentialGroup()
+                .addGap(33, 33, 33)
+                .addComponent(jLabel27)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(lblRecordLog)
+                .addContainerGap(684, Short.MAX_VALUE))
+            .addGroup(panelOrderManagement2Layout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(jScrollPane3)
+                .addContainerGap())
+        );
+        panelOrderManagement2Layout.setVerticalGroup(
+            panelOrderManagement2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelOrderManagement2Layout.createSequentialGroup()
+                .addGap(26, 26, 26)
+                .addGroup(panelOrderManagement2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel27)
+                    .addComponent(lblRecordLog))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jScrollPane3, javax.swing.GroupLayout.DEFAULT_SIZE, 526, Short.MAX_VALUE)
+                .addContainerGap())
+        );
 
         javax.swing.GroupLayout panelOrderLayout = new javax.swing.GroupLayout(panelOrder);
         panelOrder.setLayout(panelOrderLayout);
         panelOrderLayout.setHorizontalGroup(
             panelOrderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 953, Short.MAX_VALUE)
+            .addComponent(panelBelowHeader, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addGroup(panelOrderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                .addGroup(panelOrderLayout.createSequentialGroup()
+                    .addGap(8, 8, 8)
+                    .addComponent(panelOrderManagement2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addContainerGap(8, Short.MAX_VALUE)))
         );
         panelOrderLayout.setVerticalGroup(
             panelOrderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 690, Short.MAX_VALUE)
+            .addGroup(panelOrderLayout.createSequentialGroup()
+                .addComponent(panelBelowHeader, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(0, 609, Short.MAX_VALUE))
+            .addGroup(panelOrderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelOrderLayout.createSequentialGroup()
+                    .addGap(0, 100, Short.MAX_VALUE)
+                    .addComponent(panelOrderManagement2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
         );
 
         panelMenu.add(panelOrder, "cardOrder");
@@ -1484,8 +2143,7 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
                     }
                 }
 
-                // 2. Tiến hành hoàn tất hóa đơn
-                boolean ok = orderRepository.finalizeOrder(orderId, paymentMethod, totalAmount, "PAID", items);
+                boolean ok = orderRepository.finalizeOrder(orderId, cart.getCustomerId(), paymentMethod, totalAmount, "PAID", items);
                 return ok ? "OK" : "DATABASE_ERROR";
             }
 
@@ -1556,7 +2214,7 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
     private void btnCancelOrderActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnCancelOrderActionPerformed
         int orderId = sessionOrderIds.get(activeIndex);
         if (orderId != -1) {
-            orderRepository.finalizeOrder(orderId, null, 0, "CANCELLED", null);
+            orderRepository.finalizeOrder(orderId, null, null, 0, "CANCELLED", null);
         }
 
         if (dashBoard != null) {
@@ -1578,6 +2236,10 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
     private void btnEmployeeActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnEmployeeActionPerformed
         // TODO add your handling code here:
     }//GEN-LAST:event_btnEmployeeActionPerformed
+
+    private void txtSearchInvoiceActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_txtSearchInvoiceActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_txtSearchInvoiceActionPerformed
 
     private void cashBtnActionPerformed(java.awt.event.ActionEvent evt) {
         java.awt.CardLayout cl = (java.awt.CardLayout) panelCardParent.getLayout();
@@ -1642,17 +2304,27 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
     private javax.swing.JButton btnProductInventory;
     private javax.swing.JButton btnScan;
     private javax.swing.JButton cashBtn;
+    private javax.swing.JComboBox<String> cbAll;
     private javax.swing.JComboBox<String> cbCategory;
+    private javax.swing.JComboBox<String> cbPaymentMethod;
+    private javax.swing.JComboBox<String> cbStatus;
+    private com.toedter.calendar.JDateChooser dateFrom;
+    private com.toedter.calendar.JDateChooser dateTo;
+    private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel12;
     private javax.swing.JLabel jLabel13;
     private javax.swing.JLabel jLabel14;
     private javax.swing.JLabel jLabel16;
     private javax.swing.JLabel jLabel19;
     private javax.swing.JLabel jLabel2;
+    private javax.swing.JLabel jLabel20;
+    private javax.swing.JLabel jLabel27;
     private javax.swing.JLabel jLabel3;
     private javax.swing.JLabel jLabel4;
     private javax.swing.JLabel jLabel8;
     private javax.swing.JScrollPane jScrollPane1;
+    private javax.swing.JScrollPane jScrollPane2;
+    private javax.swing.JScrollPane jScrollPane3;
     private javax.swing.JSeparator jSeparator1;
     private javax.swing.JLabel labelStatus;
     private javax.swing.JLabel lbAvatarShop;
@@ -1660,21 +2332,31 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
     private javax.swing.JLabel lbQRCode;
     private javax.swing.JLabel lbSubtotal;
     private javax.swing.JLabel lblCurrentOrder;
+    private javax.swing.JLabel lblPaidOrder1;
+    private javax.swing.JLabel lblPaidOrder2;
+    private javax.swing.JLabel lblPaidOrder3;
+    private javax.swing.JLabel lblPaidOrder4;
     private javax.swing.JLabel lblPopular;
+    private javax.swing.JLabel lblRecordLog;
+    private javax.swing.JLabel lblTotalItem;
     private javax.swing.JButton managerBtn;
     private javax.swing.JPanel panelBarcode;
+    private javax.swing.JPanel panelBelowHeader;
     private javax.swing.JPanel panelCardParent;
     private javax.swing.JPanel panelCashView;
     private javax.swing.JPanel panelCashier;
     private javax.swing.JPanel panelChangeDue;
     private javax.swing.JPanel panelCurrentOrder;
     private javax.swing.JPanel panelCustomer;
+    private javax.swing.JPanel panelDate;
     private javax.swing.JPanel panelEmployee;
     private javax.swing.JPanel panelEmployeeCheckIn;
     private javax.swing.JPanel panelHeader;
     private javax.swing.JPanel panelMenu;
     private javax.swing.JPanel panelNav;
     private javax.swing.JPanel panelOrder;
+    private javax.swing.JPanel panelOrderManagement1;
+    private javax.swing.JPanel panelOrderManagement2;
     private javax.swing.JPanel panelOrderSplit;
     private javax.swing.JPanel panelOrderSummary;
     private javax.swing.JPanel panelPopular;
@@ -1685,8 +2367,12 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
     private javax.swing.JButton qrBtn;
     private javax.swing.JScrollPane scrollPopular;
     private javax.swing.JTable tableCurrentOrder;
+    private javax.swing.JTable tableProduct;
+    private javax.swing.JTable tableTransactionHistory;
     private javax.swing.JTextField txtBarcodeSearch;
     private javax.swing.JTextField txtCashReceived;
     private javax.swing.JTextField txtSearchCustomer;
+    private javax.swing.JTextField txtSearchInvoice;
+    private javax.swing.JTextField txtSearchProduct;
     // End of variables declaration//GEN-END:variables
 }
