@@ -12,7 +12,7 @@ public final class SmsService {
     // Cấu hình Twilio (dành cho môi trường Production, thay thế khi deploy thực tế)
     private static final String TWILIO_ACCOUNT_SID = "TWILIO_ACCOUNT_SID";
     private static final String TWILIO_AUTH_TOKEN = "TWILIO_AUTH_TOKEN";
-    private static final String TWILIO_PHONE_FROM = "+17373217335";
+    private static final String TWILIO_PHONE_FROM = "YOUR_TWILIO_PHONE_NUMBER";
 
     private SmsService() {}
 
