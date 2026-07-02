@@ -598,9 +598,18 @@ public class OrderRepository {
     // Tạo đơn hàng rỗng trạng thái PENDING (chưa có items)
 
     public int createPendingOrder(int employeeId) {
-        String sql = "INSERT INTO orders (employee_id, total_amount, status) VALUES (?, 0, 'PENDING')";
+        return createPendingOrder(employeeId, null);
+    }
+
+    public int createPendingOrder(int employeeId, Integer customerId) {
+        String sql = "INSERT INTO orders (employee_id, customer_id, total_amount, status) VALUES (?, ?, 0, 'PENDING')";
         try (Connection conn = DatabaseConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setInt(1, employeeId);
+            if (customerId != null) {
+                ps.setInt(2, customerId);
+            } else {
+                ps.setNull(2, java.sql.Types.INTEGER);
+            }
             ps.executeUpdate();
             try (ResultSet keys = ps.getGeneratedKeys()) {
                 if (keys.next()) {
@@ -611,6 +620,55 @@ public class OrderRepository {
             System.err.println("Lỗi tạo đơn PENDING: " + e.getMessage());
         }
         return -1;
+    }
+
+    public void updateOrderCustomer(int orderId, Integer customerId) {
+        String sql = "UPDATE orders SET customer_id = ? WHERE id = ?";
+        try (Connection conn = DatabaseConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            if (customerId != null) {
+                ps.setInt(1, customerId);
+            } else {
+                ps.setNull(1, java.sql.Types.INTEGER);
+            }
+            ps.setInt(2, orderId);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            System.err.println("Lỗi cập nhật customer_id cho đơn: " + e.getMessage());
+        }
+    }
+
+    public void syncPendingOrderDetails(int orderId, List<NewOrderItem> items) {
+        String deleteSql = "DELETE FROM order_details WHERE order_id = ?";
+        String insertSql = "INSERT INTO order_details (order_id, product_id, quantity, price) VALUES (?, ?, ?, ?)";
+        
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            conn.setAutoCommit(false);
+            try {
+                try (PreparedStatement ps = conn.prepareStatement(deleteSql)) {
+                    ps.setInt(1, orderId);
+                    ps.executeUpdate();
+                }
+                
+                if (items != null && !items.isEmpty()) {
+                    try (PreparedStatement ps = conn.prepareStatement(insertSql)) {
+                        for (NewOrderItem item : items) {
+                            ps.setInt(1, orderId);
+                            ps.setInt(2, item.productId);
+                            ps.setInt(3, item.quantity);
+                            ps.setDouble(4, item.price);
+                            ps.addBatch();
+                        }
+                        ps.executeBatch();
+                    }
+                }
+                conn.commit();
+            } catch (SQLException e) {
+                conn.rollback();
+                throw e;
+            }
+        } catch (SQLException e) {
+            System.err.println("Lỗi đồng bộ chi tiết đơn PENDING: " + e.getMessage());
+        }
     }
 
 // Cập nhật đơn từ PENDING → PAID/CANCELLED + ghi items
@@ -641,6 +699,13 @@ public class OrderRepository {
             }
 
             if (items != null) {
+                // Xóa các chi tiết cũ trước để tránh trùng lặp khi ghi đè bản nháp PENDING
+                String deleteDetailsSql = "DELETE FROM order_details WHERE order_id=?";
+                try (PreparedStatement ps = conn.prepareStatement(deleteDetailsSql)) {
+                    ps.setInt(1, orderId);
+                    ps.executeUpdate();
+                }
+
                 try (PreparedStatement ps = conn.prepareStatement(detailSql)) {
                     for (NewOrderItem item : items) {
                         ps.setInt(1, orderId);

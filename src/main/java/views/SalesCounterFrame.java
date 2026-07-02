@@ -9,6 +9,7 @@ import repository.OrderRepository;
 import service.CategoryService;
 import service.ProductService;
 import service.impl.CategoryServiceImpl;
+import service.impl.CustomerServiceImpl;
 import service.impl.ProductServiceImpl;
 import ui.InventoryTableRenderer;
 import ui.MenuIcons;
@@ -20,6 +21,7 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
 
     private final CategoryService categoryService = new CategoryServiceImpl();
     private final ProductService productService = new ProductServiceImpl();
+    private final CustomerServiceImpl customerService = new CustomerServiceImpl();
     private final repository.CustomerRepository customerRepository = new repository.CustomerRepository();
     private entity.Customer selectedCustomer;
     private javax.swing.JPopupMenu customerSuggestPopup;
@@ -48,6 +50,55 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         } else {
             this.dashBoard = null;
         }
+
+        // Cấu hình cbb (jComboBox1) để hiển thị Tên + Role và chức năng đăng xuất
+        if (user != null) {
+            String roleName = "Staff";
+            try {
+                java.util.List<entity.Role> roles = new repository.EmployeeRepository().getAllRole();
+                for (entity.Role r : roles) {
+                    if (r.getId() == user.getRoleId()) {
+                        roleName = r.getRoleName();
+                        break;
+                    }
+                }
+            } catch (Exception e) {
+                roleName = user.getRoleId() == 1 ? "Manager" : "Staff";
+            }
+            String displayInfo = user.getFullName() + " (" + roleName + ")";
+            jComboBox1.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { displayInfo, "Đăng xuất" }));
+        } else {
+            jComboBox1.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Chưa đăng nhập", "Đăng nhập" }));
+        }
+
+        // Thiết lập phong cách hiển thị (Styling) cho jComboBox1 đồng bộ với giao diện chung
+        jComboBox1.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 13));
+        jComboBox1.putClientProperty(FlatClientProperties.STYLE, ""
+                + "background: #FFFFFF;"
+                + "foreground: #6F3B1A;"
+                + "borderColor: #D2B48C;"
+                + "borderWidth: 1;"
+                + "arc: 12;"
+                + "buttonBackground: #FFFFFF;"
+                + "buttonArrowColor: #6F3B1A;"
+                + "focusWidth: 0;");
+        jComboBox1.setRenderer(new javax.swing.DefaultListCellRenderer() {
+            @Override
+            public java.awt.Component getListCellRendererComponent(javax.swing.JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+                javax.swing.JLabel label = (javax.swing.JLabel) super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+                label.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 13));
+                label.setBorder(javax.swing.BorderFactory.createEmptyBorder(6, 12, 6, 12));
+                if (isSelected) {
+                    label.setBackground(new java.awt.Color(226, 135, 67)); // #E28743
+                    label.setForeground(java.awt.Color.WHITE);
+                } else {
+                    label.setBackground(java.awt.Color.WHITE);
+                    label.setForeground(new java.awt.Color(111, 59, 26)); // #6F3B1A
+                }
+                return label;
+            }
+        });
+
         panelOrderSplit.removeAll();
         panelOrderSplit.setLayout(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 6, 4));
         panelOrderSplit.setBackground(new java.awt.Color(248, 246, 242));
@@ -74,7 +125,7 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
                 + "focusWidth: 0; "
                 + "innerFocusWidth: 0;";
         javax.swing.JButton[] menuButtons = {btnMain, btnProductInventory,
-            btnOrder, btnEmployee, btnCustomer};
+            btnOrder, btnCustomer};
         for (javax.swing.JButton btn : menuButtons) {
             btn.setContentAreaFilled(true);
             btn.setFocusPainted(false);
@@ -90,12 +141,12 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         btnMain.setIcon(ui.MenuIcons.dashboard());
         btnProductInventory.setIcon(ui.MenuIcons.inventory());
         btnOrder.setIcon(ui.MenuIcons.history());
-        btnEmployee.setIcon(ui.MenuIcons.humanResources());
+//        btnEmployee.setIcon(ui.MenuIcons.humanResources());
         btnCustomer.setIcon(ui.MenuIcons.customerManagement());
         btnMain.putClientProperty("cardName", "cardSaleCounter");
         btnProductInventory.putClientProperty("cardName", "cardProduct");
         btnOrder.putClientProperty("cardName", "cardOrder");
-        btnEmployee.putClientProperty("cardName", "cardEmployee");
+//        btnEmployee.putClientProperty("cardName", "cardEmployee");
         btnCustomer.putClientProperty("cardName", "cardCustomer");
 
         java.awt.CardLayout cardLayout = (java.awt.CardLayout) panelMenu.getLayout();
@@ -138,8 +189,8 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         scrollPopular.getVerticalScrollBar().setUnitIncrement(16);
 
         txtBarcodeSearch.putClientProperty(FlatClientProperties.STYLE, "arc: 15;");
-        managerBtn.putClientProperty(FlatClientProperties.STYLE,
-                "arc: 30; borderWidth: 1; borderColor: #E28743;");
+//        managerBtn.putClientProperty(FlatClientProperties.STYLE,
+//                "arc: 30; borderWidth: 1; borderColor: #E28743;");
 
         cashBtn.putClientProperty(FlatClientProperties.STYLE, ""
                 + "background: #E28743;"
@@ -242,13 +293,13 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         String subPanelStyle = "background: #FFFFFF; arc: 20; border: 1,#20000000,20,0;";
         panelCashView.putClientProperty(FlatClientProperties.STYLE, subPanelStyle);
         panelQRView.putClientProperty(FlatClientProperties.STYLE, subPanelStyle);
+        tableCurrentOrder.putClientProperty("terminateEditOnFocusLost", Boolean.TRUE);
         tableCurrentOrder.getColumnModel().getColumn(0).setPreferredWidth(35);  // STT
         tableCurrentOrder.getColumnModel().getColumn(1).setPreferredWidth(160); // Tên sản phẩm
         tableCurrentOrder.getColumnModel().getColumn(2).setPreferredWidth(60);  // Còn lại
         tableCurrentOrder.getColumnModel().getColumn(3).setPreferredWidth(55);  // Số lượng
         tableCurrentOrder.getColumnModel().getColumn(4).setPreferredWidth(75);  // Đơn giá
         tableCurrentOrder.getColumnModel().getColumn(5).setPreferredWidth(85);  // Thành tiền
-        tableCurrentOrder.getColumnModel().getColumn(6).setPreferredWidth(65);  // Thao tác (Nút trừ)
 
         tableCurrentOrder.setFont(new java.awt.Font("Segoe UI", java.awt.Font.PLAIN, 14));
         tableCurrentOrder.setRowHeight(38);
@@ -280,56 +331,11 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         tableCurrentOrder.getColumnModel().getColumn(4).setCellRenderer(rightRenderer);  // Đơn giá -> Phải
         tableCurrentOrder.getColumnModel().getColumn(5).setCellRenderer(rightRenderer);  // Thành tiền -> Phải
 
-        class TableButtonEditor extends javax.swing.AbstractCellEditor
-                implements javax.swing.table.TableCellRenderer, javax.swing.table.TableCellEditor {
-
-            private final javax.swing.JButton button;
-            private int currentRow;
-
-            public TableButtonEditor() {
-                button = new javax.swing.JButton("-");
-                button.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 14));
-                button.setFocusable(false);
-                button.putClientProperty(com.formdev.flatlaf.FlatClientProperties.STYLE, ""
-                        + "background: #E57373;"
-                        + "foreground: #FFFFFF;"
-                        + "arc: 8;"
-                        + "borderWidth: 0;");
-                button.addActionListener(e -> {
-                    activeCart().removeOne(currentRow);
-                    fireEditingStopped();
-                });
-            }
-
-            @Override
-            public java.awt.Component getTableCellRendererComponent(javax.swing.JTable table, Object value,
-                    boolean isSelected, boolean hasFocus, int row, int column) {
-                return button;
-            }
-
-            @Override
-            public java.awt.Component getTableCellEditorComponent(javax.swing.JTable table, Object value,
-                    boolean isSelected, int row, int column) {
-                this.currentRow = row;
-                return button;
-            }
-
-            @Override
-            public Object getCellEditorValue() {
-                return "-";
-            }
-        }
-
-        reapplyButtonEditor();
-
         btnScan.setContentAreaFilled(false);
         btnScan.setFocusPainted(false);
         btnScan.setBorderPainted(false);
         btnScan.setText("");
         btnScan.setUI(new ScannerButtonUI());
-        TableButtonEditor buttonEditor = new TableButtonEditor();
-        tableCurrentOrder.getColumnModel().getColumn(6).setCellRenderer(buttonEditor);
-        tableCurrentOrder.getColumnModel().getColumn(6).setCellEditor(buttonEditor);
 
         if (jScrollPane1 != null) {
             jScrollPane1.setBorder(javax.swing.BorderFactory.createEmptyBorder(0, 0, 0, 0));
@@ -367,6 +373,8 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         initSearchInvoiceFilterInSale();
         initTransactionDateFilters();
         refreshTransactionHistory();
+        loadCustomerTableData();
+        initCustomerFilterEvents();
     }
 
     private void customTransactionHistoryAppearance() {
@@ -740,7 +748,6 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         txtSearchCustomer.setText(cart.getCustomerName() != null ? cart.getCustomerName() : "");
         lblCurrentOrder.setText(cart.getCustomerName() != null ? "Current Order - " + cart.getCustomerName() : "Current Order");
         applyTableStyling();
-        reapplyButtonEditor();
         refreshTabUI();
     }
 
@@ -783,6 +790,13 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
     }
 
     private void createNewOrder() {
+        if (orderSessions.size() >= 6) {
+            javax.swing.JOptionPane.showMessageDialog(this,
+                    "Chỉ được tạo tối đa 6 hóa đơn chờ.",
+                    "Thông báo", javax.swing.JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
         OrderCartController newCart = new OrderCartController(
                 tableCurrentOrder, lbSubtotal,
                 lbChangeDue, txtCashReceived, this::handleCartTotalChanged
@@ -792,7 +806,6 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         lblCurrentOrder.setText("Current Order");
         activeIndex = orderSessions.size() - 1;
         applyTableStyling();
-        reapplyButtonEditor();
 
         addTabButton("HD #" + orderSessions.size());
         refreshTabUI();
@@ -804,11 +817,18 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
             dashBoard.refreshAfterNewOrder();
         }
 
+        if (txtCashReceived != null) {
+            txtCashReceived.setText("");
+        }
+        newCart.updateOrderSummaryTotals();
     }
 
     private void ensureOrderPersisted(int index) {
         if (sessionOrderIds.get(index) == -1) {
-            int pendingId = orderRepository.createPendingOrder(1);
+            entity.Employee user = util.UserSession.getInstance().getCurrentUser();
+            int employeeId = (user != null) ? user.getId() : 1;
+            Integer customerId = orderSessions.get(index).getCustomerId();
+            int pendingId = orderRepository.createPendingOrder(employeeId, customerId);
             sessionOrderIds.set(index, pendingId);
         }
     }
@@ -819,6 +839,14 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
             String customerName = orderSessions.get(i).getCustomerName();
             String base = (customerName != null) ? customerName : "HD #" + (i + 1);
             btn.setText(i == activeIndex ? base + " ●" : base);
+            btn.setToolTipText(customerName != null ? customerName : "Hóa đơn " + (i + 1));
+            btn.setPreferredSize(new java.awt.Dimension(85, 30));
+
+            for (java.awt.event.ActionListener al : btn.getActionListeners()) {
+                btn.removeActionListener(al);
+            }
+            final int index = i;
+            btn.addActionListener(e -> switchToOrder(index));
 
             if (i == activeIndex) {
                 btn.putClientProperty(FlatClientProperties.STYLE,
@@ -839,7 +867,6 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         tableCurrentOrder.getColumnModel().getColumn(3).setPreferredWidth(55); // Số lượng
         tableCurrentOrder.getColumnModel().getColumn(4).setPreferredWidth(75); // Đơn giá
         tableCurrentOrder.getColumnModel().getColumn(5).setPreferredWidth(85); // Thành tiền
-        tableCurrentOrder.getColumnModel().getColumn(6).setPreferredWidth(65); // Thao tác
 
         tableCurrentOrder.setFont(new java.awt.Font("Segoe UI", java.awt.Font.PLAIN, 14));
         tableCurrentOrder.setRowHeight(38);
@@ -859,56 +886,11 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         tableCurrentOrder.getColumnModel().getColumn(5).setCellRenderer(rightRenderer);  // Thành tiền
     }
 
-    private void reapplyButtonEditor() {
-        class TableButtonEditor extends javax.swing.AbstractCellEditor
-                implements javax.swing.table.TableCellRenderer, javax.swing.table.TableCellEditor {
-
-            private final javax.swing.JButton button;
-            private int currentRow;
-
-            public TableButtonEditor() {
-                button = new javax.swing.JButton("-");
-                button.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 14));
-                button.setFocusable(false);
-                button.putClientProperty(FlatClientProperties.STYLE, ""
-                        + "background: #E57373;"
-                        + "foreground: #FFFFFF;"
-                        + "arc: 8;"
-                        + "borderWidth: 0;");
-                button.addActionListener(e -> {
-                    activeCart().removeOne(currentRow);
-                    fireEditingStopped();
-                });
-            }
-
-            @Override
-            public java.awt.Component getTableCellRendererComponent(javax.swing.JTable table,
-                    Object value, boolean isSelected, boolean hasFocus, int row, int column) {
-                return button;
-            }
-
-            @Override
-            public java.awt.Component getTableCellEditorComponent(javax.swing.JTable table,
-                    Object value, boolean isSelected, int row, int column) {
-                this.currentRow = row;
-                return button;
-            }
-
-            @Override
-            public Object getCellEditorValue() {
-                return "-";
-            }
-        }
-
-        TableButtonEditor editor = new TableButtonEditor();
-        tableCurrentOrder.getColumnModel().getColumn(6).setCellRenderer(editor);
-        tableCurrentOrder.getColumnModel().getColumn(6).setCellEditor(editor);
-    }
-
     private void addTabButton(String label) {
         int index = tabButtons.size();
         JButton tab = new JButton(label);
         tab.setFocusPainted(false);
+        tab.setPreferredSize(new java.awt.Dimension(85, 30));
         tab.putClientProperty(FlatClientProperties.STYLE,
                 "arc: 20; borderWidth: 1; borderColor: #E28743;");
         tab.addActionListener(e -> switchToOrder(index));
@@ -954,10 +936,17 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
             return;
         }
 
+        List<OrderCartController.CartItem> cartItems = activeCart().getCartItems();
+        List<repository.OrderRepository.NewOrderItem> items = new java.util.ArrayList<>();
+        for (OrderCartController.CartItem ci : cartItems) {
+            items.add(new repository.OrderRepository.NewOrderItem(ci.productId, ci.quantity, ci.unitPrice));
+        }
+
         new javax.swing.SwingWorker<Void, Void>() {
             @Override
             protected Void doInBackground() {
                 orderRepository.updateOrderTotal(orderId, amount);
+                orderRepository.syncPendingOrderDetails(orderId, items);
                 return null;
             }
         }.execute();
@@ -1017,6 +1006,17 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         customerSuggestPopup.setVisible(false);
         lblCurrentOrder.setText("Current Order - " + c.getFullName());
         refreshTabUI();
+
+        int orderId = sessionOrderIds.get(activeIndex);
+        if (orderId != -1) {
+            new javax.swing.SwingWorker<Void, Void>() {
+                @Override
+                protected Void doInBackground() {
+                    orderRepository.updateOrderCustomer(orderId, c.getId());
+                    return null;
+                }
+            }.execute();
+        }
     }
 
     private void initProductManagementInSale() {
@@ -1115,20 +1115,75 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         });
     }
 
+    private void loadCustomerTableData() {
+        String keyword = (txtPhone != null) ? txtPhone.getText().trim() : "";
+
+        new javax.swing.SwingWorker<java.util.List<entity.Customer>, Void>() {
+            @Override
+            protected java.util.List<entity.Customer> doInBackground() {
+                return customerService.searchCustomers(keyword);
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    java.util.List<entity.Customer> customers = get();
+                    javax.swing.table.DefaultTableModel model
+                            = (javax.swing.table.DefaultTableModel) jTable1.getModel();
+                    
+                    model.setRowCount(0);
+
+                    int stt = 1;
+                    for (var rec : customers) {
+                        model.addRow(new Object[]{
+                            stt++,
+                            String.format("CTM-%04d", rec.getId()),
+                            rec.getFullName(),
+                            rec.getPhone()
+                        });
+                    }
+                    jTable1.revalidate();
+                    jTable1.repaint();
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            }
+        }.execute();
+    }
+
+    private void initCustomerFilterEvents() {
+        txtPhone.getDocument().addDocumentListener(
+                onDocumentChange(() -> {
+                    if (customerSearchTimer != null && customerSearchTimer.isRunning()) {
+                        customerSearchTimer.stop();
+                    }
+                    customerSearchTimer = new javax.swing.Timer(300, event -> {
+                        loadCustomerTableData();
+                    });
+                    customerSearchTimer.setRepeats(false);
+                    customerSearchTimer.start();
+                })
+        );
+
+        btnAddCustomer.addActionListener(e -> {
+            AddCustomerFrame addFrame = new AddCustomerFrame(this::loadCustomerTableData);
+            addFrame.setVisible(true);
+        });
+    }
+
 
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
         panelHeader = new javax.swing.JPanel();
-        managerBtn = new javax.swing.JButton();
         jLabel2 = new javax.swing.JLabel();
         jLabel3 = new javax.swing.JLabel();
         lbAvatarShop = new javax.swing.JLabel();
+        jComboBox1 = new javax.swing.JComboBox<>();
         panelNav = new javax.swing.JPanel();
         btnMain = new javax.swing.JButton();
         btnProductInventory = new javax.swing.JButton();
         btnOrder = new javax.swing.JButton();
-        btnEmployee = new javax.swing.JButton();
         btnCustomer = new javax.swing.JButton();
         panelMenu = new javax.swing.JPanel();
         panelSaleCounter = new javax.swing.JPanel();
@@ -1199,19 +1254,17 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         tableTransactionHistory = new javax.swing.JTable();
         jLabel27 = new javax.swing.JLabel();
         lblRecordLog = new javax.swing.JLabel();
-        panelEmployee = new javax.swing.JPanel();
         panelCustomer = new javax.swing.JPanel();
+        jScrollPane4 = new javax.swing.JScrollPane();
+        jTable1 = new javax.swing.JTable();
+        txtPhone = new javax.swing.JTextField();
+        jLabel5 = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
         setBackground(new java.awt.Color(245, 245, 245));
 
         panelHeader.setBackground(new java.awt.Color(255, 255, 255));
         panelHeader.setPreferredSize(new java.awt.Dimension(410, 85));
-
-        managerBtn.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
-        managerBtn.setForeground(new java.awt.Color(226, 135, 67));
-        managerBtn.setText("Manager Dashboard");
-        managerBtn.addActionListener(this::managerBtnActionPerformed);
 
         jLabel2.setBackground(new java.awt.Color(122, 67, 29));
         jLabel2.setFont(new java.awt.Font("Segoe UI", 1, 24)); // NOI18N
@@ -1226,6 +1279,9 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         lbAvatarShop.setText("Logo");
         lbAvatarShop.setPreferredSize(new java.awt.Dimension(45, 45));
 
+        jComboBox1.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Item 1", "Item 2", "Item 3", "Item 4" }));
+        jComboBox1.addActionListener(this::jComboBox1ActionPerformed);
+
         javax.swing.GroupLayout panelHeaderLayout = new javax.swing.GroupLayout(panelHeader);
         panelHeader.setLayout(panelHeaderLayout);
         panelHeaderLayout.setHorizontalGroup(
@@ -1238,8 +1294,8 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
                     .addComponent(jLabel3)
                     .addComponent(jLabel2))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addComponent(managerBtn, javax.swing.GroupLayout.PREFERRED_SIZE, 172, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(19, 19, 19))
+                .addComponent(jComboBox1, javax.swing.GroupLayout.PREFERRED_SIZE, 157, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(27, 27, 27))
         );
         panelHeaderLayout.setVerticalGroup(
             panelHeaderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -1251,12 +1307,13 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
                             .addComponent(lbAvatarShop, javax.swing.GroupLayout.DEFAULT_SIZE, 58, Short.MAX_VALUE)
                             .addGroup(panelHeaderLayout.createSequentialGroup()
                                 .addComponent(jLabel2)
-                                .addGap(0, 0, Short.MAX_VALUE))))
+                                .addGap(0, 0, Short.MAX_VALUE))
+                            .addGroup(panelHeaderLayout.createSequentialGroup()
+                                .addGap(10, 10, 10)
+                                .addComponent(jComboBox1))))
                     .addGroup(panelHeaderLayout.createSequentialGroup()
-                        .addGap(25, 25, 25)
-                        .addGroup(panelHeaderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                            .addComponent(jLabel3)
-                            .addComponent(managerBtn, javax.swing.GroupLayout.PREFERRED_SIZE, 37, javax.swing.GroupLayout.PREFERRED_SIZE))))
+                        .addGap(42, 42, 42)
+                        .addComponent(jLabel3)))
                 .addGap(15, 15, 15))
         );
 
@@ -1278,12 +1335,6 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         btnOrder.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
         btnOrder.addActionListener(this::btnOrderActionPerformed);
 
-        btnEmployee.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
-        btnEmployee.setText("Employee");
-        btnEmployee.setBorder(null);
-        btnEmployee.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
-        btnEmployee.addActionListener(this::btnEmployeeActionPerformed);
-
         btnCustomer.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
         btnCustomer.setText("Customer");
         btnCustomer.setBorder(null);
@@ -1298,7 +1349,6 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
                 .addGap(14, 14, 14)
                 .addGroup(panelNavLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
                     .addComponent(btnCustomer, javax.swing.GroupLayout.PREFERRED_SIZE, 212, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(btnEmployee, javax.swing.GroupLayout.PREFERRED_SIZE, 212, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(btnOrder, javax.swing.GroupLayout.PREFERRED_SIZE, 212, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(btnProductInventory, javax.swing.GroupLayout.PREFERRED_SIZE, 212, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(btnMain, javax.swing.GroupLayout.PREFERRED_SIZE, 212, javax.swing.GroupLayout.PREFERRED_SIZE))
@@ -1314,10 +1364,8 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
                 .addGap(18, 18, 18)
                 .addComponent(btnOrder, javax.swing.GroupLayout.PREFERRED_SIZE, 47, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(18, 18, 18)
-                .addComponent(btnEmployee, javax.swing.GroupLayout.PREFERRED_SIZE, 47, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(18, 18, 18)
                 .addComponent(btnCustomer, javax.swing.GroupLayout.PREFERRED_SIZE, 47, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(367, Short.MAX_VALUE))
+                .addContainerGap(432, Short.MAX_VALUE))
         );
 
         panelMenu.setPreferredSize(new java.awt.Dimension(682, 100));
@@ -1450,7 +1498,7 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
             .addGroup(panelPopularLayout.createSequentialGroup()
                 .addComponent(lblPopular)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(scrollPopular, javax.swing.GroupLayout.DEFAULT_SIZE, 315, Short.MAX_VALUE)
+                .addComponent(scrollPopular)
                 .addContainerGap())
         );
 
@@ -1563,7 +1611,7 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
                     .addGroup(panelCashViewLayout.createSequentialGroup()
                         .addGap(18, 18, 18)
                         .addComponent(panelChangeDue, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                .addContainerGap(16, Short.MAX_VALUE))
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
         panelCashViewLayout.setVerticalGroup(
             panelCashViewLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -1698,12 +1746,14 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         );
         panelEmployeeCheckInLayout.setVerticalGroup(
             panelEmployeeCheckInLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 142, Short.MAX_VALUE)
+            .addGap(0, 0, Short.MAX_VALUE)
         );
 
         cbCategory.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Item 1", "Item 2", "Item 3", "Item 4" }));
 
         btnAddCustomer.setText("Add customer");
+
+        txtSearchCustomer.addActionListener(this::txtSearchCustomerActionPerformed);
 
         javax.swing.GroupLayout panelSaleCounterLayout = new javax.swing.GroupLayout(panelSaleCounter);
         panelSaleCounter.setLayout(panelSaleCounterLayout);
@@ -1827,7 +1877,7 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
                 .addGroup(panelProductLayout.createSequentialGroup()
                     .addContainerGap()
                     .addComponent(panelOrderManagement1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addContainerGap(14, Short.MAX_VALUE)))
+                    .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
         );
         panelProductLayout.setVerticalGroup(
             panelProductLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -1839,7 +1889,7 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
                 .addContainerGap(605, Short.MAX_VALUE))
             .addGroup(panelProductLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                 .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelProductLayout.createSequentialGroup()
-                    .addContainerGap(160, Short.MAX_VALUE)
+                    .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(panelOrderManagement1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addContainerGap()))
         );
@@ -2013,7 +2063,7 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
                 .addGroup(panelOrderLayout.createSequentialGroup()
                     .addGap(8, 8, 8)
                     .addComponent(panelOrderManagement2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addContainerGap(8, Short.MAX_VALUE)))
+                    .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
         );
         panelOrderLayout.setVerticalGroup(
             panelOrderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -2022,34 +2072,72 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
                 .addGap(0, 609, Short.MAX_VALUE))
             .addGroup(panelOrderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                 .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelOrderLayout.createSequentialGroup()
-                    .addGap(0, 100, Short.MAX_VALUE)
+                    .addGap(0, 0, Short.MAX_VALUE)
                     .addComponent(panelOrderManagement2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
         );
 
         panelMenu.add(panelOrder, "cardOrder");
 
-        javax.swing.GroupLayout panelEmployeeLayout = new javax.swing.GroupLayout(panelEmployee);
-        panelEmployee.setLayout(panelEmployeeLayout);
-        panelEmployeeLayout.setHorizontalGroup(
-            panelEmployeeLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 953, Short.MAX_VALUE)
-        );
-        panelEmployeeLayout.setVerticalGroup(
-            panelEmployeeLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 690, Short.MAX_VALUE)
-        );
+        panelCustomer.setPreferredSize(new java.awt.Dimension(949, 590));
 
-        panelMenu.add(panelEmployee, "cardEmployee");
+        jTable1.setModel(new javax.swing.table.DefaultTableModel(
+            new Object [][] {
+                {null, null, null, null},
+                {null, null, null, null},
+                {null, null, null, null},
+                {null, null, null, null}
+            },
+            new String [] {
+                "No", "Code", "Name", "Phone"
+            }
+        ) {
+            boolean[] canEdit = new boolean [] {
+                false, false, false, false
+            };
+
+            public boolean isCellEditable(int rowIndex, int columnIndex) {
+                return canEdit [columnIndex];
+            }
+        });
+        jScrollPane4.setViewportView(jTable1);
+        if (jTable1.getColumnModel().getColumnCount() > 0) {
+            jTable1.getColumnModel().getColumn(0).setResizable(false);
+            jTable1.getColumnModel().getColumn(1).setResizable(false);
+            jTable1.getColumnModel().getColumn(2).setResizable(false);
+            jTable1.getColumnModel().getColumn(3).setResizable(false);
+        }
+
+        txtPhone.addActionListener(this::txtPhoneActionPerformed);
+
+        jLabel5.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
+        jLabel5.setText("Phone");
 
         javax.swing.GroupLayout panelCustomerLayout = new javax.swing.GroupLayout(panelCustomer);
         panelCustomer.setLayout(panelCustomerLayout);
         panelCustomerLayout.setHorizontalGroup(
             panelCustomerLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 953, Short.MAX_VALUE)
+            .addGroup(panelCustomerLayout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(panelCustomerLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(jScrollPane4, javax.swing.GroupLayout.DEFAULT_SIZE, 941, Short.MAX_VALUE)
+                    .addGroup(panelCustomerLayout.createSequentialGroup()
+                        .addGap(6, 6, 6)
+                        .addComponent(jLabel5)
+                        .addGap(29, 29, 29)
+                        .addComponent(txtPhone, javax.swing.GroupLayout.PREFERRED_SIZE, 134, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(0, 0, Short.MAX_VALUE)))
+                .addContainerGap())
         );
         panelCustomerLayout.setVerticalGroup(
             panelCustomerLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 690, Short.MAX_VALUE)
+            .addGroup(panelCustomerLayout.createSequentialGroup()
+                .addGap(162, 162, 162)
+                .addGroup(panelCustomerLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(txtPhone, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(jLabel5))
+                .addGap(18, 18, 18)
+                .addComponent(jScrollPane4, javax.swing.GroupLayout.DEFAULT_SIZE, 482, Short.MAX_VALUE)
+                .addContainerGap())
         );
 
         panelMenu.add(panelCustomer, "cardCustomer");
@@ -2083,23 +2171,16 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         // TODO add your handling code here:
     }//GEN-LAST:event_btnScanActionPerformed
 
-    public void setManagerButtonVisible(boolean visible) {
-        managerBtn.setVisible(visible);
-    }
+//    public void setManagerButtonVisible(boolean visible) {
+////        managerBtn.setVisible(visible);
+//    }
 
-    public void hideNonManagerMenus() {
-        managerBtn.setVisible(false);
-        managerBtn.setEnabled(false);
-        btnEmployee.setVisible(false);
-        btnOrder.setVisible(false);
-    }
-
-    private void managerBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_managerBtnActionPerformed
-        if (dashBoard != null) {
-            dashBoard.setVisible(true); // Bật dashboard lên
-            this.setVisible(false);
-        }
-    }//GEN-LAST:event_managerBtnActionPerformed
+//    public void hideNonManagerMenus() {
+//        managerBtn.setVisible(false);
+//        managerBtn.setEnabled(false);
+////        btnEmployee.setVisible(false);
+////        btnOrder.setVisible(false);
+//    }
 
     private void btnConfirmOrderActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnConfirmOrderActionPerformed
         OrderCartController cart = activeCart();
@@ -2116,6 +2197,30 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
             items.add(new repository.OrderRepository.NewOrderItem(ci.productId, ci.quantity, ci.unitPrice));
         }
         double totalAmount = cart.getTotalAmount();
+        if ("Cash".equals(paymentMethod)) {
+            String cashStr = txtCashReceived.getText().trim();
+            if (cashStr.isEmpty()) {
+                javax.swing.JOptionPane.showMessageDialog(this,
+                        "Vui lòng nhập số tiền khách hàng trả!",
+                        "Thông báo", javax.swing.JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            try {
+                String cleanCashStr = cashStr.replace(",", "").replace(".", "").replace("đ", "").trim();
+                double cashReceived = Double.parseDouble(cleanCashStr);
+                if (cashReceived < totalAmount) {
+                    javax.swing.JOptionPane.showMessageDialog(this,
+                            String.format("Số tiền khách trả (%,.0f đ) nhỏ hơn tổng tiền phải thanh toán (%,.0f đ)!", cashReceived, totalAmount),
+                            "Cảnh báo", javax.swing.JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+            } catch (NumberFormatException e) {
+                javax.swing.JOptionPane.showMessageDialog(this,
+                        "Số tiền khách hàng trả không hợp lệ!",
+                        "Lỗi", javax.swing.JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+        }
         final int finishedIndex = activeIndex;
         int confirm = javax.swing.JOptionPane.showConfirmDialog(this,
                 String.format("Xác nhận thanh toán%nPhương thức: %s%nTổng tiền: %,.0f đ",
@@ -2189,6 +2294,9 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
                     dashBoard.refreshAfterNewOrder();
                 }
                 loadProductGrid(); // Tải lại lưới sản phẩm để cập nhật số lượng tồn kho vừa trừ
+                if (txtCashReceived != null) {
+                    txtCashReceived.setText("");
+                }
                 orderSessions.remove(finishedIndex);
                 sessionOrderIds.remove(finishedIndex);
                 panelOrderSplit.remove(tabButtons.get(finishedIndex));
@@ -2220,6 +2328,9 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         if (dashBoard != null) {
             dashBoard.refreshAfterNewOrder();
         }
+        if (txtCashReceived != null) {
+            txtCashReceived.setText("");
+        }
         orderSessions.remove(activeIndex);
         sessionOrderIds.remove(activeIndex);
         panelOrderSplit.remove(tabButtons.get(activeIndex));
@@ -2233,13 +2344,38 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         }
     }//GEN-LAST:event_btnCancelOrderActionPerformed
 
-    private void btnEmployeeActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnEmployeeActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_btnEmployeeActionPerformed
-
     private void txtSearchInvoiceActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_txtSearchInvoiceActionPerformed
         // TODO add your handling code here:
     }//GEN-LAST:event_txtSearchInvoiceActionPerformed
+
+    private void txtPhoneActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_txtPhoneActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_txtPhoneActionPerformed
+
+    private void txtSearchCustomerActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_txtSearchCustomerActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_txtSearchCustomerActionPerformed
+
+    private void jComboBox1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jComboBox1ActionPerformed
+        String selected = (String) jComboBox1.getSelectedItem();
+        if ("Đăng xuất".equals(selected)) {
+            int confirm = javax.swing.JOptionPane.showConfirmDialog(this,
+                "Bạn có chắc chắn muốn đăng xuất?",
+                "Xác nhận đăng xuất",
+                javax.swing.JOptionPane.YES_NO_OPTION,
+                javax.swing.JOptionPane.QUESTION_MESSAGE);
+            if (confirm == javax.swing.JOptionPane.YES_OPTION) {
+                util.UserSession.getInstance().cleanUserSession();
+                util.AppRouter.showLogin();
+                this.dispose();
+            } else {
+                jComboBox1.setSelectedIndex(0);
+            }
+        } else if ("Đăng nhập".equals(selected)) {
+            util.AppRouter.showLogin();
+            this.dispose();
+        }
+    }//GEN-LAST:event_jComboBox1ActionPerformed
 
     private void cashBtnActionPerformed(java.awt.event.ActionEvent evt) {
         java.awt.CardLayout cl = (java.awt.CardLayout) panelCardParent.getLayout();
@@ -2283,6 +2419,21 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         panelCardParent.repaint();
     }
 
+    @Override
+    public void setVisible(boolean b) {
+        if (b) {
+            if (!util.UserSession.getInstance().isLoggedIn()) {
+                javax.swing.JOptionPane.showMessageDialog(this,
+                        "Bạn chưa đăng nhập! Vui lòng đăng nhập để tiếp tục.",
+                        "Lỗi truy cập", javax.swing.JOptionPane.ERROR_MESSAGE);
+                util.AppRouter.showLogin();
+                this.dispose();
+                return;
+            }
+        }
+        super.setVisible(b);
+    }
+
     public static void main(String args[]) {
         com.formdev.flatlaf.FlatLightLaf.setup(); // Nên thêm FlatLaf vào đây nữa cho đồng bộ giao diện
         java.awt.EventQueue.invokeLater(() -> {
@@ -2298,7 +2449,6 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
     private javax.swing.JButton btnCancelOrder;
     private javax.swing.JButton btnConfirmOrder;
     private javax.swing.JButton btnCustomer;
-    private javax.swing.JButton btnEmployee;
     private javax.swing.JButton btnMain;
     private javax.swing.JButton btnOrder;
     private javax.swing.JButton btnProductInventory;
@@ -2310,6 +2460,7 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
     private javax.swing.JComboBox<String> cbStatus;
     private com.toedter.calendar.JDateChooser dateFrom;
     private com.toedter.calendar.JDateChooser dateTo;
+    private javax.swing.JComboBox<String> jComboBox1;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel12;
     private javax.swing.JLabel jLabel13;
@@ -2321,11 +2472,14 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
     private javax.swing.JLabel jLabel27;
     private javax.swing.JLabel jLabel3;
     private javax.swing.JLabel jLabel4;
+    private javax.swing.JLabel jLabel5;
     private javax.swing.JLabel jLabel8;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JScrollPane jScrollPane2;
     private javax.swing.JScrollPane jScrollPane3;
+    private javax.swing.JScrollPane jScrollPane4;
     private javax.swing.JSeparator jSeparator1;
+    private javax.swing.JTable jTable1;
     private javax.swing.JLabel labelStatus;
     private javax.swing.JLabel lbAvatarShop;
     private javax.swing.JLabel lbChangeDue;
@@ -2339,7 +2493,6 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
     private javax.swing.JLabel lblPopular;
     private javax.swing.JLabel lblRecordLog;
     private javax.swing.JLabel lblTotalItem;
-    private javax.swing.JButton managerBtn;
     private javax.swing.JPanel panelBarcode;
     private javax.swing.JPanel panelBelowHeader;
     private javax.swing.JPanel panelCardParent;
@@ -2349,7 +2502,6 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
     private javax.swing.JPanel panelCurrentOrder;
     private javax.swing.JPanel panelCustomer;
     private javax.swing.JPanel panelDate;
-    private javax.swing.JPanel panelEmployee;
     private javax.swing.JPanel panelEmployeeCheckIn;
     private javax.swing.JPanel panelHeader;
     private javax.swing.JPanel panelMenu;
@@ -2371,6 +2523,7 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
     private javax.swing.JTable tableTransactionHistory;
     private javax.swing.JTextField txtBarcodeSearch;
     private javax.swing.JTextField txtCashReceived;
+    private javax.swing.JTextField txtPhone;
     private javax.swing.JTextField txtSearchCustomer;
     private javax.swing.JTextField txtSearchInvoice;
     private javax.swing.JTextField txtSearchProduct;

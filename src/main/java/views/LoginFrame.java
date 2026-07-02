@@ -15,6 +15,16 @@ public class LoginFrame extends javax.swing.JFrame {
     private static final java.util.logging.Logger logger = java.util.logging.Logger.getLogger(LoginFrame.class.getName());
     private final service.EmployeeService employeeService = new service.impl.EmployeeServiceImpl();
 
+    private enum ScreenState {
+        LOGIN,
+        FORGOT_REQUEST_OTP,
+        FORGOT_RESET_PASSWORD
+    }
+    private ScreenState screenState = ScreenState.LOGIN;
+    private String sentOtp;
+    private String targetUsername;
+    private String targetPhone;
+
     /**
      * Creates new form LoginFrame
      */
@@ -67,9 +77,32 @@ public class LoginFrame extends javax.swing.JFrame {
     }
 
     private void setupEvents() {
-        jButton1.addActionListener(e -> performLogin());
-        txtPassword.addActionListener(e -> performLogin()); // Press Enter in password field to login
-        txtUsername.addActionListener(e -> performLogin()); // Press Enter in username field to login
+        jButton1.addActionListener(e -> performAction());
+        txtPassword.addActionListener(e -> performAction());
+        txtUsername.addActionListener(e -> performAction());
+        
+        jLabel4.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                if (screenState == ScreenState.LOGIN) {
+                    switchState(ScreenState.FORGOT_REQUEST_OTP);
+                } else if (screenState == ScreenState.FORGOT_REQUEST_OTP) {
+                    switchState(ScreenState.LOGIN);
+                } else if (screenState == ScreenState.FORGOT_RESET_PASSWORD) {
+                    switchState(ScreenState.FORGOT_REQUEST_OTP);
+                }
+            }
+        });
+    }
+
+    private void performAction() {
+        if (screenState == ScreenState.LOGIN) {
+            performLogin();
+        } else if (screenState == ScreenState.FORGOT_REQUEST_OTP) {
+            performRequestOtp();
+        } else if (screenState == ScreenState.FORGOT_RESET_PASSWORD) {
+            performResetPassword();
+        }
     }
 
     private void performLogin() {
@@ -95,6 +128,128 @@ public class LoginFrame extends javax.swing.JFrame {
         } else {
             javax.swing.JOptionPane.showMessageDialog(this, "Username hoặc Password không đúng!", "Đăng nhập thất bại", javax.swing.JOptionPane.ERROR_MESSAGE);
         }
+    }
+
+    private void performRequestOtp() {
+        String username = txtUsername.getText().trim();
+        if (username.isEmpty()) {
+            javax.swing.JOptionPane.showMessageDialog(this, "Vui lòng nhập Username!", "Lỗi", javax.swing.JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        repository.EmployeeRepository empRepo = new repository.EmployeeRepository();
+        entity.Employee foundEmp = empRepo.findByUsername(username);
+
+        if (foundEmp == null) {
+            javax.swing.JOptionPane.showMessageDialog(this, "Không tìm thấy tài khoản với Username này!", "Lỗi", javax.swing.JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        String phone = foundEmp.getPhone();
+        if (phone == null || phone.trim().isEmpty()) {
+            javax.swing.JOptionPane.showMessageDialog(this, "Tài khoản này chưa đăng ký số điện thoại trên hệ thống!", "Lỗi", javax.swing.JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        this.targetUsername = username;
+        this.targetPhone = phone;
+        this.sentOtp = generateOtpCode();
+
+        boolean success = util.SmsService.sendOtp(phone, sentOtp);
+        if (success) {
+            javax.swing.JOptionPane.showMessageDialog(this, 
+                    "Mã OTP đã được gửi tới số điện thoại: " + maskPhoneNumber(phone) + "\nVui lòng kiểm tra tin nhắn!", 
+                    "Thành công", javax.swing.JOptionPane.INFORMATION_MESSAGE);
+            switchState(ScreenState.FORGOT_RESET_PASSWORD);
+        } else {
+            javax.swing.JOptionPane.showMessageDialog(this, "Gửi mã OTP thất bại! Vui lòng thử lại.", "Lỗi", javax.swing.JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void performResetPassword() {
+        String inputOtp = txtUsername.getText().trim();
+        String newPassword = new String(txtPassword.getPassword());
+
+        if (inputOtp.isEmpty()) {
+            javax.swing.JOptionPane.showMessageDialog(this, "Vui lòng nhập mã OTP!", "Lỗi", javax.swing.JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        if (newPassword.isEmpty()) {
+            javax.swing.JOptionPane.showMessageDialog(this, "Vui lòng nhập mật khẩu mới!", "Lỗi", javax.swing.JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        if (newPassword.length() < 6) {
+            javax.swing.JOptionPane.showMessageDialog(this, "Mật khẩu phải chứa ít nhất 6 ký tự!", "Lỗi", javax.swing.JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        if (!inputOtp.equals(sentOtp)) {
+            javax.swing.JOptionPane.showMessageDialog(this, "Mã OTP không chính xác!", "Lỗi", javax.swing.JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        String hashedPassword = util.PasswordEncryptionPlugin.hashPassword(newPassword);
+        repository.EmployeeRepository empRepo = new repository.EmployeeRepository();
+        boolean success = empRepo.updatePassword(targetUsername, hashedPassword);
+
+        if (success) {
+            javax.swing.JOptionPane.showMessageDialog(this, "Đổi mật khẩu thành công! Hãy đăng nhập lại bằng mật khẩu mới.", "Thành công", javax.swing.JOptionPane.INFORMATION_MESSAGE);
+            switchState(ScreenState.LOGIN);
+        } else {
+            javax.swing.JOptionPane.showMessageDialog(this, "Cập nhật mật khẩu thất bại! Vui lòng thử lại.", "Lỗi", javax.swing.JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void switchState(ScreenState state) {
+        this.screenState = state;
+        txtUsername.setText("");
+        txtPassword.setText("");
+        
+        if (state == ScreenState.LOGIN) {
+            jLabel3.setText("MEOMEO STORE");
+            jLabel2.setText("Tên đăng nhập");
+            jLabel1.setText("Mật khẩu");
+            jLabel1.setVisible(true);
+            txtPassword.setVisible(true);
+            jButton1.setText("Đăng nhập");
+            jLabel4.setText("Forgot Password ?");
+            txtUsername.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Nhập username của bạn");
+            txtPassword.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Nhập mật khẩu của bạn");
+        } 
+        else if (state == ScreenState.FORGOT_REQUEST_OTP) {
+            jLabel3.setText("QUÊN MẬT KHẨU");
+            jLabel2.setText("Tên đăng nhập");
+            jLabel1.setVisible(false);
+            txtPassword.setVisible(false);
+            jButton1.setText("Gửi mã OTP");
+            jLabel4.setText("Quay lại Đăng nhập");
+            txtUsername.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Nhập username để lấy mã OTP");
+        } 
+        else if (state == ScreenState.FORGOT_RESET_PASSWORD) {
+            jLabel3.setText("ĐẶT LẠI MẬT KHẨU");
+            jLabel2.setText("Mã xác thực OTP (6 số)");
+            jLabel1.setText("Mật khẩu mới");
+            jLabel1.setVisible(true);
+            txtPassword.setVisible(true);
+            jButton1.setText("Xác nhận đổi mật khẩu");
+            jLabel4.setText("Gửi lại mã OTP");
+            txtUsername.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Nhập mã OTP đã nhận");
+            txtPassword.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Nhập mật khẩu mới");
+        }
+        
+        getContentPane().revalidate();
+        getContentPane().repaint();
+    }
+
+    private String generateOtpCode() {
+        java.util.Random rand = new java.util.Random();
+        int num = rand.nextInt(900000) + 100000;
+        return String.valueOf(num);
+    }
+
+    private String maskPhoneNumber(String phone) {
+        if (phone == null || phone.length() <= 4) return phone;
+        return phone.substring(0, 3) + "****" + phone.substring(phone.length() - 3);
     }
 
     /**

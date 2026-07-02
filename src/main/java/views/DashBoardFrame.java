@@ -6,6 +6,7 @@ import java.awt.CardLayout;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
+import java.util.List;
 import java.util.Map;
 import javax.swing.JPanel;
 import javax.swing.SwingWorker;
@@ -21,6 +22,16 @@ import ui.HistoryActionCellEditor;
 import ui.InventoryTableRenderer;
 import ui.ScheduleTableRenderer;
 import ui.BarChartPanel;
+
+import controller.OrderCartController;
+import service.CategoryService;
+import service.ProductService;
+import service.impl.CategoryServiceImpl;
+import service.impl.ProductServiceImpl;
+import ui.MenuIcons;
+import ui.ScannerButtonUI;
+import util.ImageUtil;
+import util.VietQrRenderer;
 
 public class DashBoardFrame extends javax.swing.JFrame {
 
@@ -38,6 +49,23 @@ public class DashBoardFrame extends javax.swing.JFrame {
     private ui.TopSalesPanel topSalesThang;
     private java.awt.CardLayout cardTopSales;
     private SalesCounterFrame salesCounter;
+
+    // Fields for Sales Counter Panel integration
+    private final CategoryService categoryService = new CategoryServiceImpl();
+    private final ProductService productService = new ProductServiceImpl();
+    private final service.impl.CustomerServiceImpl customerServiceImpl = new service.impl.CustomerServiceImpl();
+    private final repository.CustomerRepository customerRepository = new repository.CustomerRepository();
+    private entity.Customer selectedCustomer;
+    private javax.swing.JPopupMenu customerSuggestPopup;
+    private javax.swing.Timer customerSearchTimer;
+    private final java.util.List<Integer> sessionOrderIds = new java.util.ArrayList<>();
+    private java.util.List<entity.Product> cachedProductList = new java.util.ArrayList<>();
+    private java.util.List<entity.Category> cachedCategoryList = new java.util.ArrayList<>();
+    private javax.swing.table.TableRowSorter<javax.swing.table.DefaultTableModel> productTableSorter;
+    private final java.util.Map<String, javax.swing.ImageIcon> productImageCache = new java.util.HashMap<>();
+    private final java.util.List<OrderCartController> orderSessions = new java.util.ArrayList<>();
+    private int activeIndex = 0;
+    private final java.util.List<javax.swing.JButton> tabButtons = new java.util.ArrayList<>();
 
     private final java.util.Map<String, javax.swing.ImageIcon> imageCache = new java.util.HashMap<>();
     private javax.swing.table.TableRowSorter<javax.swing.table.DefaultTableModel> inventorySorter;
@@ -102,7 +130,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
                 + "hoverBackground: #EDF2F7;";
 
         javax.swing.JButton[] menuButtons = {btnDashBoard, btnProductInventory,
-            btnOrderHistory, btnHumanResources, btnBackToSaleCounter, btnCustomerManagement};
+            btnOrderHistory, btnHumanResources, btnCustomerManagement, btnPOSPayment};
         for (javax.swing.JButton btn : menuButtons) {
             btn.setContentAreaFilled(true);
             btn.setFocusPainted(false);
@@ -118,13 +146,14 @@ public class DashBoardFrame extends javax.swing.JFrame {
         btnProductInventory.setIcon(ui.MenuIcons.inventory());
         btnOrderHistory.setIcon(ui.MenuIcons.history());
         btnHumanResources.setIcon(ui.MenuIcons.humanResources());
-        btnBackToSaleCounter.setIcon(ui.MenuIcons.backToSaleCounter());
         btnCustomerManagement.setIcon(ui.MenuIcons.customerManagement());
+        btnPOSPayment.setIcon(ui.MenuIcons.backToSaleCounter());
         btnDashBoard.putClientProperty("cardName", "CardDashboard");
         btnProductInventory.putClientProperty("cardName", "CardProduct");
         btnOrderHistory.putClientProperty("cardName", "CardOrder");
         btnHumanResources.putClientProperty("cardName", "CardAttendance");
         btnCustomerManagement.putClientProperty("cardName", "CardCustomer");
+        btnPOSPayment.putClientProperty("cardName", "cardSaleCounter");
 
         java.awt.CardLayout cardLayout = (java.awt.CardLayout) panelContent.getLayout();
         cardLayout.show(panelContent, "CardDashboard");
@@ -180,6 +209,66 @@ public class DashBoardFrame extends javax.swing.JFrame {
             lbAvatarShop.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
             lbAvatarShop.setVerticalAlignment(javax.swing.SwingConstants.CENTER);
         }
+        initSalesCounterPanel();
+
+        // Cấu hình cbbLogOut hiển thị "Xin chào + Tên" và chức năng đăng xuất
+        entity.Employee currentUser = util.UserSession.getInstance().getCurrentUser();
+        if (currentUser != null) {
+            String displayInfo = "Xin chào, " + currentUser.getFullName();
+            cbbLogOut.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { displayInfo, "Đăng xuất" }));
+        } else {
+            cbbLogOut.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Chưa đăng nhập", "Đăng nhập" }));
+        }
+
+        // Thiết lập phong cách hiển thị (Styling) cho cbbLogOut đồng bộ
+        cbbLogOut.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 13));
+        cbbLogOut.putClientProperty(FlatClientProperties.STYLE, ""
+                + "background: #FFFFFF;"
+                + "foreground: #6F3B1A;"
+                + "borderColor: #D2B48C;"
+                + "borderWidth: 1;"
+                + "arc: 12;"
+                + "buttonBackground: #FFFFFF;"
+                + "buttonArrowColor: #6F3B1A;"
+                + "focusWidth: 0;");
+
+        cbbLogOut.setRenderer(new javax.swing.DefaultListCellRenderer() {
+            @Override
+            public java.awt.Component getListCellRendererComponent(javax.swing.JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+                javax.swing.JLabel label = (javax.swing.JLabel) super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+                label.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 13));
+                label.setBorder(javax.swing.BorderFactory.createEmptyBorder(6, 12, 6, 12));
+                if (isSelected) {
+                    label.setBackground(new java.awt.Color(226, 135, 67)); // #E28743
+                    label.setForeground(java.awt.Color.WHITE);
+                } else {
+                    label.setBackground(java.awt.Color.WHITE);
+                    label.setForeground(new java.awt.Color(111, 59, 26)); // #6F3B1A
+                }
+                return label;
+            }
+        });
+
+        cbbLogOut.addActionListener(e -> {
+            String selected = (String) cbbLogOut.getSelectedItem();
+            if ("Đăng xuất".equals(selected)) {
+                int confirm = javax.swing.JOptionPane.showConfirmDialog(this,
+                    "Bạn có chắc chắn muốn đăng xuất?",
+                    "Xác nhận đăng xuất",
+                    javax.swing.JOptionPane.YES_NO_OPTION,
+                    javax.swing.JOptionPane.QUESTION_MESSAGE);
+                if (confirm == javax.swing.JOptionPane.YES_OPTION) {
+                    util.UserSession.getInstance().cleanUserSession();
+                    util.AppRouter.showLogin();
+                    this.dispose();
+                } else {
+                    cbbLogOut.setSelectedIndex(0);
+                }
+            } else if ("Đăng nhập".equals(selected)) {
+                util.AppRouter.showLogin();
+                this.dispose();
+            }
+        });
     }
 
     public void refreshAfterNewOrder() {
@@ -752,7 +841,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
         }
     }
 
-    private javax.swing.Timer customerSearchTimer = null;
+//    private javax.swing.Timer customerSearchTimer = null;
 
     private void initCustomerFilterEvents() {
         jTextField1.getDocument().addDocumentListener(
@@ -1600,13 +1689,14 @@ public class DashBoardFrame extends javax.swing.JFrame {
         btnProductInventory = new javax.swing.JButton();
         btnOrderHistory = new javax.swing.JButton();
         btnHumanResources = new javax.swing.JButton();
-        btnBackToSaleCounter = new javax.swing.JButton();
         btnCustomerManagement = new javax.swing.JButton();
+        btnPOSPayment = new javax.swing.JButton();
         panelContent = new javax.swing.JPanel();
         panelDashboard = new javax.swing.JPanel();
         panelDashboardHeader = new javax.swing.JPanel();
         jLabel7 = new javax.swing.JLabel();
         jLabel8 = new javax.swing.JLabel();
+        cbbLogOut = new javax.swing.JComboBox<>();
         panelRevenueToday = new javax.swing.JPanel();
         jLabel15 = new javax.swing.JLabel();
         lblRevenueToday = new javax.swing.JLabel();
@@ -1711,6 +1801,48 @@ public class DashBoardFrame extends javax.swing.JFrame {
         jTable1 = new javax.swing.JTable();
         jTextField1 = new javax.swing.JTextField();
         jLabel5 = new javax.swing.JLabel();
+        panelSaleCounter = new javax.swing.JPanel();
+        panelBarcode = new javax.swing.JPanel();
+        btnBarcode = new javax.swing.JButton();
+        txtBarcodeSearch = new javax.swing.JTextField();
+        panelOrderSplit = new javax.swing.JPanel();
+        btnAddOrder = new javax.swing.JButton();
+        panelCurrentOrder = new javax.swing.JPanel();
+        lblCurrentOrder = new javax.swing.JLabel();
+        jScrollPane1 = new javax.swing.JScrollPane();
+        tableCurrentOrder = new javax.swing.JTable();
+        panelPopular = new javax.swing.JPanel();
+        lblPopular = new javax.swing.JLabel();
+        scrollPopular = new javax.swing.JScrollPane();
+        panelProductGrid = new javax.swing.JPanel();
+        panelCashier = new javax.swing.JPanel();
+        btnScan = new javax.swing.JButton();
+        jLabel19 = new javax.swing.JLabel();
+        labelStatus = new javax.swing.JLabel();
+        panelOrderSummary = new javax.swing.JPanel();
+        jLabel21 = new javax.swing.JLabel();
+        panelCardParent = new javax.swing.JPanel();
+        panelCashView = new javax.swing.JPanel();
+        jLabel22 = new javax.swing.JLabel();
+        jLabel23 = new javax.swing.JLabel();
+        txtCashReceived = new javax.swing.JTextField();
+        panelChangeDue = new javax.swing.JPanel();
+        jLabel26 = new javax.swing.JLabel();
+        lbChangeDue = new javax.swing.JLabel();
+        panelQRView = new javax.swing.JPanel();
+        lbQRCode = new javax.swing.JLabel();
+        jLabel28 = new javax.swing.JLabel();
+        lbSubtotal = new javax.swing.JLabel();
+        cashBtn = new javax.swing.JButton();
+        qrBtn = new javax.swing.JButton();
+        jLabel29 = new javax.swing.JLabel();
+        jSeparator1 = new javax.swing.JSeparator();
+        btnConfirmOrder = new javax.swing.JButton();
+        btnCancelOrder = new javax.swing.JButton();
+        panelEmployeeCheckIn = new javax.swing.JPanel();
+        cbCategory = new javax.swing.JComboBox<>();
+        btnAddCustomer1 = new javax.swing.JButton();
+        txtSearchCustomer = new javax.swing.JTextField();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
         setBackground(new java.awt.Color(244, 246, 248));
@@ -1780,17 +1912,17 @@ public class DashBoardFrame extends javax.swing.JFrame {
         btnHumanResources.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
         btnHumanResources.addActionListener(this::btnHumanResourcesActionPerformed);
 
-        btnBackToSaleCounter.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
-        btnBackToSaleCounter.setText("Back to POS");
-        btnBackToSaleCounter.setBorder(null);
-        btnBackToSaleCounter.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
-        btnBackToSaleCounter.addActionListener(this::btnBackToSaleCounterActionPerformed);
-
         btnCustomerManagement.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
         btnCustomerManagement.setText("Customer");
         btnCustomerManagement.setBorder(null);
         btnCustomerManagement.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
         btnCustomerManagement.addActionListener(this::btnCustomerManagementActionPerformed);
+
+        btnPOSPayment.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
+        btnPOSPayment.setText("Payment");
+        btnPOSPayment.setBorder(null);
+        btnPOSPayment.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
+        btnPOSPayment.addActionListener(this::btnPOSPaymentActionPerformed);
 
         javax.swing.GroupLayout panelMenuLayout = new javax.swing.GroupLayout(panelMenu);
         panelMenu.setLayout(panelMenuLayout);
@@ -1800,8 +1932,8 @@ public class DashBoardFrame extends javax.swing.JFrame {
             .addGroup(panelMenuLayout.createSequentialGroup()
                 .addGap(15, 15, 15)
                 .addGroup(panelMenuLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addComponent(btnPOSPayment, javax.swing.GroupLayout.PREFERRED_SIZE, 212, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(btnCustomerManagement, javax.swing.GroupLayout.PREFERRED_SIZE, 212, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(btnBackToSaleCounter, javax.swing.GroupLayout.PREFERRED_SIZE, 212, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(btnHumanResources, javax.swing.GroupLayout.PREFERRED_SIZE, 212, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(btnOrderHistory, javax.swing.GroupLayout.PREFERRED_SIZE, 212, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(btnProductInventory, javax.swing.GroupLayout.PREFERRED_SIZE, 212, javax.swing.GroupLayout.PREFERRED_SIZE)
@@ -1822,9 +1954,9 @@ public class DashBoardFrame extends javax.swing.JFrame {
                 .addComponent(btnHumanResources, javax.swing.GroupLayout.PREFERRED_SIZE, 47, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(18, 18, 18)
                 .addComponent(btnCustomerManagement, javax.swing.GroupLayout.PREFERRED_SIZE, 47, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addComponent(btnBackToSaleCounter, javax.swing.GroupLayout.PREFERRED_SIZE, 47, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(26, 26, 26))
+                .addGap(18, 18, 18)
+                .addComponent(btnPOSPayment, javax.swing.GroupLayout.PREFERRED_SIZE, 47, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
         panelContent.setBackground(new java.awt.Color(244, 246, 248));
@@ -1844,6 +1976,8 @@ public class DashBoardFrame extends javax.swing.JFrame {
         jLabel8.setForeground(new java.awt.Color(102, 102, 102));
         jLabel8.setText("Monitor your business performance");
 
+        cbbLogOut.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Item 1", "Item 2", "Item 3", "Item 4" }));
+
         javax.swing.GroupLayout panelDashboardHeaderLayout = new javax.swing.GroupLayout(panelDashboardHeader);
         panelDashboardHeader.setLayout(panelDashboardHeaderLayout);
         panelDashboardHeaderLayout.setHorizontalGroup(
@@ -1851,15 +1985,22 @@ public class DashBoardFrame extends javax.swing.JFrame {
             .addGroup(panelDashboardHeaderLayout.createSequentialGroup()
                 .addGap(30, 30, 30)
                 .addGroup(panelDashboardHeaderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jLabel8)
-                    .addComponent(jLabel7))
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addGroup(panelDashboardHeaderLayout.createSequentialGroup()
+                        .addComponent(jLabel8)
+                        .addContainerGap(727, Short.MAX_VALUE))
+                    .addGroup(panelDashboardHeaderLayout.createSequentialGroup()
+                        .addComponent(jLabel7)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(cbbLogOut, javax.swing.GroupLayout.PREFERRED_SIZE, 177, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(36, 36, 36))))
         );
         panelDashboardHeaderLayout.setVerticalGroup(
             panelDashboardHeaderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(panelDashboardHeaderLayout.createSequentialGroup()
                 .addGap(24, 24, 24)
-                .addComponent(jLabel7)
+                .addGroup(panelDashboardHeaderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel7)
+                    .addComponent(cbbLogOut, javax.swing.GroupLayout.PREFERRED_SIZE, 32, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(jLabel8)
                 .addContainerGap(20, Short.MAX_VALUE))
@@ -2084,7 +2225,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
                 .addGroup(panelDashboardLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addComponent(panelRevenueDate, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(panelTopSales, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                .addContainerGap(211, Short.MAX_VALUE))
+                .addContainerGap(206, Short.MAX_VALUE))
         );
 
         panelContent.add(panelDashboard, "CardDashboard");
@@ -2867,6 +3008,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
         panelCustomer.setBackground(new java.awt.Color(244, 246, 248));
 
         btnAddCustomer.setText("Add Customer");
+        btnAddCustomer.addActionListener(this::btnAddCustomerActionPerformed);
 
         panelCustomerHeader.setBackground(new java.awt.Color(255, 255, 255));
 
@@ -2969,6 +3111,445 @@ public class DashBoardFrame extends javax.swing.JFrame {
 
         panelContent.add(panelCustomer, "CardCustomer");
 
+        panelBarcode.setBackground(new java.awt.Color(255, 255, 255));
+        panelBarcode.setPreferredSize(new java.awt.Dimension(600, 80));
+
+        btnBarcode.setForeground(new java.awt.Color(226, 135, 67));
+        btnBarcode.setText("||||||||||");
+        btnBarcode.setBorder(null);
+        btnBarcode.setPreferredSize(new java.awt.Dimension(32, 20));
+
+        txtBarcodeSearch.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
+        txtBarcodeSearch.setForeground(new java.awt.Color(153, 153, 153));
+        txtBarcodeSearch.setText("Scan barcode or search product...");
+        txtBarcodeSearch.setMinimumSize(new java.awt.Dimension(64, 20));
+        txtBarcodeSearch.setPreferredSize(new java.awt.Dimension(73, 30));
+
+        javax.swing.GroupLayout panelBarcodeLayout = new javax.swing.GroupLayout(panelBarcode);
+        panelBarcode.setLayout(panelBarcodeLayout);
+        panelBarcodeLayout.setHorizontalGroup(
+            panelBarcodeLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(panelBarcodeLayout.createSequentialGroup()
+                .addGap(15, 15, 15)
+                .addComponent(btnBarcode, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(18, 18, 18)
+                .addComponent(txtBarcodeSearch, javax.swing.GroupLayout.PREFERRED_SIZE, 547, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+        );
+        panelBarcodeLayout.setVerticalGroup(
+            panelBarcodeLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(panelBarcodeLayout.createSequentialGroup()
+                .addGap(16, 16, 16)
+                .addGroup(panelBarcodeLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(btnBarcode, javax.swing.GroupLayout.PREFERRED_SIZE, 34, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(txtBarcodeSearch, javax.swing.GroupLayout.PREFERRED_SIZE, 34, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addContainerGap(16, Short.MAX_VALUE))
+        );
+
+        panelOrderSplit.setBackground(new java.awt.Color(255, 255, 255));
+
+        javax.swing.GroupLayout panelOrderSplitLayout = new javax.swing.GroupLayout(panelOrderSplit);
+        panelOrderSplit.setLayout(panelOrderSplitLayout);
+        panelOrderSplitLayout.setHorizontalGroup(
+            panelOrderSplitLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelOrderSplitLayout.createSequentialGroup()
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(btnAddOrder, javax.swing.GroupLayout.PREFERRED_SIZE, 29, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap())
+        );
+        panelOrderSplitLayout.setVerticalGroup(
+            panelOrderSplitLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(panelOrderSplitLayout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(btnAddOrder, javax.swing.GroupLayout.DEFAULT_SIZE, 26, Short.MAX_VALUE)
+                .addContainerGap())
+        );
+
+        panelCurrentOrder.setBackground(new java.awt.Color(248, 246, 242));
+        panelCurrentOrder.setForeground(new java.awt.Color(248, 246, 242));
+
+        lblCurrentOrder.setFont(new java.awt.Font("Segoe UI", 1, 15)); // NOI18N
+        lblCurrentOrder.setForeground(new java.awt.Color(110, 58, 25));
+        lblCurrentOrder.setText("Current Order");
+
+        tableCurrentOrder.setModel(new javax.swing.table.DefaultTableModel(
+            new Object [][] {
+                {null},
+                {null},
+                {null},
+                {null}
+            },
+            new String [] {
+                "Title 1"
+            }
+        ));
+        tableCurrentOrder.setColumnSelectionAllowed(true);
+        jScrollPane1.setViewportView(tableCurrentOrder);
+
+        javax.swing.GroupLayout panelCurrentOrderLayout = new javax.swing.GroupLayout(panelCurrentOrder);
+        panelCurrentOrder.setLayout(panelCurrentOrderLayout);
+        panelCurrentOrderLayout.setHorizontalGroup(
+            panelCurrentOrderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(panelCurrentOrderLayout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(panelCurrentOrderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(jScrollPane1)
+                    .addGroup(panelCurrentOrderLayout.createSequentialGroup()
+                        .addComponent(lblCurrentOrder)
+                        .addGap(0, 0, Short.MAX_VALUE)))
+                .addContainerGap())
+        );
+        panelCurrentOrderLayout.setVerticalGroup(
+            panelCurrentOrderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(panelCurrentOrderLayout.createSequentialGroup()
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(lblCurrentOrder)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 96, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(18, 18, 18))
+        );
+
+        panelPopular.setBackground(new java.awt.Color(248, 246, 242));
+
+        lblPopular.setBackground(new java.awt.Color(248, 246, 242));
+        lblPopular.setFont(new java.awt.Font("Segoe UI", 0, 18)); // NOI18N
+        lblPopular.setForeground(new java.awt.Color(110, 58, 25));
+        lblPopular.setText("Product - Items");
+
+        panelProductGrid.setBackground(new java.awt.Color(255, 255, 255));
+        scrollPopular.setViewportView(panelProductGrid);
+
+        javax.swing.GroupLayout panelPopularLayout = new javax.swing.GroupLayout(panelPopular);
+        panelPopular.setLayout(panelPopularLayout);
+        panelPopularLayout.setHorizontalGroup(
+            panelPopularLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(panelPopularLayout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(panelPopularLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(scrollPopular, javax.swing.GroupLayout.DEFAULT_SIZE, 606, Short.MAX_VALUE)
+                    .addGroup(panelPopularLayout.createSequentialGroup()
+                        .addComponent(lblPopular)
+                        .addGap(0, 0, Short.MAX_VALUE)))
+                .addContainerGap())
+        );
+        panelPopularLayout.setVerticalGroup(
+            panelPopularLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(panelPopularLayout.createSequentialGroup()
+                .addComponent(lblPopular)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(scrollPopular)
+                .addContainerGap())
+        );
+
+        panelCashier.setBackground(new java.awt.Color(255, 255, 255));
+
+        btnScan.setPreferredSize(new java.awt.Dimension(35, 35));
+        btnScan.addActionListener(this::btnScanActionPerformed);
+
+        jLabel19.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
+        jLabel19.setForeground(new java.awt.Color(110, 58, 25));
+        jLabel19.setText("STAFF CHECK-IN");
+
+        labelStatus.setFont(new java.awt.Font("Segoe UI", 1, 13)); // NOI18N
+        labelStatus.setForeground(new java.awt.Color(38, 205, 111));
+        labelStatus.setText("Đang đợi quét thẻ...");
+        labelStatus.setVerticalAlignment(javax.swing.SwingConstants.BOTTOM);
+
+        javax.swing.GroupLayout panelCashierLayout = new javax.swing.GroupLayout(panelCashier);
+        panelCashier.setLayout(panelCashierLayout);
+        panelCashierLayout.setHorizontalGroup(
+            panelCashierLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelCashierLayout.createSequentialGroup()
+                .addGap(19, 19, 19)
+                .addGroup(panelCashierLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(jLabel19)
+                    .addComponent(labelStatus))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(btnScan, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(16, 16, 16))
+        );
+        panelCashierLayout.setVerticalGroup(
+            panelCashierLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(panelCashierLayout.createSequentialGroup()
+                .addGap(10, 10, 10)
+                .addGroup(panelCashierLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addComponent(btnScan, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addGroup(panelCashierLayout.createSequentialGroup()
+                        .addComponent(jLabel19)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(labelStatus)))
+                .addContainerGap(15, Short.MAX_VALUE))
+        );
+
+        panelOrderSummary.setBackground(new java.awt.Color(255, 255, 255));
+
+        jLabel21.setFont(new java.awt.Font("Segoe UI", 0, 18)); // NOI18N
+        jLabel21.setForeground(new java.awt.Color(110, 58, 25));
+        jLabel21.setText("Order Summary");
+
+        panelCardParent.setPreferredSize(new java.awt.Dimension(300, 400));
+        panelCardParent.setLayout(new java.awt.CardLayout());
+
+        panelCashView.setBackground(new java.awt.Color(255, 255, 255));
+
+        jLabel22.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
+        jLabel22.setForeground(new java.awt.Color(102, 102, 102));
+        jLabel22.setText("Cash Received");
+
+        jLabel23.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
+        jLabel23.setForeground(new java.awt.Color(102, 102, 102));
+        jLabel23.setText("$");
+
+        txtCashReceived.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
+
+        panelChangeDue.setBackground(new java.awt.Color(248, 246, 242));
+
+        jLabel26.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
+        jLabel26.setText("Change Due");
+
+        lbChangeDue.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
+        lbChangeDue.setForeground(new java.awt.Color(38, 205, 111));
+        lbChangeDue.setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
+        lbChangeDue.setText("0 đ ");
+
+        javax.swing.GroupLayout panelChangeDueLayout = new javax.swing.GroupLayout(panelChangeDue);
+        panelChangeDue.setLayout(panelChangeDueLayout);
+        panelChangeDueLayout.setHorizontalGroup(
+            panelChangeDueLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(panelChangeDueLayout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(jLabel26)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 30, Short.MAX_VALUE)
+                .addComponent(lbChangeDue, javax.swing.GroupLayout.PREFERRED_SIZE, 159, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap())
+        );
+        panelChangeDueLayout.setVerticalGroup(
+            panelChangeDueLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelChangeDueLayout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(panelChangeDueLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel26, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(lbChangeDue, javax.swing.GroupLayout.DEFAULT_SIZE, 31, Short.MAX_VALUE))
+                .addContainerGap())
+        );
+
+        javax.swing.GroupLayout panelCashViewLayout = new javax.swing.GroupLayout(panelCashView);
+        panelCashView.setLayout(panelCashViewLayout);
+        panelCashViewLayout.setHorizontalGroup(
+            panelCashViewLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(panelCashViewLayout.createSequentialGroup()
+                .addGroup(panelCashViewLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(panelCashViewLayout.createSequentialGroup()
+                        .addGap(27, 27, 27)
+                        .addComponent(jLabel22))
+                    .addGroup(panelCashViewLayout.createSequentialGroup()
+                        .addGap(26, 26, 26)
+                        .addComponent(jLabel23)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(txtCashReceived, javax.swing.GroupLayout.PREFERRED_SIZE, 249, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addGroup(panelCashViewLayout.createSequentialGroup()
+                        .addGap(18, 18, 18)
+                        .addComponent(panelChangeDue, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+        );
+        panelCashViewLayout.setVerticalGroup(
+            panelCashViewLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(panelCashViewLayout.createSequentialGroup()
+                .addGap(31, 31, 31)
+                .addComponent(jLabel22)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGroup(panelCashViewLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(txtCashReceived, javax.swing.GroupLayout.PREFERRED_SIZE, 31, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(jLabel23, javax.swing.GroupLayout.PREFERRED_SIZE, 31, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 62, Short.MAX_VALUE)
+                .addComponent(panelChangeDue, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(26, 26, 26))
+        );
+
+        panelCardParent.add(panelCashView, "panelCashView");
+
+        panelQRView.setBackground(new java.awt.Color(255, 255, 255));
+
+        javax.swing.GroupLayout panelQRViewLayout = new javax.swing.GroupLayout(panelQRView);
+        panelQRView.setLayout(panelQRViewLayout);
+        panelQRViewLayout.setHorizontalGroup(
+            panelQRViewLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelQRViewLayout.createSequentialGroup()
+                .addContainerGap(104, Short.MAX_VALUE)
+                .addComponent(lbQRCode, javax.swing.GroupLayout.PREFERRED_SIZE, 210, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(34, 34, 34))
+        );
+        panelQRViewLayout.setVerticalGroup(
+            panelQRViewLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addComponent(lbQRCode, javax.swing.GroupLayout.DEFAULT_SIZE, 217, Short.MAX_VALUE)
+        );
+
+        panelCardParent.add(panelQRView, "panelQRView");
+
+        jLabel28.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
+        jLabel28.setForeground(new java.awt.Color(102, 102, 102));
+        jLabel28.setText("Subtotal");
+
+        lbSubtotal.setFont(new java.awt.Font("Segoe UI", 1, 24)); // NOI18N
+        lbSubtotal.setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
+        lbSubtotal.setText("0 đ");
+
+        cashBtn.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
+        cashBtn.setForeground(new java.awt.Color(102, 102, 102));
+        cashBtn.setText("$ Cash");
+        cashBtn.addActionListener(this::cashBtnActionPerformed);
+
+        qrBtn.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
+        qrBtn.setForeground(new java.awt.Color(102, 102, 102));
+        qrBtn.setText("QR Pay");
+        qrBtn.addActionListener(this::qrBtnActionPerformed);
+
+        jLabel29.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
+        jLabel29.setForeground(new java.awt.Color(102, 102, 102));
+        jLabel29.setText("Payment Method");
+
+        btnConfirmOrder.setBackground(new java.awt.Color(30, 188, 97));
+        btnConfirmOrder.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
+        btnConfirmOrder.setForeground(new java.awt.Color(255, 255, 255));
+        btnConfirmOrder.setText("Confirm");
+        btnConfirmOrder.addActionListener(this::btnConfirmOrderActionPerformed);
+
+        btnCancelOrder.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
+        btnCancelOrder.setForeground(new java.awt.Color(225, 59, 53));
+        btnCancelOrder.setText("Cancel");
+        btnCancelOrder.addActionListener(this::btnCancelOrderActionPerformed);
+
+        javax.swing.GroupLayout panelOrderSummaryLayout = new javax.swing.GroupLayout(panelOrderSummary);
+        panelOrderSummary.setLayout(panelOrderSummaryLayout);
+        panelOrderSummaryLayout.setHorizontalGroup(
+            panelOrderSummaryLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addComponent(panelCardParent, javax.swing.GroupLayout.DEFAULT_SIZE, 348, Short.MAX_VALUE)
+            .addGroup(panelOrderSummaryLayout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(panelOrderSummaryLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(jLabel21)
+                    .addComponent(jLabel28)
+                    .addGroup(panelOrderSummaryLayout.createSequentialGroup()
+                        .addGap(18, 18, 18)
+                        .addGroup(panelOrderSummaryLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addGroup(panelOrderSummaryLayout.createSequentialGroup()
+                                .addComponent(jLabel29)
+                                .addGap(0, 0, Short.MAX_VALUE))
+                            .addGroup(panelOrderSummaryLayout.createSequentialGroup()
+                                .addComponent(cashBtn, javax.swing.GroupLayout.PREFERRED_SIZE, 114, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                .addComponent(qrBtn, javax.swing.GroupLayout.PREFERRED_SIZE, 118, javax.swing.GroupLayout.PREFERRED_SIZE))
+                            .addComponent(jSeparator1)
+                            .addComponent(lbSubtotal, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))))
+                .addGap(15, 15, 15))
+            .addGroup(panelOrderSummaryLayout.createSequentialGroup()
+                .addGap(25, 25, 25)
+                .addComponent(btnConfirmOrder, javax.swing.GroupLayout.PREFERRED_SIZE, 130, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addComponent(btnCancelOrder, javax.swing.GroupLayout.PREFERRED_SIZE, 130, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+        );
+        panelOrderSummaryLayout.setVerticalGroup(
+            panelOrderSummaryLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(panelOrderSummaryLayout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(jLabel21, javax.swing.GroupLayout.PREFERRED_SIZE, 25, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jLabel28)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(lbSubtotal, javax.swing.GroupLayout.PREFERRED_SIZE, 33, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jSeparator1, javax.swing.GroupLayout.PREFERRED_SIZE, 10, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jLabel29)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGroup(panelOrderSummaryLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(cashBtn, javax.swing.GroupLayout.PREFERRED_SIZE, 33, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(qrBtn, javax.swing.GroupLayout.PREFERRED_SIZE, 33, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addComponent(panelCardParent, javax.swing.GroupLayout.PREFERRED_SIZE, 217, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addGroup(panelOrderSummaryLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(btnConfirmOrder)
+                    .addComponent(btnCancelOrder))
+                .addGap(0, 18, Short.MAX_VALUE))
+        );
+
+        panelEmployeeCheckIn.setBackground(new java.awt.Color(255, 255, 255));
+
+        javax.swing.GroupLayout panelEmployeeCheckInLayout = new javax.swing.GroupLayout(panelEmployeeCheckIn);
+        panelEmployeeCheckIn.setLayout(panelEmployeeCheckInLayout);
+        panelEmployeeCheckInLayout.setHorizontalGroup(
+            panelEmployeeCheckInLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGap(0, 0, Short.MAX_VALUE)
+        );
+        panelEmployeeCheckInLayout.setVerticalGroup(
+            panelEmployeeCheckInLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGap(0, 0, Short.MAX_VALUE)
+        );
+
+        cbCategory.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Item 1", "Item 2", "Item 3", "Item 4" }));
+
+        btnAddCustomer1.setText("Add customer");
+
+        txtSearchCustomer.addActionListener(this::txtSearchCustomerActionPerformed);
+
+        javax.swing.GroupLayout panelSaleCounterLayout = new javax.swing.GroupLayout(panelSaleCounter);
+        panelSaleCounter.setLayout(panelSaleCounterLayout);
+        panelSaleCounterLayout.setHorizontalGroup(
+            panelSaleCounterLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(panelSaleCounterLayout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(panelSaleCounterLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                    .addGroup(panelSaleCounterLayout.createSequentialGroup()
+                        .addGroup(panelSaleCounterLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                            .addComponent(panelCurrentOrder, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                            .addComponent(panelOrderSplit, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                            .addComponent(panelBarcode, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 618, Short.MAX_VALUE)
+                            .addComponent(panelPopular, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED))
+                    .addGroup(panelSaleCounterLayout.createSequentialGroup()
+                        .addComponent(cbCategory, javax.swing.GroupLayout.PREFERRED_SIZE, 120, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(txtSearchCustomer, javax.swing.GroupLayout.PREFERRED_SIZE, 260, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                        .addComponent(btnAddCustomer1)
+                        .addGap(14, 14, 14)))
+                .addGroup(panelSaleCounterLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(panelCashier, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(panelOrderSummary, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(panelEmployeeCheckIn, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addContainerGap())
+        );
+        panelSaleCounterLayout.setVerticalGroup(
+            panelSaleCounterLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(panelSaleCounterLayout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(panelSaleCounterLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(panelBarcode, javax.swing.GroupLayout.PREFERRED_SIZE, 67, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(panelCashier, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGroup(panelSaleCounterLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(panelSaleCounterLayout.createSequentialGroup()
+                        .addComponent(panelOrderSplit, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                        .addComponent(panelCurrentOrder, javax.swing.GroupLayout.PREFERRED_SIZE, 136, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(18, 18, 18)
+                        .addGroup(panelSaleCounterLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
+                            .addComponent(btnAddCustomer1, javax.swing.GroupLayout.DEFAULT_SIZE, 34, Short.MAX_VALUE)
+                            .addComponent(txtSearchCustomer)
+                            .addComponent(cbCategory))
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(panelPopular, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addGroup(panelSaleCounterLayout.createSequentialGroup()
+                        .addComponent(panelEmployeeCheckIn, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(panelOrderSummary, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                .addContainerGap())
+        );
+
+        panelContent.add(panelSaleCounter, "cardSaleCounter");
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
@@ -2999,11 +3580,6 @@ public class DashBoardFrame extends javax.swing.JFrame {
     private void cbMonthActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_cbMonthActionPerformed
         // TODO add your handling code here:
     }//GEN-LAST:event_cbMonthActionPerformed
-
-    private void btnBackToSaleCounterActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnBackToSaleCounterActionPerformed
-        salesCounter.setVisible(true);
-        this.dispose();
-    }//GEN-LAST:event_btnBackToSaleCounterActionPerformed
 
     private void btnCustomerManagementActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnCustomerManagementActionPerformed
         // TODO add your handling code here:
@@ -3081,6 +3657,715 @@ public class DashBoardFrame extends javax.swing.JFrame {
         addScheduleFrame.setVisible(true);
     }//GEN-LAST:event_btnAddScheduleActionPerformed
 
+    private void btnAddCustomerActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnAddCustomerActionPerformed
+        // btnAddCustomer1 is used for sales counter.
+    }//GEN-LAST:event_btnAddCustomerActionPerformed
+
+    private void btnPOSPaymentActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnPOSPaymentActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_btnPOSPaymentActionPerformed
+
+    private void btnScanActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnScanActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_btnScanActionPerformed
+
+    private void cashBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_cashBtnActionPerformed
+        java.awt.CardLayout cl = (java.awt.CardLayout) panelCardParent.getLayout();
+        cl.show(panelCardParent, "panelCashView");
+        cashBtn.putClientProperty("_payMode", "Cash");
+        cashBtn.putClientProperty(FlatClientProperties.STYLE, ""
+                + "background: #E28743;"
+                + "foreground: #FFFFFF;"
+                + "borderWidth: 0;"
+                + "arc: 15;");
+        qrBtn.putClientProperty(FlatClientProperties.STYLE, ""
+                + "background: #FFFFFF;"
+                + "foreground: #4A5568;"
+                + "border: 1,#E2E8F0;"
+                + "arc: 15;");
+        panelCardParent.revalidate();
+        panelCardParent.repaint();
+    }//GEN-LAST:event_cashBtnActionPerformed
+
+    private void qrBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_qrBtnActionPerformed
+        java.awt.CardLayout cl = (java.awt.CardLayout) panelCardParent.getLayout();
+        cl.show(panelCardParent, "panelQRView");
+        cashBtn.putClientProperty("_payMode", "Bank Transfer");
+        cashBtn.putClientProperty(FlatClientProperties.STYLE, ""
+                + "background: #FFFFFF;"
+                + "foreground: #4A5568;"
+                + "border: 1,#E2E8F0;"
+                + "arc: 15;");
+        qrBtn.putClientProperty(FlatClientProperties.STYLE, ""
+                + "background: #E28743;"
+                + "foreground: #FFFFFF;"
+                + "borderWidth: 0;"
+                + "arc: 15;");
+        panelCardParent.revalidate();
+        panelCardParent.repaint();
+    }//GEN-LAST:event_qrBtnActionPerformed
+
+    private void btnConfirmOrderActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnConfirmOrderActionPerformed
+        OrderCartController cart = activeCart();
+        if (cart.isEmpty()) {
+            javax.swing.JOptionPane.showMessageDialog(this, "Giỏ hàng trống.",
+                "Thông báo", javax.swing.JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        int orderId = sessionOrderIds.get(activeIndex);
+        String paymentMethod = "Cash".equals(cashBtn.getClientProperty("_payMode"))
+        || cashBtn.getClientProperty("_payMode") == null ? "Cash" : "Bank Transfer";
+        List<repository.OrderRepository.NewOrderItem> items = new java.util.ArrayList<>();
+        for (OrderCartController.CartItem ci : cart.getCartItems()) {
+            items.add(new repository.OrderRepository.NewOrderItem(ci.productId, ci.quantity, ci.unitPrice));
+        }
+        double totalAmount = cart.getTotalAmount();
+        if ("Cash".equals(paymentMethod)) {
+            String cashStr = txtCashReceived.getText().trim();
+            if (cashStr.isEmpty()) {
+                javax.swing.JOptionPane.showMessageDialog(this,
+                    "Vui lòng nhập số tiền khách hàng trả!",
+                    "Thông báo", javax.swing.JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            try {
+                String cleanCashStr = cashStr.replace(",", "").replace(".", "").replace("đ", "").trim();
+                double cashReceived = Double.parseDouble(cleanCashStr);
+                if (cashReceived < totalAmount) {
+                    javax.swing.JOptionPane.showMessageDialog(this,
+                        String.format("Số tiền khách trả (%,.0f đ) nhỏ hơn tổng tiền phải thanh toán (%,.0f đ)!", cashReceived, totalAmount),
+                        "Cảnh báo", javax.swing.JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+            } catch (NumberFormatException e) {
+                javax.swing.JOptionPane.showMessageDialog(this,
+                    "Số tiền khách hàng trả không hợp lệ!",
+                    "Lỗi", javax.swing.JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+        }
+        final int finishedIndex = activeIndex;
+        int confirm = javax.swing.JOptionPane.showConfirmDialog(this,
+            String.format("Xác nhận thanh toán%nPhương thức: %s%nTổng tiền: %,.0f đ",
+                paymentMethod, totalAmount),
+            "Xác nhận đơn hàng",
+            javax.swing.JOptionPane.YES_NO_OPTION,
+            javax.swing.JOptionPane.QUESTION_MESSAGE);
+        if (confirm != javax.swing.JOptionPane.YES_OPTION) {
+            return;
+        }
+        btnConfirmOrder.setEnabled(false); // chặn bấm lại trong lúc xử lý nền
+
+        new javax.swing.SwingWorker<String, Void>() {
+            @Override
+            protected String doInBackground() {
+                // 1. Kiểm tra số lượng tồn kho thực tế trước khi lưu
+                repository.ProductRepository prodRepo = new repository.ProductRepository();
+                for (OrderCartController.CartItem ci : cart.getCartItems()) {
+                    entity.Product p = prodRepo.findById(ci.productId);
+                    if (p == null) {
+                        return "NOT_FOUND:" + ci.productName;
+                    }
+                    if (p.getQuantity() < ci.quantity) {
+                        return "INSUFFICIENT_STOCK:" + ci.productName + ":" + p.getQuantity() + ":" + ci.quantity;
+                    }
+                }
+
+                boolean ok = orderRepository.finalizeOrder(orderId, cart.getCustomerId(), paymentMethod, totalAmount, "PAID", items);
+                return ok ? "OK" : "DATABASE_ERROR";
+            }
+
+            @Override
+            protected void done() {
+                btnConfirmOrder.setEnabled(true);
+                String result;
+                try {
+                    result = get();
+                } catch (Exception e) {
+                    result = "DATABASE_ERROR";
+                }
+
+                if (result.startsWith("NOT_FOUND:")) {
+                    String name = result.substring("NOT_FOUND:".length());
+                    javax.swing.JOptionPane.showMessageDialog(DashBoardFrame.this,
+                        "Sản phẩm \"" + name + "\" không còn tồn tại trên hệ thống.",
+                        "Lỗi", javax.swing.JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+
+                if (result.startsWith("INSUFFICIENT_STOCK:")) {
+                    String[] parts = result.split(":");
+                    String name = parts[1];
+                    String stock = parts[2];
+                    String req = parts[3];
+                    javax.swing.JOptionPane.showMessageDialog(DashBoardFrame.this,
+                        "Không đủ số lượng trong kho cho sản phẩm: " + name
+                        + "\nSố lượng yêu cầu: " + req
+                        + "\nSố lượng hiện có: " + stock,
+                        "Cảnh báo", javax.swing.JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+
+                if (!"OK".equals(result)) {
+                    javax.swing.JOptionPane.showMessageDialog(DashBoardFrame.this, "Lưu hóa đơn thất bại.",
+                        "Lỗi", javax.swing.JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+
+                refreshAfterNewOrder();
+                loadProductGrid(); // Tải lại lưới sản phẩm để cập nhật số lượng tồn kho vừa trừ
+                if (txtCashReceived != null) {
+                    txtCashReceived.setText("");
+                }
+                orderSessions.remove(finishedIndex);
+                sessionOrderIds.remove(finishedIndex);
+                panelOrderSplit.remove(tabButtons.get(finishedIndex));
+                tabButtons.remove(finishedIndex);
+                if (orderSessions.isEmpty()) {
+                    createNewOrder();
+                } else {
+                    activeIndex = Math.max(0, finishedIndex - 1);
+                    switchToOrder(activeIndex);
+                }
+            }
+        }.execute();
+    }//GEN-LAST:event_btnConfirmOrderActionPerformed
+
+    private void btnCancelOrderActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnCancelOrderActionPerformed
+        int orderId = sessionOrderIds.get(activeIndex);
+        if (orderId != -1) {
+            orderRepository.finalizeOrder(orderId, null, null, 0, "CANCELLED", null);
+        }
+
+        refreshAfterNewOrder();
+        if (txtCashReceived != null) {
+            txtCashReceived.setText("");
+        }
+        orderSessions.remove(activeIndex);
+        sessionOrderIds.remove(activeIndex);
+        panelOrderSplit.remove(tabButtons.get(activeIndex));
+        tabButtons.remove(activeIndex);
+
+        if (orderSessions.isEmpty()) {
+            createNewOrder();
+        } else {
+            activeIndex = Math.max(0, activeIndex - 1);
+            switchToOrder(activeIndex);
+        }
+    }//GEN-LAST:event_btnCancelOrderActionPerformed
+
+    private void txtSearchCustomerActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_txtSearchCustomerActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_txtSearchCustomerActionPerformed
+
+    // --- INTEGRATED SALES COUNTER LOGIC ---
+
+    private controller.OrderCartController activeCart() {
+        return orderSessions.get(activeIndex);
+    }
+
+    private void performProductTableFilter() {
+        if (productTableSorter == null) {
+            return;
+        }
+        String text = txtSearchProduct.getText().trim();
+        productTableSorter.setRowFilter(text.isEmpty() ? null
+                : javax.swing.RowFilter.regexFilter("(?i)" + java.util.regex.Pattern.quote(text), 2));
+        tableProduct.revalidate();
+        java.awt.Container vp = tableProduct.getParent();
+        if (vp != null) {
+            vp.revalidate();
+            vp.repaint();
+        }
+    }
+
+    private void createNewOrder() {
+        if (orderSessions.size() >= 6) {
+            javax.swing.JOptionPane.showMessageDialog(this,
+                    "Chỉ được tạo tối đa 6 hóa đơn chờ.",
+                    "Thông báo", javax.swing.JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        OrderCartController newCart = new OrderCartController(
+                tableCurrentOrder, lbSubtotal,
+                lbChangeDue, txtCashReceived, this::handleCartTotalChanged
+        );
+        orderSessions.add(newCart);
+        txtSearchCustomer.setText("");
+        lblCurrentOrder.setText("Current Order");
+        activeIndex = orderSessions.size() - 1;
+        applyTableStyling();
+
+        addTabButton("HD #" + orderSessions.size());
+        refreshTabUI();
+        renderPriceOnQRCode(0.0);
+        int pendingId = -1;
+        sessionOrderIds.add(pendingId);
+
+        if (txtCashReceived != null) {
+            txtCashReceived.setText("");
+        }
+        newCart.updateOrderSummaryTotals();
+    }
+
+    private void ensureOrderPersisted(int index) {
+        if (sessionOrderIds.get(index) == -1) {
+            entity.Employee user = util.UserSession.getInstance().getCurrentUser();
+            int employeeId = (user != null) ? user.getId() : 1;
+            Integer customerId = orderSessions.get(index).getCustomerId();
+            int pendingId = orderRepository.createPendingOrder(employeeId, customerId);
+            sessionOrderIds.set(index, pendingId);
+        }
+    }
+
+    private void refreshTabUI() {
+        for (int i = 0; i < tabButtons.size(); i++) {
+            javax.swing.JButton btn = tabButtons.get(i);
+            String customerName = orderSessions.get(i).getCustomerName();
+            String base = (customerName != null) ? customerName : "HD #" + (i + 1);
+            btn.setText(i == activeIndex ? base + " ●" : base);
+            btn.setToolTipText(customerName != null ? customerName : "Hóa đơn " + (i + 1));
+            btn.setPreferredSize(new java.awt.Dimension(85, 30));
+
+            for (java.awt.event.ActionListener al : btn.getActionListeners()) {
+                btn.removeActionListener(al);
+            }
+            final int index = i;
+            btn.addActionListener(e -> switchToOrder(index));
+
+            if (i == activeIndex) {
+                btn.putClientProperty(FlatClientProperties.STYLE,
+                        "background: #E28743; foreground: #FFFFFF; arc: 20; borderWidth: 0;");
+            } else {
+                btn.putClientProperty(FlatClientProperties.STYLE,
+                        "background: #FFFFFF; foreground: #555555; arc: 20; borderWidth: 1; borderColor: #E28743;");
+            }
+        }
+        panelOrderSplit.revalidate();
+        panelOrderSplit.repaint();
+    }
+
+    private void applyTableStyling() {
+        tableCurrentOrder.getColumnModel().getColumn(0).setPreferredWidth(35);
+        tableCurrentOrder.getColumnModel().getColumn(1).setPreferredWidth(160);
+        tableCurrentOrder.getColumnModel().getColumn(2).setPreferredWidth(60); // Còn lại
+        tableCurrentOrder.getColumnModel().getColumn(3).setPreferredWidth(55); // Số lượng
+        tableCurrentOrder.getColumnModel().getColumn(4).setPreferredWidth(75); // Đơn giá
+        tableCurrentOrder.getColumnModel().getColumn(5).setPreferredWidth(85); // Thành tiền
+
+        tableCurrentOrder.setFont(new java.awt.Font("Segoe UI", java.awt.Font.PLAIN, 14));
+        tableCurrentOrder.setRowHeight(38);
+        tableCurrentOrder.setShowHorizontalLines(true);
+        tableCurrentOrder.setShowVerticalLines(false);
+        tableCurrentOrder.setGridColor(new java.awt.Color(230, 235, 240));
+
+        javax.swing.table.DefaultTableCellRenderer rightRenderer = new javax.swing.table.DefaultTableCellRenderer();
+        rightRenderer.setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
+        javax.swing.table.DefaultTableCellRenderer centerRenderer = new javax.swing.table.DefaultTableCellRenderer();
+        centerRenderer.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+
+        tableCurrentOrder.getColumnModel().getColumn(0).setCellRenderer(centerRenderer);
+        tableCurrentOrder.getColumnModel().getColumn(2).setCellRenderer(centerRenderer); // Còn lại
+        tableCurrentOrder.getColumnModel().getColumn(3).setCellRenderer(centerRenderer); // Số lượng
+        tableCurrentOrder.getColumnModel().getColumn(4).setCellRenderer(rightRenderer);  // Đơn giá
+        tableCurrentOrder.getColumnModel().getColumn(5).setCellRenderer(rightRenderer);  // Thành tiền
+    }
+
+    private void addTabButton(String label) {
+        int index = tabButtons.size();
+        javax.swing.JButton tab = new javax.swing.JButton(label);
+        tab.setFocusPainted(false);
+        tab.setPreferredSize(new java.awt.Dimension(85, 30));
+        tab.putClientProperty(FlatClientProperties.STYLE,
+                "arc: 20; borderWidth: 1; borderColor: #E28743;");
+        tab.addActionListener(e -> switchToOrder(index));
+
+        tabButtons.add(tab);
+        panelOrderSplit.remove(btnAddOrder);
+        panelOrderSplit.add(tab);
+        panelOrderSplit.add(btnAddOrder);
+
+        panelOrderSplit.revalidate();
+        panelOrderSplit.repaint();
+    }
+
+    private void renderPriceOnQRCode(double amount) {
+        int size = 180;
+
+        if (amount <= 0) {
+            var qrURL = getClass().getResource("/images/QR.jpg");
+            if (qrURL != null) {
+                java.awt.Image baseImg = new javax.swing.ImageIcon(qrURL).getImage();
+                lbQRCode.setIcon(VietQrRenderer.staticQr(baseImg, size));
+                lbQRCode.setText("");
+            }
+            return;
+        }
+
+        VietQrRenderer.renderAsync(amount, size, new java.awt.Color(115, 61, 29),
+                icon -> {
+                    lbQRCode.setIcon(icon);
+                    lbQRCode.setText("");
+                },
+                errorMessage -> {
+                    System.out.println("❌ " + errorMessage);
+                    lbQRCode.setText("Lỗi kết nối QR");
+                });
+    }
+
+    private void handleCartTotalChanged(double amount) {
+        renderPriceOnQRCode(amount);
+
+        int orderId = sessionOrderIds.get(activeIndex);
+        if (orderId == -1) {
+            return;
+        }
+
+        List<OrderCartController.CartItem> cartItems = activeCart().getCartItems();
+        List<repository.OrderRepository.NewOrderItem> items = new java.util.ArrayList<>();
+        for (OrderCartController.CartItem ci : cartItems) {
+            items.add(new repository.OrderRepository.NewOrderItem(ci.productId, ci.quantity, ci.unitPrice));
+        }
+
+        new javax.swing.SwingWorker<Void, Void>() {
+            @Override
+            protected Void doInBackground() {
+                orderRepository.updateOrderTotal(orderId, amount);
+                orderRepository.syncPendingOrderDetails(orderId, items);
+                return null;
+            }
+        }.execute();
+    }
+
+    private void initCustomerManagementInSale() {
+        customerSuggestPopup = new javax.swing.JPopupMenu();
+        customerSuggestPopup.setFocusable(false);
+
+        txtSearchCustomer.getDocument().addDocumentListener(onDocumentChange(() -> {
+            String keyword = txtSearchCustomer.getText().trim();
+            if (customerSearchTimer != null && customerSearchTimer.isRunning()) {
+                customerSearchTimer.stop();
+            }
+            if (keyword.isEmpty()) {
+                customerSuggestPopup.setVisible(false);
+                return;
+            }
+            customerSearchTimer = new javax.swing.Timer(300, e -> showCustomerSuggestions(keyword));
+            customerSearchTimer.setRepeats(false);
+            customerSearchTimer.start();
+        }));
+    }
+
+    private void showCustomerSuggestions(String keyword) {
+        java.util.List<entity.Customer> results = customerRepository.search(keyword);
+        customerSuggestPopup.removeAll();
+        if (results.isEmpty()) {
+            customerSuggestPopup.setVisible(false);
+            return;
+        }
+        for (entity.Customer c : results) {
+            javax.swing.JMenuItem item = new javax.swing.JMenuItem(c.getFullName() + " - " + c.getPhone());
+            item.addActionListener(ev -> selectCustomerForOrder(c));
+            customerSuggestPopup.add(item);
+        }
+        customerSuggestPopup.show(txtSearchCustomer, 0, txtSearchCustomer.getHeight());
+    }
+
+    private void selectCustomerForOrder(entity.Customer c) {
+        activeCart().setCustomerId(c.getId());
+        activeCart().setCustomerName(c.getFullName());
+        txtSearchCustomer.setText(c.getFullName());
+        customerSuggestPopup.setVisible(false);
+        lblCurrentOrder.setText("Current Order - " + c.getFullName());
+        refreshTabUI();
+
+        int orderId = sessionOrderIds.get(activeIndex);
+        if (orderId != -1) {
+            new javax.swing.SwingWorker<Void, Void>() {
+                @Override
+                protected Void doInBackground() {
+                    orderRepository.updateOrderCustomer(orderId, c.getId());
+                    return null;
+                }
+            }.execute();
+        }
+    }
+
+    private void initProductManagementInSale() {
+        javax.swing.DefaultComboBoxModel<String> model = new javax.swing.DefaultComboBoxModel<>();
+        model.addElement("All");
+        categoryService.getCategoryForFilter().forEach(cat -> model.addElement(cat.getCategoryName()));
+        cbCategory.setModel(model);
+
+        cbCategory.addActionListener(e -> {
+            String selectedCategory = String.valueOf(cbCategory.getSelectedItem()).trim();
+            if (selectedCategory.equalsIgnoreCase("All") || selectedCategory.contains("All")) {
+                renderProductGrid(cachedProductList);
+            } else {
+                java.util.List<entity.Product> filtered = cachedProductList.stream()
+                        .filter(p -> cachedCategoryList.stream()
+                        .anyMatch(c -> c.getId() == p.getCategoryId()
+                        && c.getCategoryName().equalsIgnoreCase(selectedCategory)))
+                        .collect(java.util.stream.Collectors.toList());
+                renderProductGrid(filtered);
+            }
+        });
+    }
+
+    public void loadProductGrid() {
+        java.util.List<entity.Product> listProduct = productService.getPopularProducts();
+        java.util.List<entity.Category> listCategory = categoryService.getCategoryForFilter();
+        cachedProductList = listProduct != null ? listProduct : new java.util.ArrayList<>();
+        cachedCategoryList = listCategory != null ? listCategory : new java.util.ArrayList<>();
+        renderProductGrid(cachedProductList);
+    }
+
+    private void renderProductGrid(java.util.List<entity.Product> listProduct) {
+        panelProductGrid.removeAll();
+
+        if (listProduct == null || listProduct.isEmpty()) {
+            System.out.println("⚠️ [DEBUG GRID]: Không lấy được sản phẩm nào từ Database!");
+            panelProductGrid.revalidate();
+            panelProductGrid.repaint();
+            return;
+        } else {
+            System.out.println("📊 [DEBUG GRID]: Tìm thấy " + listProduct.size() + " sản phẩm. Tiến hành đúc Card.");
+        }
+
+        for (entity.Product p : listProduct) {
+            String catName = cachedCategoryList.stream()
+                    .filter(c -> c.getId() == p.getCategoryId())
+                    .map(entity.Category::getCategoryName)
+                    .findFirst()
+                    .orElse("Item");
+            ProductCard card = new ProductCard();
+            card.setProductData(p, catName);
+            card.addMouseListener(new java.awt.event.MouseAdapter() {
+                @Override
+                public void mouseClicked(java.awt.event.MouseEvent evt) {
+                    ProductCard sourceCard = (ProductCard) evt.getSource();
+                    if (sourceCard.getProduct() != null) {
+                        ensureOrderPersisted(activeIndex);
+                        activeCart().addProduct(sourceCard.getProduct());
+                    }
+                }
+            });
+            panelProductGrid.add(card);
+        }
+        int totalItems = listProduct.size();
+        int columns = 4;
+        int rows = (int) Math.ceil((double) totalItems / columns);
+        int calculatedHeight = rows * 255 + 25;
+        if (panelProductGrid.getLayout() instanceof java.awt.FlowLayout layout) {
+            layout.setAlignment(java.awt.FlowLayout.LEFT);
+            layout.setHgap(15);
+            layout.setVgap(15);
+            panelProductGrid.setAutoscrolls(true);
+        }
+
+        java.awt.Dimension gridBounds = new java.awt.Dimension(510, calculatedHeight);
+        panelProductGrid.setPreferredSize(gridBounds);
+        panelProductGrid.setMinimumSize(gridBounds);
+        panelProductGrid.setSize(gridBounds);
+
+        if (scrollPopular != null) {
+            scrollPopular.setViewportView(panelProductGrid);
+            scrollPopular.setVerticalScrollBarPolicy(javax.swing.ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
+            scrollPopular.setHorizontalScrollBarPolicy(javax.swing.ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+
+            scrollPopular.setWheelScrollingEnabled(true);
+            scrollPopular.getVerticalScrollBar().setUnitIncrement(18);
+        }
+        javax.swing.SwingUtilities.invokeLater(() -> {
+            panelProductGrid.revalidate();
+            panelProductGrid.repaint();
+            if (scrollPopular != null) {
+                scrollPopular.getViewport().revalidate();
+                scrollPopular.revalidate();
+                scrollPopular.repaint();
+            }
+        });
+    }
+
+    private void switchToOrder(int index) {
+        if (index < 0 || index >= orderSessions.size()) {
+            return;
+        }
+        activeIndex = index;
+        OrderCartController cart = orderSessions.get(index);
+        cart.rebindTo(tableCurrentOrder, lbSubtotal, lbChangeDue, txtCashReceived, this::handleCartTotalChanged);
+        txtSearchCustomer.setText(cart.getCustomerName() != null ? cart.getCustomerName() : "");
+        lblCurrentOrder.setText(cart.getCustomerName() != null ? "Current Order - " + cart.getCustomerName() : "Current Order");
+        applyTableStyling();
+        refreshTabUI();
+    }
+
+    private void initSalesCounterPanel() {
+        panelOrderSplit.removeAll();
+        panelOrderSplit.setLayout(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 6, 4));
+        panelOrderSplit.setBackground(new java.awt.Color(248, 246, 242));
+        panelOrderSplit.putClientProperty(FlatClientProperties.STYLE, "arc: 12; background: #F8F6F2;");
+
+        btnAddOrder.setText("＋");
+        btnAddOrder.setPreferredSize(new java.awt.Dimension(36, 30));
+        btnAddOrder.putClientProperty(FlatClientProperties.STYLE,
+                "arc: 20; borderWidth: 1; borderColor: #E28743; foreground: #E28743;");
+        btnAddOrder.addActionListener(e -> createNewOrder());
+        panelOrderSplit.add(btnAddOrder);
+
+        String panelStyle = "arc: 20; background: #FFFFFF;";
+        panelBarcode.putClientProperty(FlatClientProperties.STYLE, panelStyle);
+        panelCashier.putClientProperty(FlatClientProperties.STYLE, panelStyle);
+        panelOrderSummary.putClientProperty(FlatClientProperties.STYLE, panelStyle);
+        panelPopular.putClientProperty(FlatClientProperties.STYLE, "arc: 20; background: #F8F6F2;");
+        panelCurrentOrder.putClientProperty(FlatClientProperties.STYLE, "arc: 20; background: #F8F6F2;");
+        panelChangeDue.putClientProperty(FlatClientProperties.STYLE,
+                "arc: 20; background: #FFFFFF; border: 0,#00000000;");
+
+        scrollPopular.setBorder(null);
+        scrollPopular.setOpaque(false);
+        scrollPopular.getVerticalScrollBar().setUnitIncrement(16);
+
+        txtBarcodeSearch.putClientProperty(FlatClientProperties.STYLE, "arc: 15;");
+
+        cashBtn.putClientProperty(FlatClientProperties.STYLE, ""
+                + "background: #E28743;"
+                + "foreground: #FFFFFF;"
+                + "borderWidth: 0;"
+                + "arc: 15;");
+
+        qrBtn.putClientProperty(FlatClientProperties.STYLE, ""
+                + "background: #FFFFFF;"
+                + "foreground: #4A5568;"
+                + "border: 1,#E2E8F0;"
+                + "arc: 15;");
+
+        qrBtn.setIcon(MenuIcons.paymentQr());
+
+        if (jScrollPane1 != null) {
+            jScrollPane1.setOpaque(false);
+            jScrollPane1.getViewport().setOpaque(true);
+            jScrollPane1.setBorder(javax.swing.BorderFactory.createEmptyBorder(0, 0, 0, 0));
+            jScrollPane1.putClientProperty(FlatClientProperties.STYLE, "arc: 0 0 20 20; clipChildren: true;");
+            jScrollPane1.getViewport().putClientProperty(FlatClientProperties.STYLE,
+                    "arc: 0 0 20 20; clipChildren: true;");
+        }
+
+        tableCurrentOrder.setOpaque(true);
+        tableCurrentOrder.setShowVerticalLines(false);
+        tableCurrentOrder.setRowHeight(35);
+
+        var header = tableCurrentOrder.getTableHeader();
+        if (header != null) {
+            header.setReorderingAllowed(false);
+        }
+
+        int sizeLogic = 180;
+        java.awt.Dimension qrSizeFinal = new java.awt.Dimension(sizeLogic, sizeLogic);
+        lbQRCode.setPreferredSize(qrSizeFinal);
+        lbQRCode.setMinimumSize(qrSizeFinal);
+        lbQRCode.setMaximumSize(qrSizeFinal);
+        lbQRCode.setOpaque(false);
+
+        var qrURL = getClass().getResource("/images/QR.jpg");
+        if (qrURL != null) {
+            var imgGocQR = new javax.swing.ImageIcon(qrURL).getImage();
+
+            double scaleQR = 1.0;
+            var gcQR = getGraphicsConfiguration();
+            if (gcQR != null) {
+                scaleQR = gcQR.getDefaultTransform().getScaleX();
+            }
+
+            int sizeThuc = Math.max(sizeLogic, (int) Math.round(sizeLogic * scaleQR));
+
+            var imgLogicQR = ImageUtil.scale(imgGocQR, sizeLogic);
+            var imgThucQR = (sizeThuc == sizeLogic) ? imgLogicQR : ImageUtil.scale(imgGocQR, sizeThuc);
+
+            var imgMultiResQR = new java.awt.image.BaseMultiResolutionImage(imgLogicQR, imgThucQR);
+            lbQRCode.setIcon(new javax.swing.ImageIcon(imgMultiResQR));
+            lbQRCode.setText("");
+        } else {
+            lbQRCode.setText("Không tìm thấy ảnh QR.jpg");
+            lbQRCode.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        }
+
+        String subPanelStyle = "background: #FFFFFF; arc: 20; border: 1,#20000000,20,0;";
+        panelCashView.putClientProperty(FlatClientProperties.STYLE, subPanelStyle);
+        panelQRView.putClientProperty(FlatClientProperties.STYLE, subPanelStyle);
+        tableCurrentOrder.putClientProperty("terminateEditOnFocusLost", Boolean.TRUE);
+
+        btnScan.setContentAreaFilled(false);
+        btnScan.setFocusPainted(false);
+        btnScan.setBorderPainted(false);
+        btnScan.setText("");
+        btnScan.setUI(new ScannerButtonUI());
+
+        if (jScrollPane1 != null) {
+            jScrollPane1.setBorder(javax.swing.BorderFactory.createEmptyBorder(0, 0, 0, 0));
+        }
+        renderPriceOnQRCode(0.00);
+
+        txtCashReceived.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            @Override
+            public void insertUpdate(javax.swing.event.DocumentEvent e) {
+                activeCart().calculateChangeDue();
+            }
+
+            @Override
+            public void removeUpdate(javax.swing.event.DocumentEvent e) {
+                activeCart().calculateChangeDue();
+            }
+
+            @Override
+            public void changedUpdate(javax.swing.event.DocumentEvent e) {
+                activeCart().calculateChangeDue();
+            }
+        });
+
+        // Add Customer Action Listener
+        btnAddCustomer1.addActionListener(e -> {
+            views.AddCustomerFrame addFrame = new views.AddCustomerFrame(() -> {
+                String phone = txtSearchCustomer.getText().trim();
+                if (!phone.isEmpty()) {
+                    java.util.List<entity.Customer> found = customerRepository.search(phone);
+                    if (!found.isEmpty()) {
+                        selectCustomerForOrder(found.get(0));
+                    }
+                }
+            });
+            addFrame.setVisible(true);
+        });
+
+        initCustomerManagementInSale();
+        initProductManagementInSale();
+        createNewOrder();
+        loadProductGrid();
+    }
+
+    @Override
+    public void setVisible(boolean b) {
+        if (b) {
+            if (!util.UserSession.getInstance().isLoggedIn()) {
+                javax.swing.JOptionPane.showMessageDialog(this,
+                        "Bạn chưa đăng nhập! Vui lòng đăng nhập để tiếp tục.",
+                        "Lỗi truy cập", javax.swing.JOptionPane.ERROR_MESSAGE);
+                util.AppRouter.showLogin();
+                this.dispose();
+                return;
+            }
+            if (util.UserSession.getInstance().getCurrentUser().getRoleId() != 1) {
+                javax.swing.JOptionPane.showMessageDialog(this,
+                        "Chỉ Manager mới được phép truy cập trang quản lý!",
+                        "Từ chối truy cập", javax.swing.JOptionPane.ERROR_MESSAGE);
+                this.dispose();
+                return;
+            }
+        }
+        super.setVisible(b);
+    }
+
     public static void main(String args[]) {
         com.formdev.flatlaf.FlatLightLaf.setup();
         java.awt.EventQueue.invokeLater(() -> {
@@ -3093,31 +4378,40 @@ public class DashBoardFrame extends javax.swing.JFrame {
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton btnAddCustomer;
+    private javax.swing.JButton btnAddCustomer1;
     private javax.swing.JButton btnAddEmployee;
+    private javax.swing.JButton btnAddOrder;
     private javax.swing.JButton btnAddProduct;
     private javax.swing.JButton btnAddSchedule;
     private javax.swing.JButton btnAttendance;
-    private javax.swing.JButton btnBackToSaleCounter;
+    private javax.swing.JButton btnBarcode;
+    private javax.swing.JButton btnCancelOrder;
+    private javax.swing.JButton btnConfirmOrder;
     private javax.swing.JButton btnCustomerManagement;
     private javax.swing.JButton btnDashBoard;
     private javax.swing.JButton btnEmployeeManagement;
     private javax.swing.JButton btnHumanResources;
     private javax.swing.JButton btnNextWeek;
     private javax.swing.JButton btnOrderHistory;
+    private javax.swing.JButton btnPOSPayment;
     private javax.swing.JButton btnPrevWeek;
     private javax.swing.JButton btnProductInventory;
     private javax.swing.JButton btnRefresh;
+    private javax.swing.JButton btnScan;
     private javax.swing.JButton btnSchedule;
     private javax.swing.JButton btnThang;
     private javax.swing.JButton btnTopNgay;
     private javax.swing.JButton btnTopThang;
     private javax.swing.JButton btnTuan;
+    private javax.swing.JButton cashBtn;
     private javax.swing.JComboBox<String> cbAll;
+    private javax.swing.JComboBox<String> cbCategory;
     private javax.swing.JComboBox<String> cbMonth;
     private javax.swing.JComboBox<String> cbPaymentMethod;
     private javax.swing.JComboBox<String> cbRole;
     private javax.swing.JComboBox<String> cbStatus;
     private javax.swing.JComboBox<String> cbYear;
+    private javax.swing.JComboBox<String> cbbLogOut;
     private com.toedter.calendar.JDateChooser dateFrom;
     private com.toedter.calendar.JDateChooser dateTo;
     private javax.swing.JButton findByBarcode;
@@ -3131,11 +4425,18 @@ public class DashBoardFrame extends javax.swing.JFrame {
     private javax.swing.JLabel jLabel16;
     private javax.swing.JLabel jLabel17;
     private javax.swing.JLabel jLabel18;
+    private javax.swing.JLabel jLabel19;
     private javax.swing.JLabel jLabel2;
     private javax.swing.JLabel jLabel20;
+    private javax.swing.JLabel jLabel21;
+    private javax.swing.JLabel jLabel22;
+    private javax.swing.JLabel jLabel23;
     private javax.swing.JLabel jLabel24;
     private javax.swing.JLabel jLabel25;
+    private javax.swing.JLabel jLabel26;
     private javax.swing.JLabel jLabel27;
+    private javax.swing.JLabel jLabel28;
+    private javax.swing.JLabel jLabel29;
     private javax.swing.JLabel jLabel3;
     private javax.swing.JLabel jLabel4;
     private javax.swing.JLabel jLabel5;
@@ -3149,18 +4450,25 @@ public class DashBoardFrame extends javax.swing.JFrame {
     private javax.swing.JPanel jPanel5;
     private javax.swing.JPanel jPanel6;
     private javax.swing.JPanel jPanel7;
+    private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JScrollPane jScrollPane2;
     private javax.swing.JScrollPane jScrollPane3;
     private javax.swing.JScrollPane jScrollPane4;
     private javax.swing.JScrollPane jScrollPane5;
     private javax.swing.JScrollPane jScrollPane6;
     private javax.swing.JScrollPane jScrollPane7;
+    private javax.swing.JSeparator jSeparator1;
     private javax.swing.JTable jTable1;
     private javax.swing.JTextField jTextField1;
+    private javax.swing.JLabel labelStatus;
     private javax.swing.JLabel lbAvatarShop;
+    private javax.swing.JLabel lbChangeDue;
+    private javax.swing.JLabel lbQRCode;
+    private javax.swing.JLabel lbSubtotal;
     private javax.swing.JLabel lblAbsentCount;
     private javax.swing.JLabel lblActiveEmployees;
     private javax.swing.JLabel lblAttendance;
+    private javax.swing.JLabel lblCurrentOrder;
     private javax.swing.JLabel lblEmployeeSchedule;
     private javax.swing.JLabel lblLateCount;
     private javax.swing.JLabel lblMonthDayYear;
@@ -3171,6 +4479,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
     private javax.swing.JLabel lblPaidOrder3;
     private javax.swing.JLabel lblPaidOrder4;
     private javax.swing.JLabel lblPendingInvoice;
+    private javax.swing.JLabel lblPopular;
     private javax.swing.JLabel lblRecordAttendance;
     private javax.swing.JLabel lblRecordLog;
     private javax.swing.JLabel lblRevenueMonth;
@@ -3180,14 +4489,21 @@ public class DashBoardFrame extends javax.swing.JFrame {
     private javax.swing.JPanel panelActiveEmployees;
     private javax.swing.JPanel panelActiveOrders;
     private javax.swing.JPanel panelAttendance;
+    private javax.swing.JPanel panelBarcode;
     private javax.swing.JPanel panelBelowHeader;
     private javax.swing.JPanel panelCanceledOrders;
+    private javax.swing.JPanel panelCardParent;
+    private javax.swing.JPanel panelCashView;
+    private javax.swing.JPanel panelCashier;
+    private javax.swing.JPanel panelChangeDue;
     private javax.swing.JPanel panelContent;
+    private javax.swing.JPanel panelCurrentOrder;
     private javax.swing.JPanel panelCustomer;
     private javax.swing.JPanel panelCustomerHeader;
     private javax.swing.JPanel panelDashboard;
     private javax.swing.JPanel panelDashboardHeader;
     private javax.swing.JPanel panelDate;
+    private javax.swing.JPanel panelEmployeeCheckIn;
     private javax.swing.JPanel panelEmployeeMain;
     private javax.swing.JPanel panelEmployeeManagement;
     private javax.swing.JPanel panelHRHeader;
@@ -3198,17 +4514,29 @@ public class DashBoardFrame extends javax.swing.JFrame {
     private javax.swing.JPanel panelOrderManagement1;
     private javax.swing.JPanel panelOrderManagement2;
     private javax.swing.JPanel panelOrderManagement4;
+    private javax.swing.JPanel panelOrderSplit;
+    private javax.swing.JPanel panelOrderSummary;
+    private javax.swing.JPanel panelPopular;
     private javax.swing.JPanel panelProduct;
+    private javax.swing.JPanel panelProductGrid;
+    private javax.swing.JPanel panelQRView;
     private javax.swing.JPanel panelRevenueDate;
     private javax.swing.JPanel panelRevenueToday;
+    private javax.swing.JPanel panelSaleCounter;
     private javax.swing.JPanel panelSchedule;
     private javax.swing.JPanel panelSelection;
     private javax.swing.JPanel panelTopSales;
+    private javax.swing.JButton qrBtn;
+    private javax.swing.JScrollPane scrollPopular;
     private javax.swing.JTable tableAttendance;
+    private javax.swing.JTable tableCurrentOrder;
     private javax.swing.JTable tableEmployeeManagement;
     private javax.swing.JTable tableProduct;
     private javax.swing.JTable tableSchedule;
     private javax.swing.JTable tableTransactionHistory;
+    private javax.swing.JTextField txtBarcodeSearch;
+    private javax.swing.JTextField txtCashReceived;
+    private javax.swing.JTextField txtSearchCustomer;
     private javax.swing.JTextField txtSearchEmployee;
     private javax.swing.JTextField txtSearchInvoice;
     private javax.swing.JTextField txtSearchProduct;

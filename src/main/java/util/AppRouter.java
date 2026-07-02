@@ -32,13 +32,15 @@ public class AppRouter {
             currentFrame.dispose();
         }
 
+        Employee user = session.getCurrentUser();
         java.awt.EventQueue.invokeLater(() -> {
-            // Mặc định cho hiển thị cả giao diện Quản lý và Bán hàng để bạn sửa code tiện nhất
             SalesCounterFrame salesFrame = new SalesCounterFrame();
-            salesFrame.setManagerButtonVisible(true); // Luôn hiện nút của Manager để test
-            
-            DashBoardFrame db = new DashBoardFrame(salesFrame);
-            db.setVisible(true);
+            if (user != null && user.getRoleId() == 1) {
+                DashBoardFrame db = new DashBoardFrame(salesFrame);
+                db.setVisible(true);
+            } else {
+                salesFrame.setVisible(true);
+            }
         });
     }
 
@@ -59,8 +61,8 @@ public class AppRouter {
                 frame.dispose();
                 java.awt.EventQueue.invokeLater(() -> {
                     SalesCounterFrame salesFrame = new SalesCounterFrame();
-                    salesFrame.setManagerButtonVisible(false);
-                    salesFrame.hideNonManagerMenus();
+//                    salesFrame.setManagerButtonVisible(false);
+//                    salesFrame.hideNonManagerMenus();
                     salesFrame.setVisible(true);
                 });
                 return false;

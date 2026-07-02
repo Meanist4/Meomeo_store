@@ -192,6 +192,19 @@ public class EmployeeRepository {
         return false;
     }
 
+    public boolean updatePassword(String username, String hashedPassword) {
+        String sql = "UPDATE employees SET password=? WHERE username=? AND is_deleted=0";
+        try (Connection conn = DatabaseConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, hashedPassword);
+            ps.setString(2, username);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.err.println("Lỗi cập nhật mật khẩu: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return false;
+    }
+
     public boolean deleteEmployee(int empId) {
         String sql = "UPDATE employees SET is_deleted=1 WHERE id=?";
         try (Connection conn = DatabaseConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {

@@ -14,6 +14,7 @@ import javax.swing.table.DefaultTableModel;
 public class OrderCartController {
 
     private final DefaultTableModel ownModel;
+    private boolean isUpdating = false;
 
     private JTable table;
     private JLabel lbSubtotal;
@@ -45,11 +46,11 @@ public class OrderCartController {
 
         this.ownModel = new DefaultTableModel(
                 new Object[][]{},
-                new String[]{"STT", "Tên sản phẩm", "Còn lại", "Số lượng", "Đơn giá", "Thành tiền", "Thao tác", "ProductID"}
+                new String[]{"STT", "Tên sản phẩm", "Còn lại", "Số lượng", "Đơn giá", "Thành tiền", "ProductID"}
         ) {
             @Override
             public boolean isCellEditable(int row, int column) {
-                return column == 6;
+                return column == 3;
             }
         };
 
@@ -62,13 +63,41 @@ public class OrderCartController {
         if (table != null) {
             table.setModel(this.ownModel);
             hideProductIdColumn(table);
+            setupCellEditor(table);
         }
+
+        this.ownModel.addTableModelListener(e -> {
+            if (isUpdating) {
+                return;
+            }
+            if (e.getType() == javax.swing.event.TableModelEvent.UPDATE) {
+                int row = e.getFirstRow();
+                int column = e.getColumn();
+                if (column == 3) {
+                    handleQuantityChanged(row);
+                }
+            }
+        });
     }
 
     private void hideProductIdColumn(JTable t) {
-        if (t.getColumnModel().getColumnCount() > 7) {
-            t.getColumnModel().removeColumn(t.getColumnModel().getColumn(7));
+        if (t.getColumnModel().getColumnCount() > 6) {
+            t.getColumnModel().removeColumn(t.getColumnModel().getColumn(6));
         }
+    }
+
+    private void setupCellEditor(JTable t) {
+        if (t == null) {
+            return;
+        }
+        JTextField qtyField = new JTextField();
+        qtyField.addActionListener(e -> {
+            if (t.isEditing()) {
+                t.getCellEditor().stopCellEditing();
+            }
+            t.requestFocusInWindow();
+        });
+        t.getColumnModel().getColumn(3).setCellEditor(new javax.swing.DefaultCellEditor(qtyField));
     }
 
     private DefaultTableModel model() {
@@ -103,9 +132,14 @@ public class OrderCartController {
                 }
                 BigDecimal unitPrice = product.getPrice();
                 BigDecimal newSubTotal = unitPrice.multiply(BigDecimal.valueOf(newQty));
-                model.setValueAt(stockQty, i, 2);
-                model.setValueAt(newQty, i, 3);
-                model.setValueAt(formatMoney(newSubTotal), i, 5);
+                isUpdating = true;
+                try {
+                    model.setValueAt(stockQty, i, 2);
+                    model.setValueAt(newQty, i, 3);
+                    model.setValueAt(formatMoney(newSubTotal), i, 5);
+                } finally {
+                    isUpdating = false;
+                }
                 isExist = true;
                 break;
             }
@@ -119,16 +153,20 @@ public class OrderCartController {
                 return;
             }
             int stt = rowCount + 1;
-            model.addRow(new Object[]{
-                stt,
-                product.getProductName(),
-                stockQty,
-                1,
-                formatMoney(product.getPrice()),
-                formatMoney(product.getPrice()),
-                "",
-                product.getId()
-            });
+            isUpdating = true;
+            try {
+                model.addRow(new Object[]{
+                    stt,
+                    product.getProductName(),
+                    stockQty,
+                    1,
+                    formatMoney(product.getPrice()),
+                    formatMoney(product.getPrice()),
+                    product.getId()
+                });
+            } finally {
+                isUpdating = false;
+            }
         }
 
         updateOrderSummaryTotals();
@@ -146,7 +184,7 @@ public class OrderCartController {
         List<CartItem> items = new ArrayList<>();
         DefaultTableModel model = model();
         for (int i = 0; i < model.getRowCount(); i++) {
-            Object pid = model.getValueAt(i, 7);
+            Object pid = model.getValueAt(i, 6);
             if (pid == null) {
                 continue;
             }
@@ -178,32 +216,96 @@ public class OrderCartController {
         return total;
     }
 
-    public void removeOne(int rowIndex) {
-        DefaultTableModel model = model();
-        int currentQty = Integer.parseInt(model.getValueAt(rowIndex, 3).toString());
+    private void handleQuantityChanged(int row) {
+        if (row < 0 || row >= ownModel.getRowCount()) {
+            return;
+        }
 
-        if (currentQty > 1) {
-            int newQty = currentQty - 1;
-            model.setValueAt(newQty, rowIndex, 3);
-
-            double unitPrice = parseMoney(model.getValueAt(rowIndex, 4).toString());
-            double newSubTotal = newQty * unitPrice;
-            model.setValueAt(formatMoney(newSubTotal), rowIndex, 5);
-
+        Object qtyObj = ownModel.getValueAt(row, 3);
+        int newQty = 0;
+        boolean valid = true;
+        if (qtyObj != null) {
             try {
-                int productId = Integer.parseInt(model.getValueAt(rowIndex, 7).toString());
-                repository.ProductRepository productRepo = new repository.ProductRepository();
-                Product p = productRepo.findById(productId);
-                if (p != null) {
-                    model.setValueAt(p.getQuantity(), rowIndex, 2);
-                }
-            } catch (Exception ignored) {
+                newQty = Integer.parseInt(qtyObj.toString().trim());
+            } catch (NumberFormatException ex) {
+                valid = false;
             }
         } else {
-            model.removeRow(rowIndex);
-            for (int i = 0; i < model.getRowCount(); i++) {
-                model.setValueAt(i + 1, i, 0);
+            valid = false;
+        }
+
+        // Calculate previous quantity from subtotal and unit price to restore if invalid
+        double unitPrice = parseMoney(ownModel.getValueAt(row, 4).toString());
+        double subtotal = parseMoney(ownModel.getValueAt(row, 5).toString());
+        int previousQty = (int) Math.round(subtotal / unitPrice);
+        if (previousQty <= 0) {
+            previousQty = 1;
+        }
+
+        if (!valid) {
+            javax.swing.JOptionPane.showMessageDialog(null,
+                    "Số lượng phải là số nguyên hợp lệ.",
+                    "Lỗi", javax.swing.JOptionPane.ERROR_MESSAGE);
+            isUpdating = true;
+            try {
+                ownModel.setValueAt(previousQty, row, 3);
+            } finally {
+                isUpdating = false;
             }
+            return;
+        }
+
+        if (newQty <= 0) {
+            isUpdating = true;
+            try {
+                ownModel.removeRow(row);
+                for (int i = 0; i < ownModel.getRowCount(); i++) {
+                    ownModel.setValueAt(i + 1, i, 0);
+                }
+            } finally {
+                isUpdating = false;
+            }
+            updateOrderSummaryTotals();
+            return;
+        }
+
+        int productId = Integer.parseInt(ownModel.getValueAt(row, 6).toString());
+        repository.ProductRepository productRepo = new repository.ProductRepository();
+        Product latestProduct = productRepo.findById(productId);
+        if (latestProduct == null) {
+            javax.swing.JOptionPane.showMessageDialog(null,
+                    "Sản phẩm không tồn tại trên hệ thống.",
+                    "Lỗi", javax.swing.JOptionPane.ERROR_MESSAGE);
+            isUpdating = true;
+            try {
+                ownModel.setValueAt(previousQty, row, 3);
+            } finally {
+                isUpdating = false;
+            }
+            return;
+        }
+
+        int stockQty = latestProduct.getQuantity();
+        if (newQty > stockQty) {
+            javax.swing.JOptionPane.showMessageDialog(null,
+                    "Sản phẩm " + latestProduct.getProductName() + " chỉ còn " + stockQty + " trong kho.",
+                    "Cảnh báo", javax.swing.JOptionPane.WARNING_MESSAGE);
+            isUpdating = true;
+            try {
+                ownModel.setValueAt(previousQty, row, 3);
+            } finally {
+                isUpdating = false;
+            }
+            return;
+        }
+
+        BigDecimal newSubtotal = latestProduct.getPrice().multiply(BigDecimal.valueOf(newQty));
+        isUpdating = true;
+        try {
+            ownModel.setValueAt(stockQty, row, 2);
+            ownModel.setValueAt(formatMoney(newSubtotal), row, 5);
+        } finally {
+            isUpdating = false;
         }
 
         updateOrderSummaryTotals();
@@ -240,6 +342,7 @@ public class OrderCartController {
         if (table != null) {
             table.setModel(this.ownModel);
             hideProductIdColumn(table);
+            setupCellEditor(table);
         }
         updateOrderSummaryTotals();
     }
@@ -304,10 +407,11 @@ public class OrderCartController {
     }
 
     private static double parseMoney(String text) {
-        String clean = text.replace("đ", "").replace(",", "").trim();
-        if (clean.contains("Thiếu:")) {
-            clean = clean.replace("Thiếu:", "").trim();
-        }
+        String clean = text.replace("đ", "")
+                           .replace("Thiếu:", "")
+                           .replace(",", "")
+                           .replace(".", "")
+                           .trim();
         return Double.parseDouble(clean);
     }
 }

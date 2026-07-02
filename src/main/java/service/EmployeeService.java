@@ -19,6 +19,8 @@ public interface EmployeeService {
 
     boolean deleteEmployee(int id);
 
+    boolean updatePassword(String username, String hashedPassword);
+
     Employee login(String username, String password);
 
     List<Role> getAllRole();

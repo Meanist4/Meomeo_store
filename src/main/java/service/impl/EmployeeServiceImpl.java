@@ -50,6 +50,11 @@ public class EmployeeServiceImpl implements service.EmployeeService {
     }
 
     @Override
+    public boolean updatePassword(String username, String hashedPassword) {
+        return empRepo.updatePassword(username, hashedPassword);
+    }
+
+    @Override
     public Employee login(String username, String password) {
         Employee emp = empRepo.findByUsername(username);
         if (emp != null && emp.getStatus() == 1) {
