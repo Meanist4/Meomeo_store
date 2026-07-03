@@ -256,16 +256,15 @@ public class OrderCartController {
         }
 
         if (newQty <= 0) {
+            javax.swing.JOptionPane.showMessageDialog(null,
+                    "Số lượng phải lớn hơn 0!",
+                    "Cảnh báo", javax.swing.JOptionPane.WARNING_MESSAGE);
             isUpdating = true;
             try {
-                ownModel.removeRow(row);
-                for (int i = 0; i < ownModel.getRowCount(); i++) {
-                    ownModel.setValueAt(i + 1, i, 0);
-                }
+                ownModel.setValueAt(previousQty, row, 3);
             } finally {
                 isUpdating = false;
             }
-            updateOrderSummaryTotals();
             return;
         }
 

@@ -5,6 +5,11 @@ import controller.OrderCartController;
 import java.util.ArrayList;
 import java.util.List;
 import javax.swing.JButton;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JLabel;
+import javax.swing.Box;
+import javax.swing.JFileChooser;
 import repository.OrderRepository;
 import service.CategoryService;
 import service.ProductService;
@@ -28,6 +33,7 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
     private javax.swing.Timer customerSearchTimer;
     private DashBoardFrame dashBoard;
     private final OrderRepository orderRepository = new repository.OrderRepository();
+    private final repository.AttendanceRepository attendanceRepository = new repository.AttendanceRepository();
     private final List<Integer> sessionOrderIds = new ArrayList<>();
     private java.util.List<entity.Product> cachedProductList = new ArrayList<>();
     private java.util.List<entity.Category> cachedCategoryList = new ArrayList<>();
@@ -375,6 +381,7 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         refreshTransactionHistory();
         loadCustomerTableData();
         initCustomerFilterEvents();
+        loadCheckedInEmployees();
     }
 
     private void customTransactionHistoryAppearance() {
@@ -2297,6 +2304,7 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
                 if (txtCashReceived != null) {
                     txtCashReceived.setText("");
                 }
+                askAndExportInvoice(orderId);
                 orderSessions.remove(finishedIndex);
                 sessionOrderIds.remove(finishedIndex);
                 panelOrderSplit.remove(tabButtons.get(finishedIndex));
@@ -2432,6 +2440,225 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
             }
         }
         super.setVisible(b);
+    }
+
+    private void initCheckedInEmployeesPanel() {
+        panelEmployeeCheckIn.setLayout(new java.awt.BorderLayout(0, 10));
+        panelEmployeeCheckIn.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        
+        javax.swing.JLabel titleLabel = new javax.swing.JLabel("Nhân viên đã check-in", javax.swing.SwingConstants.LEFT);
+        titleLabel.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 14));
+        titleLabel.setForeground(new java.awt.Color(111, 59, 26)); // #6F3B1A
+        titleLabel.setIcon(ui.MenuIcons.humanResources());
+        titleLabel.setIconTextGap(8);
+        
+        panelEmployeeCheckIn.add(titleLabel, java.awt.BorderLayout.NORTH);
+        
+        JPanel listPanel = new JPanel();
+        listPanel.setLayout(new javax.swing.BoxLayout(listPanel, javax.swing.BoxLayout.Y_AXIS));
+        listPanel.setBackground(java.awt.Color.WHITE);
+        
+        JScrollPane scrollPane = new JScrollPane(listPanel);
+        scrollPane.setBorder(null);
+        scrollPane.setOpaque(false);
+        scrollPane.getViewport().setOpaque(false);
+        scrollPane.setHorizontalScrollBarPolicy(javax.swing.ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        
+        panelEmployeeCheckIn.add(scrollPane, java.awt.BorderLayout.CENTER);
+        
+        panelEmployeeCheckIn.putClientProperty("listPanel", listPanel);
+    }
+
+    public void loadCheckedInEmployees() {
+        JPanel listPanel = (JPanel) panelEmployeeCheckIn.getClientProperty("listPanel");
+        if (listPanel == null) {
+            initCheckedInEmployeesPanel();
+            listPanel = (JPanel) panelEmployeeCheckIn.getClientProperty("listPanel");
+        }
+        
+        listPanel.removeAll();
+        java.util.List<repository.AttendanceRepository.CheckedInEmployee> list = attendanceRepository.getTodayCheckedInEmployees();
+        
+        if (list.isEmpty()) {
+            JPanel emptyPanel = new JPanel(new java.awt.GridBagLayout());
+            emptyPanel.setOpaque(false);
+            
+            javax.swing.JLabel noEmpLabel = new javax.swing.JLabel("Không có nhân viên check-in");
+            noEmpLabel.setFont(new java.awt.Font("Segoe UI", java.awt.Font.ITALIC, 12));
+            noEmpLabel.setForeground(new java.awt.Color(148, 163, 184)); // #94A3B8
+            emptyPanel.add(noEmpLabel);
+            
+            listPanel.add(emptyPanel);
+        } else {
+            for (repository.AttendanceRepository.CheckedInEmployee emp : list) {
+                JPanel card = createEmployeeCard(emp);
+                listPanel.add(card);
+                listPanel.add(javax.swing.Box.createVerticalStrut(8));
+            }
+            listPanel.add(javax.swing.Box.createVerticalGlue());
+        }
+        
+        listPanel.revalidate();
+        listPanel.repaint();
+    }
+
+    private JPanel createEmployeeCard(repository.AttendanceRepository.CheckedInEmployee emp) {
+        JPanel card = new JPanel(new java.awt.BorderLayout(12, 0));
+        card.setBackground(java.awt.Color.WHITE);
+        card.setMaximumSize(new java.awt.Dimension(Short.MAX_VALUE, 64));
+        card.setPreferredSize(new java.awt.Dimension(220, 64));
+        card.setMinimumSize(new java.awt.Dimension(180, 64));
+        
+        card.putClientProperty(FlatClientProperties.STYLE, 
+            "arc: 12; border: 1,1,1,1,#E2E8F0; background: #FFFFFF;");
+        card.setBorder(javax.swing.BorderFactory.createEmptyBorder(8, 10, 8, 10));
+        
+        String initials = "";
+        if (emp.fullName != null && !emp.fullName.isEmpty()) {
+            String[] parts = emp.fullName.trim().split("\\s+");
+            if (parts.length > 0) {
+                String last = parts[parts.length - 1];
+                if (!last.isEmpty()) {
+                    initials = last.substring(0, Math.min(2, last.length())).toUpperCase();
+                }
+            }
+        }
+        if (initials.isEmpty()) initials = "EE";
+        
+        java.awt.Color roleColor = java.awt.Color.GRAY;
+        if (emp.roleColorHex != null) {
+            try {
+                roleColor = java.awt.Color.decode(emp.roleColorHex);
+            } catch (Exception ex) {
+                // Ignore
+            }
+        }
+        
+        final java.awt.Color avatarColor = roleColor;
+        final String displayInitials = initials;
+        
+        javax.swing.JLabel avatarLabel = new javax.swing.JLabel(displayInitials, javax.swing.SwingConstants.CENTER) {
+            @Override
+            protected void paintComponent(java.awt.Graphics g) {
+                java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
+                g2.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(avatarColor);
+                g2.fillOval(0, 0, getWidth(), getHeight());
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
+        avatarLabel.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 12));
+        avatarLabel.setForeground(java.awt.Color.WHITE);
+        avatarLabel.setPreferredSize(new java.awt.Dimension(36, 36));
+        avatarLabel.setMinimumSize(new java.awt.Dimension(36, 36));
+        
+        JPanel infoPanel = new JPanel();
+        infoPanel.setLayout(new javax.swing.BoxLayout(infoPanel, javax.swing.BoxLayout.Y_AXIS));
+        infoPanel.setOpaque(false);
+        
+        javax.swing.JLabel lblName = new javax.swing.JLabel(emp.fullName);
+        lblName.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 12));
+        lblName.setForeground(new java.awt.Color(30, 41, 59)); // #1E293B
+        lblName.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
+        
+        javax.swing.JLabel lblRole = new javax.swing.JLabel(emp.roleName);
+        lblRole.setFont(new java.awt.Font("Segoe UI", java.awt.Font.PLAIN, 10));
+        lblRole.setForeground(avatarColor);
+        lblRole.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
+        
+        infoPanel.add(lblName);
+        infoPanel.add(javax.swing.Box.createVerticalStrut(2));
+        infoPanel.add(lblRole);
+        
+        String timeStr = "—";
+        if (emp.checkInTime != null) {
+            java.text.SimpleDateFormat timeFormat = new java.text.SimpleDateFormat("HH:mm");
+            timeStr = timeFormat.format(emp.checkInTime);
+        }
+        
+        javax.swing.JLabel lblTime = new javax.swing.JLabel(timeStr);
+        lblTime.setFont(new java.awt.Font("Segoe UI", java.awt.Font.PLAIN, 10));
+        lblTime.setForeground(new java.awt.Color(148, 163, 184)); // #94A3B8
+        lblTime.setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
+        
+        card.add(avatarLabel, java.awt.BorderLayout.WEST);
+        card.add(infoPanel, java.awt.BorderLayout.CENTER);
+        card.add(lblTime, java.awt.BorderLayout.EAST);
+        
+        final String colorHex = emp.roleColorHex != null ? emp.roleColorHex : "#E28743";
+        card.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseEntered(java.awt.event.MouseEvent e) {
+                card.putClientProperty(FlatClientProperties.STYLE, 
+                    "arc: 12; border: 1,1,1,1," + colorHex + "; background: #F8FAFC;");
+                card.repaint();
+            }
+            @Override
+            public void mouseExited(java.awt.event.MouseEvent e) {
+                card.putClientProperty(FlatClientProperties.STYLE, 
+                    "arc: 12; border: 1,1,1,1,#E2E8F0; background: #FFFFFF;");
+                card.repaint();
+            }
+        });
+        
+        return card;
+    }
+
+    private void askAndExportInvoice(int orderId) {
+        int getInvoiceConfirm = javax.swing.JOptionPane.showConfirmDialog(this,
+                "Bạn có muốn lấy hóa đơn không?",
+                "Xác nhận hóa đơn",
+                javax.swing.JOptionPane.YES_NO_OPTION,
+                javax.swing.JOptionPane.QUESTION_MESSAGE);
+        
+        if (getInvoiceConfirm == javax.swing.JOptionPane.YES_OPTION) {
+            int downloadConfirm = javax.swing.JOptionPane.showConfirmDialog(this,
+                    "Bạn có muốn tải hóa đơn dạng PDF về máy không?",
+                    "Tải hóa đơn",
+                    javax.swing.JOptionPane.YES_NO_OPTION,
+                    javax.swing.JOptionPane.QUESTION_MESSAGE);
+            
+            if (downloadConfirm == javax.swing.JOptionPane.YES_OPTION) {
+                javax.swing.JFileChooser fileChooser = new javax.swing.JFileChooser();
+                fileChooser.setDialogTitle("Lưu hóa đơn PDF");
+                fileChooser.setSelectedFile(new java.io.File("hoadon_ORD-2026-" + String.format("%04d", orderId) + ".pdf"));
+                
+                int userSelection = fileChooser.showSaveDialog(this);
+                if (userSelection == javax.swing.JFileChooser.APPROVE_OPTION) {
+                    java.io.File fileToSave = fileChooser.getSelectedFile();
+                    if (!fileToSave.getName().toLowerCase().endsWith(".pdf")) {
+                        fileToSave = new java.io.File(fileToSave.getParentFile(), fileToSave.getName() + ".pdf");
+                    }
+                    
+                    final java.io.File targetFile = fileToSave;
+                    new javax.swing.SwingWorker<Void, Void>() {
+                        @Override
+                        protected Void doInBackground() throws Exception {
+                            util.InvoicePdfExporter.exportInvoice(orderId, targetFile);
+                            return null;
+                        }
+                        
+                        @Override
+                        protected void done() {
+                            try {
+                                get();
+                                javax.swing.JOptionPane.showMessageDialog(SalesCounterFrame.this,
+                                        "Xuất hóa đơn PDF thành công tại:\n" + targetFile.getAbsolutePath(),
+                                        "Thành công",
+                                        javax.swing.JOptionPane.INFORMATION_MESSAGE);
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                                javax.swing.JOptionPane.showMessageDialog(SalesCounterFrame.this,
+                                        "Có lỗi xảy ra khi xuất file PDF:\n" + e.getMessage(),
+                                        "Lỗi",
+                                        javax.swing.JOptionPane.ERROR_MESSAGE);
+                            }
+                        }
+                    }.execute();
+                }
+            }
+        }
     }
 
     public static void main(String args[]) {

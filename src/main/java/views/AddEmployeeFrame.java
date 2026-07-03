@@ -26,6 +26,15 @@ public class AddEmployeeFrame extends javax.swing.JFrame {
         javax.swing.SwingUtilities.invokeLater(this::dispose);
         return;
     }
+    
+    // Double check: Không được phép sửa tài khoản Manager khác
+    Employee currentUser = util.UserSession.getInstance().getCurrentUser();
+    if (emp.getRoleId() == 1 && (currentUser == null || currentUser.getId() != emp.getId())) {
+        showError("Không được phép thay đổi thông tin tài khoản Manager khác!");
+        javax.swing.SwingUtilities.invokeLater(this::dispose);
+        return;
+    }
+    
     editingEmployee = emp;
     fillFormForEdit(emp);
     configureEditMode(); 

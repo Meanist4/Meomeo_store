@@ -521,8 +521,8 @@ public class AddProductFrame extends javax.swing.JFrame {
 
             try {
                 quantity = Integer.parseInt(quantityStr);
-                if (quantity < 0) {
-                    showError("Số lượng không được âm!");
+                if (quantity <= 0) {
+                    showError("Số lượng phải lớn hơn 0!");
                     return;
                 }
             } catch (NumberFormatException e) {
@@ -653,8 +653,8 @@ public class AddProductFrame extends javax.swing.JFrame {
 
         try {
             quantity = Integer.parseInt(quantityStr);
-            if (quantity < 0) {
-                showError("Số lượng không được âm!");
+            if (quantity <= 0) {
+                showError("Số lượng phải lớn hơn 0!");
                 txtQuantity.requestFocus();
                 return;
             }

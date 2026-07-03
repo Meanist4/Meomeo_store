@@ -90,4 +90,39 @@ public class AttendanceRepository {
         }
         return currentYear;
     }
+
+    public static class CheckedInEmployee {
+        public int id;
+        public String fullName;
+        public String roleName;
+        public String roleColorHex;
+        public Timestamp checkInTime;
+    }
+
+    public List<CheckedInEmployee> getTodayCheckedInEmployees() {
+        List<CheckedInEmployee> list = new ArrayList<>();
+        String sql = "SELECT e.id, e.full_name, r.role_name, r.color_hex, a.check_in "
+                   + "FROM attendance a "
+                   + "JOIN employees e ON a.employee_id = e.id "
+                   + "JOIN roles r ON e.role_id = r.id "
+                   + "WHERE a.work_date = CURDATE() "
+                   + "ORDER BY a.check_in ASC";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                CheckedInEmployee emp = new CheckedInEmployee();
+                emp.id = rs.getInt("id");
+                emp.fullName = rs.getString("full_name");
+                emp.roleName = rs.getString("role_name");
+                emp.roleColorHex = rs.getString("color_hex");
+                emp.checkInTime = rs.getTimestamp("check_in");
+                list.add(emp);
+            }
+        } catch (SQLException e) {
+            System.err.println("Lỗi nạp danh sách nhân viên checkin hôm nay: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return list;
+    }
 }

@@ -616,8 +616,20 @@ public class DashBoardFrame extends javax.swing.JFrame {
         javax.swing.table.DefaultTableModel model
                 = (javax.swing.table.DefaultTableModel) tableEmployeeManagement.getModel();
         String empIdStr = model.getValueAt(modelRow, 0).toString();
+        String roleName = model.getValueAt(modelRow, 2).toString();
         try {
             int empId = Integer.parseInt(empIdStr.replace("EMP", ""));
+            entity.Employee currentUser = util.UserSession.getInstance().getCurrentUser();
+
+            // Validate: Không được phép sửa tài khoản Manager khác
+            if ("Manager".equalsIgnoreCase(roleName) && (currentUser == null || currentUser.getId() != empId)) {
+                javax.swing.JOptionPane.showMessageDialog(this,
+                        "Không được phép thay đổi thông tin tài khoản Manager khác!",
+                        "Cảnh báo",
+                        javax.swing.JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
             openEditEmployeeFrame(empId);
         } catch (NumberFormatException ex) {
             javax.swing.JOptionPane.showMessageDialog(this,
@@ -633,6 +645,32 @@ public class DashBoardFrame extends javax.swing.JFrame {
                 = (javax.swing.table.DefaultTableModel) tableEmployeeManagement.getModel();
         String empIdStr = model.getValueAt(modelRow, 0).toString();
         String fullName = model.getValueAt(modelRow, 1).toString();
+        String roleName = model.getValueAt(modelRow, 2).toString();
+
+        try {
+            int empId = Integer.parseInt(empIdStr.replace("EMP", ""));
+            entity.Employee currentUser = util.UserSession.getInstance().getCurrentUser();
+
+            // 1. Không được phép xóa tài khoản đang đăng nhập
+            if (currentUser != null && currentUser.getId() == empId) {
+                javax.swing.JOptionPane.showMessageDialog(this,
+                        "Không được phép xóa tài khoản đang đăng nhập!",
+                        "Cảnh báo",
+                        javax.swing.JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            // 2. Không được phép xóa tài khoản Manager khác
+            if ("Manager".equalsIgnoreCase(roleName) && (currentUser == null || currentUser.getId() != empId)) {
+                javax.swing.JOptionPane.showMessageDialog(this,
+                        "Không được phép xóa tài khoản Manager khác!",
+                        "Cảnh báo",
+                        javax.swing.JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+        } catch (NumberFormatException ex) {
+            // Ignore for initial check, will show error dialog below if parsed fails
+        }
 
         int confirm = javax.swing.JOptionPane.showConfirmDialog(
                 this,
@@ -980,6 +1018,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
         }
 
         HistoryActionCellEditor actionEditor = new HistoryActionCellEditor(
+                this::onExportHistoryOrder,
                 this::onViewHistoryOrder,
                 this::onCancelHistoryOrder
         );
@@ -992,8 +1031,8 @@ public class DashBoardFrame extends javax.swing.JFrame {
         tableTransactionHistory.getColumnModel().getColumn(4).setPreferredWidth(95);  // PAYMENT
         tableTransactionHistory.getColumnModel().getColumn(5).setPreferredWidth(120); // TOTAL
         tableTransactionHistory.getColumnModel().getColumn(6).setPreferredWidth(110); // STATUS
-        tableTransactionHistory.getColumnModel().getColumn(7).setPreferredWidth(220);
-        tableTransactionHistory.getColumnModel().getColumn(7).setMinWidth(210);
+        tableTransactionHistory.getColumnModel().getColumn(7).setPreferredWidth(320);
+        tableTransactionHistory.getColumnModel().getColumn(7).setMinWidth(300);
 
         java.awt.Container parent = tableTransactionHistory.getParent();
         if (parent instanceof javax.swing.JViewport viewport) {
@@ -1118,6 +1157,56 @@ public class DashBoardFrame extends javax.swing.JFrame {
         int lastHyphen = orderCode.lastIndexOf('-');
         String numericPart = lastHyphen >= 0 ? orderCode.substring(lastHyphen + 1) : orderCode;
         return Integer.parseInt(numericPart);
+    }
+
+    private void onExportHistoryOrder(int rowIndex) {
+        int orderId = extractHistoryOrderId(rowIndex);
+        int confirm = javax.swing.JOptionPane.showConfirmDialog(this,
+                "Bạn có muốn xuất hóa đơn dạng PDF cho đơn hàng này không?",
+                "Xuất hóa đơn PDF",
+                javax.swing.JOptionPane.YES_NO_OPTION,
+                javax.swing.JOptionPane.QUESTION_MESSAGE);
+        if (confirm != javax.swing.JOptionPane.YES_OPTION) {
+            return;
+        }
+
+        javax.swing.JFileChooser fileChooser = new javax.swing.JFileChooser();
+        fileChooser.setDialogTitle("Lưu hóa đơn PDF");
+        fileChooser.setSelectedFile(new java.io.File("hoadon_ORD-2026-" + String.format("%04d", orderId) + ".pdf"));
+
+        int userSelection = fileChooser.showSaveDialog(this);
+        if (userSelection == javax.swing.JFileChooser.APPROVE_OPTION) {
+            java.io.File fileToSave = fileChooser.getSelectedFile();
+            if (!fileToSave.getName().toLowerCase().endsWith(".pdf")) {
+                fileToSave = new java.io.File(fileToSave.getParentFile(), fileToSave.getName() + ".pdf");
+            }
+
+            final java.io.File targetFile = fileToSave;
+            new javax.swing.SwingWorker<Void, Void>() {
+                @Override
+                protected Void doInBackground() throws Exception {
+                    util.InvoicePdfExporter.exportInvoice(orderId, targetFile);
+                    return null;
+                }
+
+                @Override
+                protected void done() {
+                    try {
+                        get();
+                        javax.swing.JOptionPane.showMessageDialog(DashBoardFrame.this,
+                                "Xuất hóa đơn PDF thành công tại:\n" + targetFile.getAbsolutePath(),
+                                "Thành công",
+                                javax.swing.JOptionPane.INFORMATION_MESSAGE);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        javax.swing.JOptionPane.showMessageDialog(DashBoardFrame.this,
+                                "Có lỗi xảy ra khi xuất file PDF:\n" + e.getMessage(),
+                                "Lỗi",
+                                javax.swing.JOptionPane.ERROR_MESSAGE);
+                    }
+                }
+            }.execute();
+        }
     }
 
     private void onViewHistoryOrder(int rowIndex) {

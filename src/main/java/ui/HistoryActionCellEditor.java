@@ -18,8 +18,14 @@ public class HistoryActionCellEditor extends AbstractCellEditor implements Table
         void onCancel(int modelRow);
     }
 
+    public interface ExportAction {
+
+        void onExport(int modelRow);
+    }
+
     private final ViewAction onView;
     private final CancelAction onCancel;
+    private final ExportAction onExport;
 
     // Loại bỏ biến instance currentModelRow để tránh lỗi đồng bộ index
     private JTable currentTable;
@@ -30,14 +36,19 @@ public class HistoryActionCellEditor extends AbstractCellEditor implements Table
     private static final Color BTN_CANCEL_FG = new Color(0xDC2626);
     private static final Color BTN_CANCEL_BG = new Color(0xFFF1F1);
     private static final Color BTN_CANCEL_BORDER = new Color(0xFCA5A5);
+    private static final Color BTN_EXPORT_FG = new Color(0x0F766E);
+    private static final Color BTN_EXPORT_BG = new Color(0xF0FDFA);
+    private static final Color BTN_EXPORT_BORDER = new Color(0x99F6E4);
 
     // Khởi tạo cố định các thành phần giao diện để dùng lại (Reusability)
     private final JPanel panel;
     private final JButton btnView;
     private final JButton btnCancel;
+    private final JButton btnExport;
     private final Component horizontalStrut;
 
-    public HistoryActionCellEditor(ViewAction onView, CancelAction onCancel) {
+    public HistoryActionCellEditor(ExportAction onExport, ViewAction onView, CancelAction onCancel) {
+        this.onExport = onExport;
         this.onView = onView;
         this.onCancel = onCancel;
 
@@ -48,11 +59,23 @@ public class HistoryActionCellEditor extends AbstractCellEditor implements Table
         panel.setOpaque(true);
 
         // 2. Khởi tạo các nút và khoảng cách tay (Strut)
+        btnExport = makeBtn("⤓ Export", BTN_EXPORT_FG, BTN_EXPORT_BG, BTN_EXPORT_BORDER);
         btnView = makeBtn("⊙ View", BTN_VIEW_FG, BTN_VIEW_BG, BTN_VIEW_BORDER);
         btnCancel = makeBtn("✕ Cancel", BTN_CANCEL_FG, BTN_CANCEL_BG, BTN_CANCEL_BORDER);
         horizontalStrut = Box.createHorizontalStrut(8);
 
         // 3. Gắn Listener cố định - Lấy chỉ số dòng thời gian thực bằng getEditingRow()
+        btnExport.addActionListener(e -> {
+            if (currentTable != null) {
+                int editingRow = currentTable.getEditingRow();
+                stopCellEditing();
+                if (editingRow != -1 && onExport != null) {
+                    int modelRow = currentTable.convertRowIndexToModel(editingRow);
+                    onExport.onExport(modelRow);
+                }
+            }
+        });
+
         btnView.addActionListener(e -> {
             if (currentTable != null) {
                 int editingRow = currentTable.getEditingRow();
@@ -99,6 +122,8 @@ public class HistoryActionCellEditor extends AbstractCellEditor implements Table
 
         // Xóa các component cũ ra khỏi layout động và nạp lại trạng thái mới phù hợp
         panel.removeAll();
+        panel.add(btnExport);
+        panel.add(Box.createHorizontalStrut(8));
         panel.add(btnView);
 
         // Kiểm tra điều kiện trạng thái để hiển thị nút Cancel và khoảng cách tay

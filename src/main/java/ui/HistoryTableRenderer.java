@@ -29,6 +29,10 @@ public class HistoryTableRenderer extends DefaultTableCellRenderer {
     private static final Color BTN_CANCEL_BG = new Color(0xFFF1F1);
     private static final Color BTN_CANCEL_BORDER = new Color(0xFCA5A5);
 
+    private static final Color BTN_EXPORT_FG = new Color(0x0F766E);
+    private static final Color BTN_EXPORT_BG = new Color(0xF0FDFA);
+    private static final Color BTN_EXPORT_BORDER = new Color(0x99F6E4);
+
     private static final Color BADGE_BG = new Color(0xF1F5F9);
     private static final Color BADGE_FG = new Color(0x334155);
 
@@ -198,6 +202,8 @@ public class HistoryTableRenderer extends DefaultTableCellRenderer {
         panel.setBackground(rowBg);
         panel.setOpaque(true);
 
+        panel.add(makeBtn("⤓ Export", BTN_EXPORT_FG, BTN_EXPORT_BG, BTN_EXPORT_BORDER));
+        panel.add(Box.createHorizontalStrut(8));
         panel.add(makeBtn("⊙ View", BTN_VIEW_FG, BTN_VIEW_BG, BTN_VIEW_BORDER));
 
         if ("PENDING".equalsIgnoreCase(status)) {
