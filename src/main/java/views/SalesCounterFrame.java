@@ -2190,6 +2190,13 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
 //    }
 
     private void btnConfirmOrderActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnConfirmOrderActionPerformed
+        entity.Employee user = util.UserSession.getInstance().getCurrentUser();
+        if (user == null || (user.getRoleId() != 1 && user.getRoleId() != 2)) {
+            javax.swing.JOptionPane.showMessageDialog(this,
+                    "Bạn không có quyền thực hiện thanh toán trên POS!",
+                    "Cảnh báo", javax.swing.JOptionPane.WARNING_MESSAGE);
+            return;
+        }
         OrderCartController cart = activeCart();
         if (cart.isEmpty()) {
             javax.swing.JOptionPane.showMessageDialog(this, "Giỏ hàng trống.",
