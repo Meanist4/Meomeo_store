@@ -11,6 +11,12 @@ public class AppRouter {
 
     public static void showLogin() {
         java.awt.EventQueue.invokeLater(() -> {
+            new SalesCounterFrame().setVisible(true);
+        });
+    }
+
+    public static void showActualLogin() {
+        java.awt.EventQueue.invokeLater(() -> {
             new LoginFrame().setVisible(true);
         });
     }
@@ -27,18 +33,39 @@ public class AppRouter {
             return;
         }
         
+        Employee user = session.getCurrentUser();
+
+        if (currentFrame instanceof LoginFrame loginFrame && loginFrame.getCallerFrame() != null) {
+            SalesCounterFrame salesFrame = loginFrame.getCallerFrame();
+            loginFrame.dispose();
+            if (user != null && user.getRoleId() == 1) {
+                java.awt.EventQueue.invokeLater(() -> {
+                    DashBoardFrame db = new DashBoardFrame(salesFrame);
+                    db.setVisible(true);
+                    salesFrame.setVisible(false);
+                });
+            } else {
+                java.awt.EventQueue.invokeLater(() -> {
+                    salesFrame.loadCheckedInEmployees();
+                    salesFrame.refreshUserDropdown();
+                    salesFrame.setVisible(true);
+                });
+            }
+            return;
+        }
 
         if (currentFrame != null) {
             currentFrame.dispose();
         }
 
-        Employee user = session.getCurrentUser();
         java.awt.EventQueue.invokeLater(() -> {
             SalesCounterFrame salesFrame = new SalesCounterFrame();
             if (user != null && user.getRoleId() == 1) {
                 DashBoardFrame db = new DashBoardFrame(salesFrame);
                 db.setVisible(true);
             } else {
+                salesFrame.loadCheckedInEmployees();
+                salesFrame.refreshUserDropdown();
                 salesFrame.setVisible(true);
             }
         });

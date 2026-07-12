@@ -25,6 +25,17 @@ public class LoginFrame extends javax.swing.JFrame {
     private String targetUsername;
     private String targetPhone;
 
+    private SalesCounterFrame callerFrame;
+
+    public LoginFrame(SalesCounterFrame caller) {
+        this();
+        this.callerFrame = caller;
+    }
+
+    public SalesCounterFrame getCallerFrame() {
+        return this.callerFrame;
+    }
+
     /**
      * Creates new form LoginFrame
      */
@@ -119,15 +130,89 @@ public class LoginFrame extends javax.swing.JFrame {
         }
 
         entity.Employee emp = employeeService.login(username, password);
-        if (emp != null) {
-            util.UserSession.getInstance().setCurrentUser(emp);
-            util.UserSession.getInstance().setToken(java.util.UUID.randomUUID().toString());
-            
-            javax.swing.JOptionPane.showMessageDialog(this, "Đăng nhập thành công! Chào mừng " + emp.getFullName() + ".", "Thành công", javax.swing.JOptionPane.INFORMATION_MESSAGE);
-            util.AppRouter.route(this);
-        } else {
+        if (emp == null) {
             javax.swing.JOptionPane.showMessageDialog(this, "Username hoặc Password không đúng!", "Đăng nhập thất bại", javax.swing.JOptionPane.ERROR_MESSAGE);
+            return;
         }
+
+        boolean alreadyLoggedIn = util.UserSession.getInstance().isLoggedIn();
+
+        // --- Trường hợp 1: Đã có session (nhân viên thứ 2+ check-in) ---
+        if (alreadyLoggedIn) {
+            if (emp.getRoleId() != 1) {
+                // Lưu phiên attendance
+                repository.AttendanceRepository attRepo = new repository.AttendanceRepository();
+                if (!attRepo.hasActiveCheckIn(emp.getId())) {
+                    // Kiểm tra có lịch làm hôm nay không
+                    if (!attRepo.hasScheduleToday(emp.getId())) {
+                        int choice = javax.swing.JOptionPane.showConfirmDialog(this,
+                                "Nhân viên " + emp.getFullName() + " không có lịch làm hôm nay.\n"
+                                + "Bạn có chắc chắn muốn chấm công không?",
+                                "Không có lịch làm",
+                                javax.swing.JOptionPane.YES_NO_OPTION,
+                                javax.swing.JOptionPane.WARNING_MESSAGE);
+                        if (choice != javax.swing.JOptionPane.YES_OPTION) {
+                            return; // Hủy check-in
+                        }
+                    }
+                    attRepo.checkIn(emp.getId());
+                    javax.swing.JOptionPane.showMessageDialog(this,
+                            "Check-in thành công cho nhân viên " + emp.getFullName() + ".",
+                            "Thành công", javax.swing.JOptionPane.INFORMATION_MESSAGE);
+                } else {
+                    javax.swing.JOptionPane.showMessageDialog(this,
+                            emp.getFullName() + " đã check-in trước đó rồi!",
+                            "Thông báo", javax.swing.JOptionPane.INFORMATION_MESSAGE);
+                }
+            } else {
+                javax.swing.JOptionPane.showMessageDialog(this,
+                        "Tài khoản Quản lý không cần điểm danh!",
+                        "Thông báo", javax.swing.JOptionPane.INFORMATION_MESSAGE);
+            }
+            // Load lại panel sau thao tác rồi đóng
+            if (this.callerFrame != null) {
+                this.callerFrame.loadCheckedInEmployees();
+            }
+            this.dispose();
+            return;
+        }
+
+        // --- Trường hợp 2: Chưa có session (đăng nhập lần đầu) ---
+        // Lưu session
+        util.UserSession.getInstance().setCurrentUser(emp);
+        util.UserSession.getInstance().setToken(java.util.UUID.randomUUID().toString());
+
+        if (emp.getRoleId() != 1) {
+            // Lưu phiên attendance cho nhân viên thường
+            repository.AttendanceRepository attRepo = new repository.AttendanceRepository();
+            if (!attRepo.hasActiveCheckIn(emp.getId())) {
+                // Kiểm tra có lịch làm hôm nay không
+                if (!attRepo.hasScheduleToday(emp.getId())) {
+                    int choice = javax.swing.JOptionPane.showConfirmDialog(this,
+                            "Nhân viên " + emp.getFullName() + " không có lịch làm hôm nay.\n"
+                            + "Bạn có chắc chắn muốn chấm công không?",
+                            "Không có lịch làm",
+                            javax.swing.JOptionPane.YES_NO_OPTION,
+                            javax.swing.JOptionPane.WARNING_MESSAGE);
+                    if (choice != javax.swing.JOptionPane.YES_OPTION) {
+                        // Hủy → rollback session vừa set
+                        util.UserSession.getInstance().cleanUserSession();
+                        return;
+                    }
+                }
+                attRepo.checkIn(emp.getId());
+            }
+        }
+
+        javax.swing.JOptionPane.showMessageDialog(this,
+                "Đăng nhập thành công! Chào mừng " + emp.getFullName() + ".",
+                "Thành công", javax.swing.JOptionPane.INFORMATION_MESSAGE);
+
+        // Load lại panel rồi route sang màn hình phù hợp
+        if (this.callerFrame != null) {
+            this.callerFrame.loadCheckedInEmployees();
+        }
+        util.AppRouter.route(this);
     }
 
     private void performRequestOtp() {
@@ -292,34 +377,32 @@ public class LoginFrame extends javax.swing.JFrame {
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
-                .addContainerGap(27, Short.MAX_VALUE)
+                .addContainerGap(124, Short.MAX_VALUE)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(jLabel4, javax.swing.GroupLayout.Alignment.TRAILING)
                     .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
-                                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                                    .addComponent(jLabel1)
-                                    .addComponent(jLabel2))
-                                .addGap(28, 28, 28)
-                                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                                    .addComponent(txtUsername, javax.swing.GroupLayout.DEFAULT_SIZE, 301, Short.MAX_VALUE)
-                                    .addComponent(txtPassword)))
-                            .addComponent(jLabel4, javax.swing.GroupLayout.Alignment.TRAILING))
-                        .addGap(80, 80, 80))
-                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
-                        .addComponent(jLabel3, javax.swing.GroupLayout.PREFERRED_SIZE, 129, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addGap(166, 166, 166))))
+                            .addComponent(jLabel1)
+                            .addComponent(jLabel2))
+                        .addGap(28, 28, 28)
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                            .addComponent(txtUsername, javax.swing.GroupLayout.DEFAULT_SIZE, 301, Short.MAX_VALUE)
+                            .addComponent(txtPassword)
+                            .addGroup(layout.createSequentialGroup()
+                                .addGap(22, 22, 22)
+                                .addComponent(jLabel3, javax.swing.GroupLayout.PREFERRED_SIZE, 224, javax.swing.GroupLayout.PREFERRED_SIZE)))))
+                .addGap(80, 80, 80))
             .addGroup(layout.createSequentialGroup()
                 .addGap(172, 172, 172)
                 .addComponent(jButton1, javax.swing.GroupLayout.PREFERRED_SIZE, 141, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(190, Short.MAX_VALUE))
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
-                .addGap(39, 39, 39)
+                .addGap(32, 32, 32)
                 .addComponent(jLabel3)
-                .addGap(39, 39, 39)
+                .addGap(46, 46, 46)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(txtUsername, javax.swing.GroupLayout.PREFERRED_SIZE, 47, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(jLabel2))

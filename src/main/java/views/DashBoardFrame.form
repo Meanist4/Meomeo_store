@@ -29,7 +29,7 @@
           <Group type="102" alignment="0" attributes="0">
               <Component id="panelMenu" min="-2" max="-2" attributes="0"/>
               <EmptySpace max="-2" attributes="0"/>
-              <Component id="panelContent" pref="984" max="32767" attributes="0"/>
+              <Component id="panelContent" pref="983" max="32767" attributes="0"/>
           </Group>
       </Group>
     </DimensionLayout>
@@ -51,18 +51,23 @@
       <Layout>
         <DimensionLayout dim="0">
           <Group type="103" groupAlignment="0" attributes="0">
-              <Component id="panelLogo" alignment="0" max="32767" attributes="0"/>
               <Group type="102" alignment="0" attributes="0">
                   <EmptySpace min="-2" pref="15" max="-2" attributes="0"/>
-                  <Group type="103" groupAlignment="1" attributes="0">
-                      <Component id="btnPOSPayment" min="-2" pref="212" max="-2" attributes="0"/>
-                      <Component id="btnCustomerManagement" min="-2" pref="212" max="-2" attributes="0"/>
-                      <Component id="btnHumanResources" min="-2" pref="212" max="-2" attributes="0"/>
-                      <Component id="btnOrderHistory" min="-2" pref="212" max="-2" attributes="0"/>
-                      <Component id="btnProductInventory" min="-2" pref="212" max="-2" attributes="0"/>
-                      <Component id="btnDashBoard" min="-2" pref="212" max="-2" attributes="0"/>
+                  <Group type="103" groupAlignment="0" attributes="0">
+                      <Component id="panelLogo" max="32767" attributes="0"/>
+                      <Group type="102" attributes="0">
+                          <Group type="103" groupAlignment="1" attributes="0">
+                              <Component id="btnPOSPayment" min="-2" pref="212" max="-2" attributes="0"/>
+                              <Component id="btnCustomerManagement" min="-2" pref="212" max="-2" attributes="0"/>
+                              <Component id="btnHumanResources" min="-2" pref="212" max="-2" attributes="0"/>
+                              <Component id="btnOrderHistory" min="-2" pref="212" max="-2" attributes="0"/>
+                              <Component id="btnProductInventory" min="-2" pref="212" max="-2" attributes="0"/>
+                              <Component id="btnDashBoard" min="-2" pref="212" max="-2" attributes="0"/>
+                          </Group>
+                          <EmptySpace min="0" pref="0" max="32767" attributes="0"/>
+                      </Group>
                   </Group>
-                  <EmptySpace max="32767" attributes="0"/>
+                  <EmptySpace max="-2" attributes="0"/>
               </Group>
           </Group>
         </DimensionLayout>
@@ -294,7 +299,7 @@
                       <Group type="103" groupAlignment="0" attributes="0">
                           <Group type="102" attributes="0">
                               <Component id="panelActiveOrders" min="-2" max="-2" attributes="0"/>
-                              <EmptySpace pref="21" max="32767" attributes="0"/>
+                              <EmptySpace pref="20" max="32767" attributes="0"/>
                               <Component id="panelActiveEmployees" min="-2" max="-2" attributes="0"/>
                           </Group>
                           <Component id="panelTopSales" max="32767" attributes="0"/>
@@ -340,13 +345,13 @@
                           <Group type="103" groupAlignment="0" attributes="0">
                               <Group type="102" alignment="0" attributes="0">
                                   <Component id="jLabel8" min="-2" max="-2" attributes="0"/>
-                                  <EmptySpace pref="727" max="32767" attributes="0"/>
+                                  <EmptySpace pref="726" max="32767" attributes="0"/>
                               </Group>
                               <Group type="102" alignment="0" attributes="0">
                                   <Component id="jLabel7" min="-2" max="-2" attributes="0"/>
                                   <EmptySpace max="32767" attributes="0"/>
-                                  <Component id="cbbLogOut" min="-2" pref="177" max="-2" attributes="0"/>
-                                  <EmptySpace min="-2" pref="36" max="-2" attributes="0"/>
+                                  <Component id="cbbLogOut" min="-2" pref="228" max="-2" attributes="0"/>
+                                  <EmptySpace min="-2" pref="57" max="-2" attributes="0"/>
                               </Group>
                           </Group>
                       </Group>
@@ -762,7 +767,7 @@
               <Group type="103" groupAlignment="0" attributes="0">
                   <Component id="jPanel2" alignment="0" max="32767" attributes="0"/>
                   <Group type="102" alignment="1" attributes="0">
-                      <EmptySpace pref="26" max="32767" attributes="0"/>
+                      <EmptySpace pref="25" max="32767" attributes="0"/>
                       <Component id="txtSearchProduct" min="-2" pref="305" max="-2" attributes="0"/>
                       <EmptySpace min="-2" pref="81" max="-2" attributes="0"/>
                       <Component id="cbAll" min="-2" pref="106" max="-2" attributes="0"/>
@@ -1024,7 +1029,7 @@
                       <Group type="102" alignment="0" attributes="0">
                           <EmptySpace min="-2" pref="20" max="-2" attributes="0"/>
                           <Component id="panelOrderManagement2" min="-2" max="-2" attributes="0"/>
-                          <EmptySpace pref="27" max="32767" attributes="0"/>
+                          <EmptySpace pref="26" max="32767" attributes="0"/>
                       </Group>
                   </Group>
               </Group>
@@ -1390,7 +1395,7 @@
                               <Component id="jLabel11" min="-2" max="-2" attributes="0"/>
                               <Component id="jLabel12" min="-2" max="-2" attributes="0"/>
                           </Group>
-                          <EmptySpace pref="739" max="32767" attributes="0"/>
+                          <EmptySpace pref="735" max="32767" attributes="0"/>
                       </Group>
                   </Group>
                 </DimensionLayout>
@@ -1451,9 +1456,9 @@
           <Layout>
             <DimensionLayout dim="0">
               <Group type="103" groupAlignment="0" attributes="0">
-                  <Component id="panelHRHeader" alignment="0" pref="984" max="32767" attributes="0"/>
+                  <Component id="panelHRHeader" alignment="0" pref="983" max="32767" attributes="0"/>
                   <Group type="103" rootIndex="1" groupAlignment="0" attributes="0">
-                      <Component id="panelEmployeeMain" alignment="0" max="32767" attributes="0"/>
+                      <Component id="panelEmployeeMain" alignment="0" pref="983" max="32767" attributes="0"/>
                   </Group>
               </Group>
             </DimensionLayout>
@@ -1553,7 +1558,7 @@
                               <Component id="btnEmployeeManagement" min="-2" pref="178" max="-2" attributes="0"/>
                               <EmptySpace max="-2" attributes="0"/>
                               <Component id="btnSchedule" min="-2" pref="131" max="-2" attributes="0"/>
-                              <EmptySpace pref="502" max="32767" attributes="0"/>
+                              <EmptySpace pref="501" max="32767" attributes="0"/>
                           </Group>
                       </Group>
                     </DimensionLayout>
@@ -1643,7 +1648,7 @@
                                       <Component id="cbYear" min="-2" pref="117" max="-2" attributes="0"/>
                                   </Group>
                               </Group>
-                              <EmptySpace pref="22" max="32767" attributes="0"/>
+                              <EmptySpace pref="21" max="32767" attributes="0"/>
                           </Group>
                       </Group>
                     </DimensionLayout>
@@ -2071,7 +2076,7 @@
                                       <Component id="jPanel6" min="-2" max="-2" attributes="0"/>
                                   </Group>
                               </Group>
-                              <EmptySpace pref="8" max="32767" attributes="0"/>
+                              <EmptySpace max="32767" attributes="0"/>
                           </Group>
                       </Group>
                     </DimensionLayout>
@@ -2307,7 +2312,7 @@
                           <Group type="102" attributes="0">
                               <EmptySpace min="-2" pref="19" max="-2" attributes="0"/>
                               <Component id="jPanel7" min="-2" max="-2" attributes="0"/>
-                              <EmptySpace min="0" pref="8" max="32767" attributes="0"/>
+                              <EmptySpace min="0" pref="7" max="32767" attributes="0"/>
                           </Group>
                       </Group>
                       <EmptySpace max="-2" attributes="0"/>
@@ -2871,7 +2876,7 @@
               <Layout>
                 <DimensionLayout dim="0">
                   <Group type="103" groupAlignment="0" attributes="0">
-                      <Component id="panelCardParent" alignment="0" pref="348" max="32767" attributes="0"/>
+                      <Component id="panelCardParent" alignment="0" pref="347" max="32767" attributes="0"/>
                       <Group type="102" alignment="0" attributes="0">
                           <EmptySpace max="-2" attributes="0"/>
                           <Group type="103" groupAlignment="0" attributes="0">
@@ -3112,7 +3117,7 @@
                         <DimensionLayout dim="0">
                           <Group type="103" groupAlignment="0" attributes="0">
                               <Group type="102" alignment="1" attributes="0">
-                                  <EmptySpace pref="104" max="32767" attributes="0"/>
+                                  <EmptySpace pref="103" max="32767" attributes="0"/>
                                   <Component id="lbQRCode" min="-2" pref="210" max="-2" attributes="0"/>
                                   <EmptySpace min="-2" pref="34" max="-2" attributes="0"/>
                               </Group>

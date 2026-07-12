@@ -18,6 +18,7 @@ public class AttendanceRepository {
 
     public List<AttendanceRow> findByMonthYear(int month, int year) {
         List<AttendanceRow> result = new ArrayList<>();
+        // Phần 1: nhân viên có lịch (có thể đã check-in hoặc chưa)
         String sql = "SELECT e.id, e.full_name, "
                 + "       r.role_name AS display_role, "
                 + "       s.shift_date AS work_date, "
@@ -35,11 +36,29 @@ public class AttendanceRepository {
                 + "       AND s.shift_date = el.leave_date AND el.status = 'APPROVED' "
                 + "WHERE MONTH(s.shift_date) = ? AND YEAR(s.shift_date) = ? "
                 + "  AND e.is_deleted = 0 "
-                + "ORDER BY s.shift_date DESC, e.full_name ASC";
+                + "UNION "
+                // Phần 2: nhân viên check-in không có lịch (ngoài giờ)
+                + "SELECT e.id, e.full_name, "
+                + "       r.role_name AS display_role, "
+                + "       a.work_date, "
+                + "       a.check_in, a.check_out, "
+                + "       a.status AS final_status "
+                + "FROM attendance a "
+                + "JOIN employees e ON a.employee_id = e.id "
+                + "JOIN roles r ON e.role_id = r.id "
+                + "WHERE MONTH(a.work_date) = ? AND YEAR(a.work_date) = ? "
+                + "  AND e.is_deleted = 0 "
+                + "  AND NOT EXISTS ("
+                + "      SELECT 1 FROM schedules s2 "
+                + "      WHERE s2.employee_id = a.employee_id AND s2.shift_date = a.work_date"
+                + "  ) "
+                + "ORDER BY work_date DESC, full_name ASC";
 
         try (Connection conn = DatabaseConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, month);
             ps.setInt(2, year);
+            ps.setInt(3, month);
+            ps.setInt(4, year);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     AttendanceRow row = new AttendanceRow();
@@ -49,7 +68,8 @@ public class AttendanceRepository {
                     row.workDate = rs.getDate("work_date");
                     row.checkIn = rs.getTimestamp("check_in");
                     row.checkOut = rs.getTimestamp("check_out");
-                    row.finalStatus = rs.getString("final_status");
+                    String status = rs.getString("final_status");
+                    row.finalStatus = (status != null) ? status : "ABSENT";
                     result.add(row);
                 }
             }
@@ -105,7 +125,7 @@ public class AttendanceRepository {
                    + "FROM attendance a "
                    + "JOIN employees e ON a.employee_id = e.id "
                    + "JOIN roles r ON e.role_id = r.id "
-                   + "WHERE a.work_date = CURDATE() "
+                   + "WHERE a.work_date = CURDATE() AND a.check_out IS NULL "
                    + "ORDER BY a.check_in ASC";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql);
@@ -124,5 +144,87 @@ public class AttendanceRepository {
             e.printStackTrace();
         }
         return list;
+    }
+
+    public boolean hasScheduleToday(int employeeId) {
+        String sql = "SELECT 1 FROM schedules WHERE employee_id = ? AND shift_date = CURDATE()";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, employeeId);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next();
+            }
+        } catch (SQLException e) {
+            System.err.println("Lỗi kiểm tra lịch làm hôm nay: " + e.getMessage());
+        }
+        return false;
+    }
+
+    public boolean hasActiveCheckIn(int employeeId) {
+        String sql = "SELECT 1 FROM attendance WHERE employee_id = ? AND work_date = CURDATE() AND check_out IS NULL";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, employeeId);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next();
+            }
+        } catch (SQLException e) {
+            System.err.println("Lỗi kiểm tra check-in hoạt động: " + e.getMessage());
+        }
+        return false;
+    }
+
+    public boolean checkIn(int employeeId) {
+        java.time.LocalDate today = java.time.LocalDate.now();
+        java.time.LocalTime nowTime = java.time.LocalTime.now();
+        String status = "ON TIME";
+        
+        String schedSql = "SELECT start_time FROM schedules WHERE employee_id = ? AND shift_date = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(schedSql)) {
+            ps.setInt(1, employeeId);
+            ps.setDate(2, java.sql.Date.valueOf(today));
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    Time startTime = rs.getTime("start_time");
+                    if (startTime != null) {
+                        java.time.LocalTime schedStart = startTime.toLocalTime();
+                        if (nowTime.isAfter(schedStart)) {
+                            status = "LATE";
+                        }
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Lỗi kiểm tra lịch làm việc khi check-in: " + e.getMessage());
+        }
+
+        String sql = "INSERT INTO attendance (employee_id, work_date, check_in, status) VALUES (?, ?, ?, ?)";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, employeeId);
+            ps.setDate(2, java.sql.Date.valueOf(today));
+            ps.setTimestamp(3, java.sql.Timestamp.valueOf(java.time.LocalDateTime.now()));
+            ps.setString(4, status);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.err.println("Lỗi thêm check-in: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+    public boolean checkOut(int employeeId) {
+        String sql = "UPDATE attendance SET check_out = ? WHERE employee_id = ? AND work_date = CURDATE() AND check_out IS NULL";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setTimestamp(1, java.sql.Timestamp.valueOf(java.time.LocalDateTime.now()));
+            ps.setInt(2, employeeId);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.err.println("Lỗi check-out: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return false;
     }
 }

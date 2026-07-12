@@ -405,7 +405,13 @@ public class OrderRepository {
         }
     }
 
-    public long[] getRevenueByWeek() {
+    public static class WeekRevenueResult {
+        public String[] labels;
+        public long[]   values;
+    }
+
+    public WeekRevenueResult getRevenueByWeek() {
+        // Map các giá trị DAYOFWEEK MySQL (1=CN, 2=T2, ..., 7=T7) sang tên tiếng Việt
         java.util.LinkedHashMap<java.time.LocalDate, Long> map = new java.util.LinkedHashMap<>();
         java.time.LocalDate today = java.time.LocalDate.now();
         for (int i = 6; i >= 0; i--) {
@@ -415,24 +421,49 @@ public class OrderRepository {
         String sqlWeek = "SELECT DATE(order_date) AS ngay, "
                 + "COALESCE(SUM(total_amount), 0) AS doanh_thu "
                 + "FROM orders "
-                + "WHERE status = 'PAID' " // ← sửa ở đây
+                + "WHERE status = 'PAID' "
                 + "  AND DATE(order_date) >= CURDATE() - INTERVAL 6 DAY "
                 + "GROUP BY DATE(order_date) "
                 + "ORDER BY ngay ASC";
 
-        try (Connection conn = DatabaseConnection.getConnection(); Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(sqlWeek)) {
+        try (Connection conn = DatabaseConnection.getConnection();
+             Statement st = conn.createStatement();
+             ResultSet rs = st.executeQuery(sqlWeek)) {
             while (rs.next()) {
                 java.time.LocalDate d = rs.getDate("ngay").toLocalDate();
                 if (map.containsKey(d)) {
                     map.put(d, rs.getLong("doanh_thu"));
                 }
-            }
+        }
         } catch (SQLException e) {
             System.err.println("Lỗi getRevenueByWeek: " + e.getMessage());
             e.printStackTrace();
         }
 
-        return map.values().stream().mapToLong(Long::longValue).toArray();
+        // Tạo labels từ ngày thực tế
+        String[] DOW_VI = {"", "CN", "T2", "T3", "T4", "T5", "T6", "T7"}; // index 1-7 theo Java DayOfWeek
+        String[] labels = new String[7];
+        long[]   values = new long[7];
+        int idx = 0;
+        for (java.util.Map.Entry<java.time.LocalDate, Long> e : map.entrySet()) {
+            java.time.LocalDate d = e.getKey();
+            int dow = d.getDayOfWeek().getValue(); // 1=Mon ... 7=Sun
+            // Chuyển sang tên: Mon=T2, Tue=T3, ..., Sat=T7, Sun=CN
+            String dayName;
+            if (dow == 7) {
+                dayName = "CN";
+            } else {
+                dayName = "T" + (dow + 1); // Mon(1)->T2, ..., Fri(5)->T6, Sat(6)->T7
+            }
+            labels[idx] = dayName;
+            values[idx] = e.getValue();
+            idx++;
+        }
+
+        WeekRevenueResult result = new WeekRevenueResult();
+        result.labels = labels;
+        result.values = values;
+        return result;
     }
 
     public long[] getRevenueByMonth() {

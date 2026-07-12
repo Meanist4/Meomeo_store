@@ -305,12 +305,13 @@ public class DashBoardFrame extends javax.swing.JFrame {
         chartCard.setLayout(cardRevenue);
         chartCard.setBackground(Color.WHITE);
 
-        String[] labelsTuan = {"T2", "T3", "T4", "T5", "T6", "T7", "CN"};
         String[] labelsThang = {"T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10", "T11", "T12"};
 
         chartTuan = new BarChartPanel();
         chartThang = new BarChartPanel();
-        chartTuan.setData(labelsTuan, orderRepository.getRevenueByWeek());
+        // Lấy labels động từ 7 ngày thực tế (tránh hiển thị sai thứ)
+        repository.OrderRepository.WeekRevenueResult weekData = orderRepository.getRevenueByWeek();
+        chartTuan.setData(weekData.labels, weekData.values);
         chartThang.setData(labelsThang, orderRepository.getRevenueByMonth());
 
         chartCard.add(chartTuan, "TUAN");
@@ -1514,21 +1515,18 @@ public class DashBoardFrame extends javax.swing.JFrame {
                 try {
                     java.util.List<repository.AttendanceRepository.AttendanceRow> rows = get();
 
-                    java.text.SimpleDateFormat timeFormat = new java.text.SimpleDateFormat("HH:mm:ss");
-                    java.text.SimpleDateFormat dateFormat = new java.text.SimpleDateFormat("yyyy-MM-dd");
+                    java.text.SimpleDateFormat timeFormat = new java.text.SimpleDateFormat("HH:mm");
+                    java.text.SimpleDateFormat dateFormat = new java.text.SimpleDateFormat("dd/MM/yyyy");
 
                     int onTimeCount = 0, lateCount = 0, absentCount = 0, onLeaveCount = 0;
 
                     for (var row : rows) {
-                        switch (row.finalStatus.toUpperCase()) {
-                            case "ON TIME" ->
-                                onTimeCount++;
-                            case "LATE" ->
-                                lateCount++;
-                            case "ABSENT" ->
-                                absentCount++;
-                            case "ON LEAVE" ->
-                                onLeaveCount++;
+                        String status = (row.finalStatus != null) ? row.finalStatus.toUpperCase() : "ABSENT";
+                        switch (status) {
+                            case "ON TIME" -> onTimeCount++;
+                            case "LATE"    -> lateCount++;
+                            case "ON LEAVE" -> onLeaveCount++;
+                            default        -> absentCount++;  // ABSENT + trường hợp không xác định
                         }
 
                         String empIdStr = String.format("EMP-%04d", row.employeeId);
@@ -1543,7 +1541,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
 
                         model.addRow(new Object[]{
                             empIdStr, row.fullName, row.displayRole,
-                            dateStr, clockInStr, clockOutStr, workingHoursStr, row.finalStatus
+                            dateStr, clockInStr, clockOutStr, workingHoursStr, status
                         });
                     }
 
@@ -2017,17 +2015,20 @@ public class DashBoardFrame extends javax.swing.JFrame {
         panelMenu.setLayout(panelMenuLayout);
         panelMenuLayout.setHorizontalGroup(
             panelMenuLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(panelLogo, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addGroup(panelMenuLayout.createSequentialGroup()
                 .addGap(15, 15, 15)
-                .addGroup(panelMenuLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                    .addComponent(btnPOSPayment, javax.swing.GroupLayout.PREFERRED_SIZE, 212, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(btnCustomerManagement, javax.swing.GroupLayout.PREFERRED_SIZE, 212, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(btnHumanResources, javax.swing.GroupLayout.PREFERRED_SIZE, 212, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(btnOrderHistory, javax.swing.GroupLayout.PREFERRED_SIZE, 212, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(btnProductInventory, javax.swing.GroupLayout.PREFERRED_SIZE, 212, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(btnDashBoard, javax.swing.GroupLayout.PREFERRED_SIZE, 212, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addGroup(panelMenuLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(panelLogo, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addGroup(panelMenuLayout.createSequentialGroup()
+                        .addGroup(panelMenuLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                            .addComponent(btnPOSPayment, javax.swing.GroupLayout.PREFERRED_SIZE, 212, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(btnCustomerManagement, javax.swing.GroupLayout.PREFERRED_SIZE, 212, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(btnHumanResources, javax.swing.GroupLayout.PREFERRED_SIZE, 212, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(btnOrderHistory, javax.swing.GroupLayout.PREFERRED_SIZE, 212, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(btnProductInventory, javax.swing.GroupLayout.PREFERRED_SIZE, 212, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(btnDashBoard, javax.swing.GroupLayout.PREFERRED_SIZE, 212, javax.swing.GroupLayout.PREFERRED_SIZE))
+                        .addGap(0, 0, Short.MAX_VALUE)))
+                .addContainerGap())
         );
         panelMenuLayout.setVerticalGroup(
             panelMenuLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -2076,12 +2077,12 @@ public class DashBoardFrame extends javax.swing.JFrame {
                 .addGroup(panelDashboardHeaderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(panelDashboardHeaderLayout.createSequentialGroup()
                         .addComponent(jLabel8)
-                        .addContainerGap(727, Short.MAX_VALUE))
+                        .addContainerGap(726, Short.MAX_VALUE))
                     .addGroup(panelDashboardHeaderLayout.createSequentialGroup()
                         .addComponent(jLabel7)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addComponent(cbbLogOut, javax.swing.GroupLayout.PREFERRED_SIZE, 177, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addGap(36, 36, 36))))
+                        .addComponent(cbbLogOut, javax.swing.GroupLayout.PREFERRED_SIZE, 228, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(57, 57, 57))))
         );
         panelDashboardHeaderLayout.setVerticalGroup(
             panelDashboardHeaderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -2295,7 +2296,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
                 .addGroup(panelDashboardLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(panelDashboardLayout.createSequentialGroup()
                         .addComponent(panelActiveOrders, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 21, Short.MAX_VALUE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 20, Short.MAX_VALUE)
                         .addComponent(panelActiveEmployees, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                     .addComponent(panelTopSales, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addGap(24, 24, 24))
@@ -2414,7 +2415,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
             panelProductLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addComponent(jPanel2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelProductLayout.createSequentialGroup()
-                .addContainerGap(26, Short.MAX_VALUE)
+                .addContainerGap(25, Short.MAX_VALUE)
                 .addComponent(txtSearchProduct, javax.swing.GroupLayout.PREFERRED_SIZE, 305, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(81, 81, 81)
                 .addComponent(cbAll, javax.swing.GroupLayout.PREFERRED_SIZE, 106, javax.swing.GroupLayout.PREFERRED_SIZE)
@@ -2618,7 +2619,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
                 .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(jLabel11)
                     .addComponent(jLabel12))
-                .addContainerGap(739, Short.MAX_VALUE))
+                .addContainerGap(735, Short.MAX_VALUE))
         );
         jPanel3Layout.setVerticalGroup(
             jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -2643,7 +2644,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
                 .addGroup(panelOrderLayout.createSequentialGroup()
                     .addGap(20, 20, 20)
                     .addComponent(panelOrderManagement2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addContainerGap(27, Short.MAX_VALUE)))
+                    .addContainerGap(26, Short.MAX_VALUE)))
         );
         panelOrderLayout.setVerticalGroup(
             panelOrderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -2699,7 +2700,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
                 .addComponent(btnEmployeeManagement, javax.swing.GroupLayout.PREFERRED_SIZE, 178, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(btnSchedule, javax.swing.GroupLayout.PREFERRED_SIZE, 131, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(502, Short.MAX_VALUE))
+                .addContainerGap(501, Short.MAX_VALUE))
         );
         panelSelectionLayout.setVerticalGroup(
             panelSelectionLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -2828,7 +2829,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
                         .addComponent(cbMonth, javax.swing.GroupLayout.PREFERRED_SIZE, 117, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(cbYear, javax.swing.GroupLayout.PREFERRED_SIZE, 117, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                .addContainerGap(22, Short.MAX_VALUE))
+                .addContainerGap(21, Short.MAX_VALUE))
         );
         panelAttendanceLayout.setVerticalGroup(
             panelAttendanceLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -3048,7 +3049,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
                         .addComponent(btnAddSchedule, javax.swing.GroupLayout.PREFERRED_SIZE, 137, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addGap(28, 28, 28)
                         .addComponent(jPanel6, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                .addContainerGap(8, Short.MAX_VALUE))
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
         panelScheduleLayout.setVerticalGroup(
             panelScheduleLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -3077,9 +3078,9 @@ public class DashBoardFrame extends javax.swing.JFrame {
         panelHRMain.setLayout(panelHRMainLayout);
         panelHRMainLayout.setHorizontalGroup(
             panelHRMainLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(panelHRHeader, javax.swing.GroupLayout.DEFAULT_SIZE, 984, Short.MAX_VALUE)
+            .addComponent(panelHRHeader, javax.swing.GroupLayout.DEFAULT_SIZE, 983, Short.MAX_VALUE)
             .addGroup(panelHRMainLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                .addComponent(panelEmployeeMain, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addComponent(panelEmployeeMain, javax.swing.GroupLayout.DEFAULT_SIZE, 983, Short.MAX_VALUE))
         );
         panelHRMainLayout.setVerticalGroup(
             panelHRMainLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -3173,7 +3174,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
                     .addGroup(panelCustomerLayout.createSequentialGroup()
                         .addGap(19, 19, 19)
                         .addComponent(jPanel7, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addGap(0, 8, Short.MAX_VALUE)))
+                        .addGap(0, 7, Short.MAX_VALUE)))
                 .addContainerGap())
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelCustomerLayout.createSequentialGroup()
                 .addGap(36, 36, 36)
@@ -3464,7 +3465,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
         panelQRViewLayout.setHorizontalGroup(
             panelQRViewLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelQRViewLayout.createSequentialGroup()
-                .addContainerGap(104, Short.MAX_VALUE)
+                .addContainerGap(103, Short.MAX_VALUE)
                 .addComponent(lbQRCode, javax.swing.GroupLayout.PREFERRED_SIZE, 210, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(34, 34, 34))
         );
@@ -3512,7 +3513,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
         panelOrderSummary.setLayout(panelOrderSummaryLayout);
         panelOrderSummaryLayout.setHorizontalGroup(
             panelOrderSummaryLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(panelCardParent, javax.swing.GroupLayout.DEFAULT_SIZE, 348, Short.MAX_VALUE)
+            .addComponent(panelCardParent, javax.swing.GroupLayout.DEFAULT_SIZE, 347, Short.MAX_VALUE)
             .addGroup(panelOrderSummaryLayout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(panelOrderSummaryLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -3646,7 +3647,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
             .addGroup(layout.createSequentialGroup()
                 .addComponent(panelMenu, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(panelContent, javax.swing.GroupLayout.DEFAULT_SIZE, 984, Short.MAX_VALUE))
+                .addComponent(panelContent, javax.swing.GroupLayout.DEFAULT_SIZE, 983, Short.MAX_VALUE))
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)

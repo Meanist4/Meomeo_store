@@ -6,10 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 import javax.swing.JButton;
 import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.JLabel;
-import javax.swing.Box;
-import javax.swing.JFileChooser;
+
 import repository.OrderRepository;
 import service.CategoryService;
 import service.ProductService;
@@ -34,6 +31,8 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
     private DashBoardFrame dashBoard;
     private final OrderRepository orderRepository = new repository.OrderRepository();
     private final repository.AttendanceRepository attendanceRepository = new repository.AttendanceRepository();
+    private javax.swing.JPanel checkInListPanel;
+    private javax.swing.JButton btnLoginQuick;
     private final List<Integer> sessionOrderIds = new ArrayList<>();
     private java.util.List<entity.Product> cachedProductList = new ArrayList<>();
     private java.util.List<entity.Category> cachedCategoryList = new ArrayList<>();
@@ -55,6 +54,12 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
             this.dashBoard = new DashBoardFrame(this);
         } else {
             this.dashBoard = null;
+        }
+
+        if (user != null && user.getRoleId() != 1) {
+            if (!attendanceRepository.hasActiveCheckIn(user.getId()) && user.getId() > 0) {
+                attendanceRepository.checkIn(user.getId());
+            }
         }
 
         // Cấu hình cbb (jComboBox1) để hiển thị Tên + Role và chức năng đăng xuất
@@ -114,7 +119,7 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         btnAddOrder.setPreferredSize(new java.awt.Dimension(36, 30));
         btnAddOrder.putClientProperty(FlatClientProperties.STYLE,
                 "arc: 20; borderWidth: 1; borderColor: #E28743; foreground: #E28743;");
-        btnAddOrder.addActionListener(e -> createNewOrder());
+        btnAddOrder.addActionListener(e -> { if (checkLoginAndWarn()) createNewOrder(); });
         panelOrderSplit.add(btnAddOrder);
 
         String styleNormal = "background: #00000000; "
@@ -382,6 +387,7 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         loadCustomerTableData();
         initCustomerFilterEvents();
         loadCheckedInEmployees();
+        updateCashierPanel();
     }
 
     private void customTransactionHistoryAppearance() {
@@ -978,6 +984,7 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         }));
 
         btnAddCustomer.addActionListener(e -> {
+            if (!checkLoginAndWarn()) return;
             views.AddCustomerFrame addFrame = new views.AddCustomerFrame(() -> {
                 String phone = txtSearchCustomer.getText().trim();
                 if (!phone.isEmpty()) {
@@ -1078,6 +1085,7 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
             card.addMouseListener(new java.awt.event.MouseAdapter() {
                 @Override
                 public void mouseClicked(java.awt.event.MouseEvent evt) {
+                    if (!checkLoginAndWarn()) return;
                     ProductCard sourceCard = (ProductCard) evt.getSource();
                     if (sourceCard.getProduct() != null) {
                         ensureOrderPersisted(activeIndex);
@@ -1173,6 +1181,7 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         );
 
         btnAddCustomer.addActionListener(e -> {
+            if (!checkLoginAndWarn()) return;
             AddCustomerFrame addFrame = new AddCustomerFrame(this::loadCustomerTableData);
             addFrame.setVisible(true);
         });
@@ -1231,10 +1240,10 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         jSeparator1 = new javax.swing.JSeparator();
         btnConfirmOrder = new javax.swing.JButton();
         btnCancelOrder = new javax.swing.JButton();
-        panelEmployeeCheckIn = new javax.swing.JPanel();
         cbCategory = new javax.swing.JComboBox<>();
         btnAddCustomer = new javax.swing.JButton();
         txtSearchCustomer = new javax.swing.JTextField();
+        panelEmployeeCheckIn = new javax.swing.JScrollPane();
         panelProduct = new javax.swing.JPanel();
         txtSearchProduct = new javax.swing.JTextField();
         panelOrderManagement1 = new javax.swing.JPanel();
@@ -1301,7 +1310,7 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
                     .addComponent(jLabel3)
                     .addComponent(jLabel2))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addComponent(jComboBox1, javax.swing.GroupLayout.PREFERRED_SIZE, 157, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(jComboBox1, javax.swing.GroupLayout.PREFERRED_SIZE, 230, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(27, 27, 27))
         );
         panelHeaderLayout.setVerticalGroup(
@@ -1643,7 +1652,7 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         panelQRViewLayout.setHorizontalGroup(
             panelQRViewLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelQRViewLayout.createSequentialGroup()
-                .addContainerGap(73, Short.MAX_VALUE)
+                .addContainerGap(69, Short.MAX_VALUE)
                 .addComponent(lbQRCode, javax.swing.GroupLayout.PREFERRED_SIZE, 210, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(34, 34, 34))
         );
@@ -1691,7 +1700,7 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         panelOrderSummary.setLayout(panelOrderSummaryLayout);
         panelOrderSummaryLayout.setHorizontalGroup(
             panelOrderSummaryLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(panelCardParent, javax.swing.GroupLayout.DEFAULT_SIZE, 317, Short.MAX_VALUE)
+            .addComponent(panelCardParent, javax.swing.GroupLayout.DEFAULT_SIZE, 313, Short.MAX_VALUE)
             .addGroup(panelOrderSummaryLayout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(panelOrderSummaryLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -1743,22 +1752,10 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
                 .addGap(0, 18, Short.MAX_VALUE))
         );
 
-        panelEmployeeCheckIn.setBackground(new java.awt.Color(255, 255, 255));
-
-        javax.swing.GroupLayout panelEmployeeCheckInLayout = new javax.swing.GroupLayout(panelEmployeeCheckIn);
-        panelEmployeeCheckIn.setLayout(panelEmployeeCheckInLayout);
-        panelEmployeeCheckInLayout.setHorizontalGroup(
-            panelEmployeeCheckInLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 0, Short.MAX_VALUE)
-        );
-        panelEmployeeCheckInLayout.setVerticalGroup(
-            panelEmployeeCheckInLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 0, Short.MAX_VALUE)
-        );
-
         cbCategory.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Item 1", "Item 2", "Item 3", "Item 4" }));
 
         btnAddCustomer.setText("Add customer");
+        btnAddCustomer.addActionListener(this::btnAddCustomerActionPerformed);
 
         txtSearchCustomer.addActionListener(this::txtSearchCustomerActionPerformed);
 
@@ -1776,9 +1773,9 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
                             .addComponent(panelBarcode, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 618, Short.MAX_VALUE)
                             .addComponent(panelPopular, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED))
-                    .addGroup(panelSaleCounterLayout.createSequentialGroup()
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelSaleCounterLayout.createSequentialGroup()
                         .addComponent(cbCategory, javax.swing.GroupLayout.PREFERRED_SIZE, 120, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 118, Short.MAX_VALUE)
                         .addComponent(txtSearchCustomer, javax.swing.GroupLayout.PREFERRED_SIZE, 260, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                         .addComponent(btnAddCustomer)
@@ -1786,7 +1783,9 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
                 .addGroup(panelSaleCounterLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(panelCashier, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(panelOrderSummary, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(panelEmployeeCheckIn, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addGroup(panelSaleCounterLayout.createSequentialGroup()
+                        .addGap(6, 6, 6)
+                        .addComponent(panelEmployeeCheckIn)))
                 .addContainerGap())
         );
         panelSaleCounterLayout.setVerticalGroup(
@@ -1807,11 +1806,11 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
                             .addComponent(btnAddCustomer, javax.swing.GroupLayout.DEFAULT_SIZE, 34, Short.MAX_VALUE)
                             .addComponent(txtSearchCustomer)
                             .addComponent(cbCategory))
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addComponent(panelPopular, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                     .addGroup(panelSaleCounterLayout.createSequentialGroup()
-                        .addComponent(panelEmployeeCheckIn, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(panelEmployeeCheckIn, javax.swing.GroupLayout.DEFAULT_SIZE, 136, Short.MAX_VALUE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                         .addComponent(panelOrderSummary, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
                 .addContainerGap())
         );
@@ -2175,7 +2174,71 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
     }// </editor-fold>//GEN-END:initComponents
 
     private void btnScanActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnScanActionPerformed
-        // TODO add your handling code here:
+        util.BarcodeScannerUtil.startScan(this, rawBarcode -> {
+            if (rawBarcode == null || rawBarcode.trim().isEmpty()) {
+                return;
+            }
+            String empCode = util.BarcodeHashUtil.isEmpCode(rawBarcode)
+                    ? rawBarcode.trim()
+                    : util.BarcodeHashUtil.toEmpCode(rawBarcode);
+            
+            repository.EmployeeRepository empRepo = new repository.EmployeeRepository();
+            entity.Employee emp = empRepo.findByBarcode(empCode);
+            if (emp == null) {
+                emp = empRepo.findByBarcode(rawBarcode.trim());
+            }
+            
+            if (emp != null) {
+                if (emp.getStatus() == 0) {
+                    javax.swing.JOptionPane.showMessageDialog(this,
+                            "Tài khoản nhân viên này đang bị tạm dừng hoạt động!",
+                            "Lỗi đăng nhập", javax.swing.JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+                
+                boolean alreadyLoggedIn = util.UserSession.getInstance().isLoggedIn();
+                if (alreadyLoggedIn) {
+                    if (emp.getRoleId() != 1) {
+                        if (!attendanceRepository.hasActiveCheckIn(emp.getId())) {
+                            attendanceRepository.checkIn(emp.getId());
+                        }
+                        javax.swing.JOptionPane.showMessageDialog(this,
+                                "Điểm danh (Check-in) thành công cho nhân viên " + emp.getFullName() + ".",
+                                "Thành công", javax.swing.JOptionPane.INFORMATION_MESSAGE);
+                        loadCheckedInEmployees();
+                    } else {
+                        javax.swing.JOptionPane.showMessageDialog(this,
+                                "Tài khoản Quản lý không cần điểm danh!",
+                                "Thông báo", javax.swing.JOptionPane.INFORMATION_MESSAGE);
+                    }
+                } else {
+                    util.UserSession.getInstance().setCurrentUser(emp);
+                    util.UserSession.getInstance().setToken(java.util.UUID.randomUUID().toString());
+                    
+                    javax.swing.JOptionPane.showMessageDialog(this,
+                            "Đăng nhập thành công! Chào mừng " + emp.getFullName() + ".",
+                            "Thành công", javax.swing.JOptionPane.INFORMATION_MESSAGE);
+                    
+                    if (emp.getRoleId() == 1) {
+                        java.awt.EventQueue.invokeLater(() -> {
+                            DashBoardFrame db = new DashBoardFrame(this);
+                            db.setVisible(true);
+                            this.setVisible(false);
+                        });
+                    } else {
+                        if (!attendanceRepository.hasActiveCheckIn(emp.getId())) {
+                            attendanceRepository.checkIn(emp.getId());
+                        }
+                        loadCheckedInEmployees();
+                        refreshUserDropdown();
+                    }
+                }
+            } else {
+                javax.swing.JOptionPane.showMessageDialog(this,
+                        "Mã thẻ không hợp lệ hoặc không tìm thấy nhân viên!",
+                        "Lỗi đăng nhập", javax.swing.JOptionPane.ERROR_MESSAGE);
+            }
+        });
     }//GEN-LAST:event_btnScanActionPerformed
 
 //    public void setManagerButtonVisible(boolean visible) {
@@ -2335,6 +2398,7 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
     }//GEN-LAST:event_btnCustomerActionPerformed
 
     private void btnCancelOrderActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnCancelOrderActionPerformed
+        if (!checkLoginAndWarn()) return;
         int orderId = sessionOrderIds.get(activeIndex);
         if (orderId != -1) {
             orderRepository.finalizeOrder(orderId, null, null, 0, "CANCELLED", null);
@@ -2381,16 +2445,19 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
                 javax.swing.JOptionPane.QUESTION_MESSAGE);
             if (confirm == javax.swing.JOptionPane.YES_OPTION) {
                 util.UserSession.getInstance().cleanUserSession();
-                util.AppRouter.showLogin();
-                this.dispose();
-            } else {
-                jComboBox1.setSelectedIndex(0);
+                refreshUserDropdown();
             }
+            jComboBox1.setSelectedIndex(0);
         } else if ("Đăng nhập".equals(selected)) {
-            util.AppRouter.showLogin();
-            this.dispose();
+            LoginFrame loginFrame = new LoginFrame(this);
+            loginFrame.setVisible(true);
+            jComboBox1.setSelectedIndex(0);
         }
     }//GEN-LAST:event_jComboBox1ActionPerformed
+
+    private void btnAddCustomerActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnAddCustomerActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_btnAddCustomerActionPerformed
 
     private void cashBtnActionPerformed(java.awt.event.ActionEvent evt) {
         java.awt.CardLayout cl = (java.awt.CardLayout) panelCardParent.getLayout();
@@ -2434,24 +2501,111 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         panelCardParent.repaint();
     }
 
-    @Override
-    public void setVisible(boolean b) {
-        if (b) {
-            if (!util.UserSession.getInstance().isLoggedIn()) {
-                javax.swing.JOptionPane.showMessageDialog(this,
-                        "Bạn chưa đăng nhập! Vui lòng đăng nhập để tiếp tục.",
-                        "Lỗi truy cập", javax.swing.JOptionPane.ERROR_MESSAGE);
-                util.AppRouter.showLogin();
-                this.dispose();
-                return;
+    public boolean checkLoginAndWarn() {
+        if (!util.UserSession.getInstance().isLoggedIn()) {
+            javax.swing.JOptionPane.showMessageDialog(this,
+                    "Bạn chưa đăng nhập! Vui lòng đăng nhập để thực hiện thao tác này.",
+                    "Thông báo", javax.swing.JOptionPane.WARNING_MESSAGE);
+            return false;
+        }
+        return true;
+    }
+
+    public void refreshUserDropdown() {
+        entity.Employee user = util.UserSession.getInstance().getCurrentUser();
+        if (user != null && user.getRoleId() != 1) {
+            if (!attendanceRepository.hasActiveCheckIn(user.getId()) && user.getId() > 0) {
+                attendanceRepository.checkIn(user.getId());
             }
         }
+        
+        if (user != null) {
+            String roleName = "Staff";
+            try {
+                java.util.List<entity.Role> roles = new repository.EmployeeRepository().getAllRole();
+                for (entity.Role r : roles) {
+                    if (r.getId() == user.getRoleId()) {
+                        roleName = r.getRoleName();
+                        break;
+                    }
+                }
+            } catch (Exception e) {
+                roleName = user.getRoleId() == 1 ? "Manager" : "Staff";
+            }
+            String displayInfo = user.getFullName() + " (" + roleName + ")";
+            jComboBox1.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { displayInfo, "Đăng xuất" }));
+        } else {
+            jComboBox1.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Chưa đăng nhập", "Đăng nhập" }));
+        }
+        updateCashierPanel();
+        loadCheckedInEmployees();
+    }
+
+    public void updateCashierPanel() {
+        panelCashier.removeAll();
+        
+        jLabel4.setText("STAFF CHECK-IN");
+        labelStatus.setText("Đang đợi quét thẻ...");
+        
+        if (btnLoginQuick == null) {
+            btnLoginQuick = new javax.swing.JButton("Đăng nhập");
+            btnLoginQuick.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 12));
+            btnLoginQuick.setBackground(new java.awt.Color(111, 59, 26)); // Meomeo theme brown
+            btnLoginQuick.setForeground(java.awt.Color.WHITE);
+            btnLoginQuick.setPreferredSize(new java.awt.Dimension(100, 35));
+            btnLoginQuick.setFocusPainted(false);
+            btnLoginQuick.setBorderPainted(false);
+            btnLoginQuick.putClientProperty(FlatClientProperties.STYLE, "background: #6F3B1A; foreground: #FFFFFF; arc: 10;");
+            btnLoginQuick.addActionListener(e -> {
+                LoginFrame loginFrame = new LoginFrame(this);
+                loginFrame.setVisible(true);
+            });
+        }
+        
+        javax.swing.GroupLayout panelCashierLayout = new javax.swing.GroupLayout(panelCashier);
+        panelCashier.setLayout(panelCashierLayout);
+        panelCashierLayout.setHorizontalGroup(
+            panelCashierLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelCashierLayout.createSequentialGroup()
+                .addGap(19, 19, 19)
+                .addGroup(panelCashierLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(jLabel4)
+                    .addComponent(labelStatus))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(btnLoginQuick, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(btnScan, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(16, 16, 16))
+        );
+        panelCashierLayout.setVerticalGroup(
+            panelCashierLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(panelCashierLayout.createSequentialGroup()
+                .addGap(10, 10, 10)
+                .addGroup(panelCashierLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addComponent(btnScan, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(btnLoginQuick, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addGroup(panelCashierLayout.createSequentialGroup()
+                        .addComponent(jLabel4)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(labelStatus)))
+                .addContainerGap(15, Short.MAX_VALUE))
+        );
+        
+        panelCashier.revalidate();
+        panelCashier.repaint();
+    }
+
+
+    @Override
+    public void setVisible(boolean b) {
         super.setVisible(b);
     }
 
     private void initCheckedInEmployeesPanel() {
-        panelEmployeeCheckIn.setLayout(new java.awt.BorderLayout(0, 10));
-        panelEmployeeCheckIn.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        panelEmployeeCheckIn.setPreferredSize(new java.awt.Dimension(250, 200));
+        panelEmployeeCheckIn.setBorder(null);
+        panelEmployeeCheckIn.setOpaque(false);
+        panelEmployeeCheckIn.getViewport().setOpaque(false);
         
         javax.swing.JLabel titleLabel = new javax.swing.JLabel("Nhân viên đã check-in", javax.swing.SwingConstants.LEFT);
         titleLabel.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 14));
@@ -2459,31 +2613,34 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         titleLabel.setIcon(ui.MenuIcons.humanResources());
         titleLabel.setIconTextGap(8);
         
-        panelEmployeeCheckIn.add(titleLabel, java.awt.BorderLayout.NORTH);
-        
         JPanel listPanel = new JPanel();
         listPanel.setLayout(new javax.swing.BoxLayout(listPanel, javax.swing.BoxLayout.Y_AXIS));
         listPanel.setBackground(java.awt.Color.WHITE);
         
-        JScrollPane scrollPane = new JScrollPane(listPanel);
-        scrollPane.setBorder(null);
-        scrollPane.setOpaque(false);
-        scrollPane.getViewport().setOpaque(false);
-        scrollPane.setHorizontalScrollBarPolicy(javax.swing.ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        JPanel mainPanel = new JPanel(new java.awt.BorderLayout(0, 10));
+        mainPanel.setBackground(java.awt.Color.WHITE);
+        mainPanel.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
         
-        panelEmployeeCheckIn.add(scrollPane, java.awt.BorderLayout.CENTER);
+        mainPanel.add(titleLabel, java.awt.BorderLayout.NORTH);
+        mainPanel.add(listPanel, java.awt.BorderLayout.CENTER);
         
-        panelEmployeeCheckIn.putClientProperty("listPanel", listPanel);
+        panelEmployeeCheckIn.setViewportView(mainPanel);
+        checkInListPanel = listPanel;
+        
+        panelEmployeeCheckIn.revalidate();
+        panelEmployeeCheckIn.repaint();
+        if (panelEmployeeCheckIn.getParent() != null) {
+            panelEmployeeCheckIn.getParent().revalidate();
+            panelEmployeeCheckIn.getParent().repaint();
+        }
     }
 
     public void loadCheckedInEmployees() {
-        JPanel listPanel = (JPanel) panelEmployeeCheckIn.getClientProperty("listPanel");
-        if (listPanel == null) {
+        if (checkInListPanel == null) {
             initCheckedInEmployeesPanel();
-            listPanel = (JPanel) panelEmployeeCheckIn.getClientProperty("listPanel");
         }
         
-        listPanel.removeAll();
+        checkInListPanel.removeAll();
         java.util.List<repository.AttendanceRepository.CheckedInEmployee> list = attendanceRepository.getTodayCheckedInEmployees();
         
         if (list.isEmpty()) {
@@ -2495,120 +2652,131 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
             noEmpLabel.setForeground(new java.awt.Color(148, 163, 184)); // #94A3B8
             emptyPanel.add(noEmpLabel);
             
-            listPanel.add(emptyPanel);
+            checkInListPanel.add(emptyPanel);
         } else {
             for (repository.AttendanceRepository.CheckedInEmployee emp : list) {
                 JPanel card = createEmployeeCard(emp);
-                listPanel.add(card);
-                listPanel.add(javax.swing.Box.createVerticalStrut(8));
+                checkInListPanel.add(card);
+                checkInListPanel.add(javax.swing.Box.createVerticalStrut(8));
             }
-            listPanel.add(javax.swing.Box.createVerticalGlue());
+            checkInListPanel.add(javax.swing.Box.createVerticalGlue());
         }
         
-        listPanel.revalidate();
-        listPanel.repaint();
+        checkInListPanel.revalidate();
+        checkInListPanel.repaint();
+        panelEmployeeCheckIn.revalidate();
+        panelEmployeeCheckIn.repaint();
+        if (panelEmployeeCheckIn.getParent() != null) {
+            panelEmployeeCheckIn.getParent().revalidate();
+            panelEmployeeCheckIn.getParent().repaint();
+        }
     }
 
     private JPanel createEmployeeCard(repository.AttendanceRepository.CheckedInEmployee emp) {
-        JPanel card = new JPanel(new java.awt.BorderLayout(12, 0));
+        JPanel card = new JPanel(new java.awt.BorderLayout(8, 0));
         card.setBackground(java.awt.Color.WHITE);
-        card.setMaximumSize(new java.awt.Dimension(Short.MAX_VALUE, 64));
-        card.setPreferredSize(new java.awt.Dimension(220, 64));
-        card.setMinimumSize(new java.awt.Dimension(180, 64));
-        
-        card.putClientProperty(FlatClientProperties.STYLE, 
+        card.setMaximumSize(new java.awt.Dimension(Short.MAX_VALUE, 56));
+        card.setPreferredSize(new java.awt.Dimension(250, 56));
+        card.setMinimumSize(new java.awt.Dimension(200, 56));
+        card.putClientProperty(FlatClientProperties.STYLE,
             "arc: 12; border: 1,1,1,1,#E2E8F0; background: #FFFFFF;");
-        card.setBorder(javax.swing.BorderFactory.createEmptyBorder(8, 10, 8, 10));
-        
-        String initials = "";
-        if (emp.fullName != null && !emp.fullName.isEmpty()) {
-            String[] parts = emp.fullName.trim().split("\\s+");
-            if (parts.length > 0) {
-                String last = parts[parts.length - 1];
-                if (!last.isEmpty()) {
-                    initials = last.substring(0, Math.min(2, last.length())).toUpperCase();
-                }
-            }
-        }
-        if (initials.isEmpty()) initials = "EE";
-        
-        java.awt.Color roleColor = java.awt.Color.GRAY;
+        card.setBorder(javax.swing.BorderFactory.createEmptyBorder(8, 12, 8, 10));
+
+        // --- Màu role ---
+        java.awt.Color roleColor = new java.awt.Color(160, 174, 192);
         if (emp.roleColorHex != null) {
-            try {
-                roleColor = java.awt.Color.decode(emp.roleColorHex);
-            } catch (Exception ex) {
-                // Ignore
-            }
+            try { roleColor = java.awt.Color.decode(emp.roleColorHex); } catch (Exception ignored) {}
         }
-        
-        final java.awt.Color avatarColor = roleColor;
-        final String displayInitials = initials;
-        
-        javax.swing.JLabel avatarLabel = new javax.swing.JLabel(displayInitials, javax.swing.SwingConstants.CENTER) {
-            @Override
-            protected void paintComponent(java.awt.Graphics g) {
-                java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
-                g2.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(avatarColor);
-                g2.fillOval(0, 0, getWidth(), getHeight());
-                g2.dispose();
-                super.paintComponent(g);
-            }
-        };
-        avatarLabel.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 12));
-        avatarLabel.setForeground(java.awt.Color.WHITE);
-        avatarLabel.setPreferredSize(new java.awt.Dimension(36, 36));
-        avatarLabel.setMinimumSize(new java.awt.Dimension(36, 36));
-        
+        final java.awt.Color finalRoleColor = roleColor;
+
+        // --- Tên nhân viên ---
+        javax.swing.JLabel lblName = new javax.swing.JLabel(emp.fullName);
+        lblName.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 12));
+        lblName.setForeground(new java.awt.Color(30, 41, 59));
+        lblName.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
+
+        // --- Role badge (text có màu) ---
+        javax.swing.JLabel lblRole = new javax.swing.JLabel(emp.roleName != null ? emp.roleName : "");
+        lblRole.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 10));
+        lblRole.setForeground(finalRoleColor);
+        lblRole.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
+
         JPanel infoPanel = new JPanel();
         infoPanel.setLayout(new javax.swing.BoxLayout(infoPanel, javax.swing.BoxLayout.Y_AXIS));
         infoPanel.setOpaque(false);
-        
-        javax.swing.JLabel lblName = new javax.swing.JLabel(emp.fullName);
-        lblName.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 12));
-        lblName.setForeground(new java.awt.Color(30, 41, 59)); // #1E293B
-        lblName.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
-        
-        javax.swing.JLabel lblRole = new javax.swing.JLabel(emp.roleName);
-        lblRole.setFont(new java.awt.Font("Segoe UI", java.awt.Font.PLAIN, 10));
-        lblRole.setForeground(avatarColor);
-        lblRole.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
-        
         infoPanel.add(lblName);
         infoPanel.add(javax.swing.Box.createVerticalStrut(2));
         infoPanel.add(lblRole);
-        
+
+        // --- Giờ vào ---
         String timeStr = "—";
         if (emp.checkInTime != null) {
-            java.text.SimpleDateFormat timeFormat = new java.text.SimpleDateFormat("HH:mm");
-            timeStr = timeFormat.format(emp.checkInTime);
+            timeStr = new java.text.SimpleDateFormat("HH:mm").format(emp.checkInTime);
         }
-        
         javax.swing.JLabel lblTime = new javax.swing.JLabel(timeStr);
-        lblTime.setFont(new java.awt.Font("Segoe UI", java.awt.Font.PLAIN, 10));
-        lblTime.setForeground(new java.awt.Color(148, 163, 184)); // #94A3B8
-        lblTime.setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
-        
-        card.add(avatarLabel, java.awt.BorderLayout.WEST);
+        lblTime.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 11));
+        lblTime.setForeground(new java.awt.Color(100, 116, 139));
+
+        // --- Panel bên phải: giờ + nút kết thúc ---
+        JPanel eastPanel = new JPanel();
+        eastPanel.setLayout(new javax.swing.BoxLayout(eastPanel, javax.swing.BoxLayout.Y_AXIS));
+        eastPanel.setOpaque(false);
+
+        lblTime.setAlignmentX(java.awt.Component.RIGHT_ALIGNMENT);
+        eastPanel.add(lblTime);
+
+        if (emp.id >= 2) {
+            eastPanel.add(javax.swing.Box.createVerticalStrut(2));
+            javax.swing.JButton btnEndShift = new javax.swing.JButton("Kết thúc");
+            btnEndShift.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 9));
+            btnEndShift.setBackground(new java.awt.Color(239, 68, 68));
+            btnEndShift.setForeground(java.awt.Color.WHITE);
+            btnEndShift.setFocusPainted(false);
+            btnEndShift.setBorderPainted(false);
+            btnEndShift.setMargin(new java.awt.Insets(1, 6, 1, 6));
+            btnEndShift.putClientProperty(FlatClientProperties.STYLE, "background: #EF4444; foreground: #FFFFFF; arc: 8;");
+            btnEndShift.setAlignmentX(java.awt.Component.RIGHT_ALIGNMENT);
+            btnEndShift.addActionListener(e -> {
+                int confirm = javax.swing.JOptionPane.showConfirmDialog(this,
+                    "Xác nhận kết thúc phiên làm việc cho nhân viên " + emp.fullName + "?",
+                    "Kết thúc phiên",
+                    javax.swing.JOptionPane.YES_NO_OPTION,
+                    javax.swing.JOptionPane.QUESTION_MESSAGE);
+                if (confirm == javax.swing.JOptionPane.YES_OPTION) {
+                    attendanceRepository.checkOut(emp.id);
+                    entity.Employee currentUser = util.UserSession.getInstance().getCurrentUser();
+                    if (currentUser != null && currentUser.getId() == emp.id) {
+                        util.UserSession.getInstance().cleanUserSession();
+                    }
+                    loadCheckedInEmployees();
+                    refreshUserDropdown();
+                    javax.swing.JOptionPane.showMessageDialog(this,
+                        "Đã kết thúc phiên làm việc và đăng xuất thành công!",
+                        "Thông báo", javax.swing.JOptionPane.INFORMATION_MESSAGE);
+                }
+            });
+            eastPanel.add(btnEndShift);
+        }
+
         card.add(infoPanel, java.awt.BorderLayout.CENTER);
-        card.add(lblTime, java.awt.BorderLayout.EAST);
-        
+        card.add(eastPanel, java.awt.BorderLayout.EAST);
+
         final String colorHex = emp.roleColorHex != null ? emp.roleColorHex : "#E28743";
         card.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
             public void mouseEntered(java.awt.event.MouseEvent e) {
-                card.putClientProperty(FlatClientProperties.STYLE, 
+                card.putClientProperty(FlatClientProperties.STYLE,
                     "arc: 12; border: 1,1,1,1," + colorHex + "; background: #F8FAFC;");
                 card.repaint();
             }
             @Override
             public void mouseExited(java.awt.event.MouseEvent e) {
-                card.putClientProperty(FlatClientProperties.STYLE, 
+                card.putClientProperty(FlatClientProperties.STYLE,
                     "arc: 12; border: 1,1,1,1,#E2E8F0; background: #FFFFFF;");
                 card.repaint();
             }
         });
-        
+
         return card;
     }
 
@@ -2736,7 +2904,7 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
     private javax.swing.JPanel panelCurrentOrder;
     private javax.swing.JPanel panelCustomer;
     private javax.swing.JPanel panelDate;
-    private javax.swing.JPanel panelEmployeeCheckIn;
+    private javax.swing.JScrollPane panelEmployeeCheckIn;
     private javax.swing.JPanel panelHeader;
     private javax.swing.JPanel panelMenu;
     private javax.swing.JPanel panelNav;
