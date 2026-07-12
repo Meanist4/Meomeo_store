@@ -8,10 +8,12 @@ public class ProductActionCellRenderer implements TableCellRenderer {
     private final JPanel panel = new JPanel(new GridBagLayout());
     private final JButton btnEdit   = new JButton("Edit");
     private final JButton btnDelete = new JButton("Delete");
+    private final JButton btnBarcode = new JButton("Barcode");
 
     public ProductActionCellRenderer() {
-        styleBtn(btnEdit,   new Color(59, 130, 246), Color.WHITE, 50);
-        styleBtn(btnDelete, new Color(239, 68, 68),  Color.WHITE, 62);
+        styleBtn(btnEdit,    new Color(59, 130, 246), Color.WHITE, 45);
+        styleBtn(btnDelete,  new Color(239, 68, 68),  Color.WHITE, 55);
+        styleBtn(btnBarcode, new Color(16, 185, 129), Color.WHITE, 60);
         panel.setOpaque(true);
 
         GridBagConstraints gbc = new GridBagConstraints();
@@ -19,6 +21,7 @@ public class ProductActionCellRenderer implements TableCellRenderer {
         gbc.anchor = GridBagConstraints.CENTER;
         panel.add(btnEdit, gbc);
         panel.add(btnDelete, gbc);
+        panel.add(btnBarcode, gbc);
     }
 
     @Override

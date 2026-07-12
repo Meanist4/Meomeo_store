@@ -200,6 +200,23 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         scrollPopular.getVerticalScrollBar().setUnitIncrement(16);
 
         txtBarcodeSearch.putClientProperty(FlatClientProperties.STYLE, "arc: 15;");
+        btnBarcode.addActionListener(e -> {
+            if (!checkLoginAndWarn()) return;
+            util.BarcodeScannerUtil.startScan(this, rawBarcode -> {
+                if (rawBarcode == null || rawBarcode.trim().isEmpty()) {
+                    return;
+                }
+                entity.Product p = new repository.ProductRepository().findByBarcode(rawBarcode.trim());
+                if (p != null) {
+                    ensureOrderPersisted(activeIndex);
+                    activeCart().addProduct(p);
+                } else {
+                    javax.swing.JOptionPane.showMessageDialog(this,
+                            "Không tìm thấy sản phẩm với mã vạch: " + rawBarcode,
+                            "Thông báo", javax.swing.JOptionPane.WARNING_MESSAGE);
+                }
+            });
+        });
 //        managerBtn.putClientProperty(FlatClientProperties.STYLE,
 //                "arc: 30; borderWidth: 1; borderColor: #E28743;");
 
@@ -580,7 +597,7 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         txtSearchInvoice.getDocument().addDocumentListener(onDocumentChange(this::refreshTransactionHistory));
     }
 
-    private void refreshTransactionHistory() {
+    public void refreshTransactionHistory() {
         loadTransactionHistoryLog();
     }
 
@@ -2195,6 +2212,12 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
                             "Lỗi đăng nhập", javax.swing.JOptionPane.ERROR_MESSAGE);
                     return;
                 }
+                if (emp.getRoleId() == 1) {
+                    javax.swing.JOptionPane.showMessageDialog(this,
+                            "Không cho phép đăng nhập hoặc thao tác tài khoản Quản lý bằng mã vạch!",
+                            "Lỗi đăng nhập", javax.swing.JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
                 
                 boolean alreadyLoggedIn = util.UserSession.getInstance().isLoggedIn();
                 if (alreadyLoggedIn) {
@@ -2371,6 +2394,7 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
                     dashBoard.refreshAfterNewOrder();
                 }
                 loadProductGrid(); // Tải lại lưới sản phẩm để cập nhật số lượng tồn kho vừa trừ
+                refreshTransactionHistory();
                 if (txtCashReceived != null) {
                     txtCashReceived.setText("");
                 }
@@ -2407,6 +2431,8 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         if (dashBoard != null) {
             dashBoard.refreshAfterNewOrder();
         }
+        loadProductGrid();
+        refreshTransactionHistory();
         if (txtCashReceived != null) {
             txtCashReceived.setText("");
         }
@@ -2669,6 +2695,13 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         if (panelEmployeeCheckIn.getParent() != null) {
             panelEmployeeCheckIn.getParent().revalidate();
             panelEmployeeCheckIn.getParent().repaint();
+        }
+
+        // Synchronize with dashboard if active
+        if (dashBoard != null) {
+            dashBoard.loadCheckedInEmployees();
+            dashBoard.loadAttendanceTableData();
+            dashBoard.loadOverviewCardsData();
         }
     }
 

@@ -49,6 +49,8 @@ public class DashBoardFrame extends javax.swing.JFrame {
     private ui.TopSalesPanel topSalesThang;
     private java.awt.CardLayout cardTopSales;
     private SalesCounterFrame salesCounter;
+    private javax.swing.JPanel checkInListPanel;
+    private javax.swing.JButton btnLoginQuick;
 
     // Fields for Sales Counter Panel integration
     private final CategoryService categoryService = new CategoryServiceImpl();
@@ -95,6 +97,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
         initAttendanceDateFilter();
         customAttendanceTableAppearance();
         loadAttendanceTableData();
+        loadCheckedInEmployees();
         loadRoleComboBox();
         customEmployeeManagementTableAppearance();
         initEmployeeManagementFilterEvents();
@@ -594,12 +597,13 @@ public class DashBoardFrame extends javax.swing.JFrame {
         ui.EmployeeActionCellRenderer actionRenderer = new ui.EmployeeActionCellRenderer();
         ui.EmployeeActionCellEditor actionEditor = new ui.EmployeeActionCellEditor(
                 this::onEditEmployee,
-                this::onDeleteEmployee);
+                this::onDeleteEmployee,
+                this::onShowBarcode);
         tableEmployeeManagement.setRowHeight(50);
         tableEmployeeManagement.getColumnModel().getColumn(actionColumnIndex).setCellRenderer(actionRenderer);
         tableEmployeeManagement.getColumnModel().getColumn(actionColumnIndex).setCellEditor(actionEditor);
-        tableEmployeeManagement.getColumnModel().getColumn(actionColumnIndex).setPreferredWidth(130);
-        tableEmployeeManagement.getColumnModel().getColumn(actionColumnIndex).setMaxWidth(150);
+        tableEmployeeManagement.getColumnModel().getColumn(actionColumnIndex).setPreferredWidth(210);
+        tableEmployeeManagement.getColumnModel().getColumn(actionColumnIndex).setMaxWidth(230);
         tableEmployeeManagement.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
             public void mousePressed(java.awt.event.MouseEvent e) {
@@ -637,6 +641,166 @@ public class DashBoardFrame extends javax.swing.JFrame {
                     "Mã nhân viên không hợp lệ.",
                     "Lỗi",
                     javax.swing.JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void onShowBarcode(int rowIndex) {
+        int modelRow = tableEmployeeManagement.convertRowIndexToModel(rowIndex);
+        javax.swing.table.DefaultTableModel model
+                = (javax.swing.table.DefaultTableModel) tableEmployeeManagement.getModel();
+        String empIdStr = model.getValueAt(modelRow, 0).toString();
+        String fullName = model.getValueAt(modelRow, 1).toString();
+        
+        Object barcodeObj = model.getValueAt(modelRow, 4); // Column index 4 is Barcode
+        if (barcodeObj == null || barcodeObj.toString().trim().isEmpty()) {
+            javax.swing.JOptionPane.showMessageDialog(this,
+                    "Nhân viên này chưa có mã vạch (Barcode)!",
+                    "Cảnh báo", javax.swing.JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        String barcodeVal = barcodeObj.toString().trim();
+
+        try {
+            // Ensure src/main/resources/barcode/emp folder exists
+            java.io.File dir = new java.io.File("src/main/resources/barcode/emp");
+            if (!dir.exists()) {
+                dir.mkdirs();
+            }
+            
+            java.io.File outputFile = new java.io.File(dir, empIdStr + ".png");
+            java.awt.image.BufferedImage img;
+            
+            if (outputFile.exists()) {
+                img = javax.imageio.ImageIO.read(outputFile);
+            } else {
+                // Generate barcode image using ZXing Code 128
+                int width = 300;
+                int height = 100;
+                com.google.zxing.oned.Code128Writer writer = new com.google.zxing.oned.Code128Writer();
+                com.google.zxing.common.BitMatrix bitMatrix = writer.encode(
+                        barcodeVal,
+                        com.google.zxing.BarcodeFormat.CODE_128,
+                        width,
+                        height
+                );
+                
+                // Write to a temporary file in src/main/resources/barcode
+                com.google.zxing.client.j2se.MatrixToImageWriter.writeToPath(bitMatrix, "PNG", outputFile.toPath());
+                
+                // Convert BitMatrix to BufferedImage
+                img = com.google.zxing.client.j2se.MatrixToImageWriter.toBufferedImage(bitMatrix);
+            }
+            
+            // Create custom panel to display the barcode & employee info
+            JPanel panel = new JPanel(new java.awt.BorderLayout(10, 10));
+            panel.setBackground(java.awt.Color.WHITE);
+            panel.setBorder(javax.swing.BorderFactory.createEmptyBorder(15, 15, 15, 15));
+            
+            javax.swing.JLabel lblInfo = new javax.swing.JLabel(
+                    "<html><b>Nhân viên:</b> " + fullName + " (" + empIdStr + ")<br><b>Mã vạch:</b> " + barcodeVal + "</html>",
+                    javax.swing.SwingConstants.CENTER
+            );
+            lblInfo.setFont(new java.awt.Font("Segoe UI", java.awt.Font.PLAIN, 13));
+            lblInfo.setForeground(new java.awt.Color(30, 41, 59));
+            
+            javax.swing.JLabel lblImage = new javax.swing.JLabel(new javax.swing.ImageIcon(img));
+            lblImage.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+            
+            panel.add(lblInfo, java.awt.BorderLayout.NORTH);
+            panel.add(lblImage, java.awt.BorderLayout.CENTER);
+            
+            javax.swing.JOptionPane.showMessageDialog(
+                    this,
+                    panel,
+                    "Mã vạch nhân viên - " + empIdStr,
+                    javax.swing.JOptionPane.PLAIN_MESSAGE
+            );
+            
+        } catch (Exception e) {
+            e.printStackTrace();
+            javax.swing.JOptionPane.showMessageDialog(this,
+                    "Lỗi khi tạo mã vạch: " + e.getMessage(),
+                    "Lỗi", javax.swing.JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void onShowBarcodeProduct(int rowIndex) {
+        int modelRow = tableProduct.convertRowIndexToModel(rowIndex);
+        javax.swing.table.DefaultTableModel model
+                = (javax.swing.table.DefaultTableModel) tableProduct.getModel();
+        String productIdStr = model.getValueAt(modelRow, 0).toString();
+        String productName = model.getValueAt(modelRow, 2).toString();
+        
+        Object barcodeObj = model.getValueAt(modelRow, 4); // Column index 4 is Barcode
+        if (barcodeObj == null || barcodeObj.toString().trim().isEmpty()) {
+            javax.swing.JOptionPane.showMessageDialog(this,
+                    "Sản phẩm này chưa có mã vạch (Barcode)!",
+                    "Cảnh báo", javax.swing.JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        String barcodeVal = barcodeObj.toString().trim();
+
+        try {
+            // Ensure src/main/resources/barcode/pro folder exists
+            java.io.File dir = new java.io.File("src/main/resources/barcode/pro");
+            if (!dir.exists()) {
+                dir.mkdirs();
+            }
+            
+            java.io.File outputFile = new java.io.File(dir, productIdStr + ".png");
+            java.awt.image.BufferedImage img;
+            
+            if (outputFile.exists()) {
+                img = javax.imageio.ImageIO.read(outputFile);
+            } else {
+                // Generate barcode image using ZXing Code 128
+                int width = 300;
+                int height = 100;
+                com.google.zxing.oned.Code128Writer writer = new com.google.zxing.oned.Code128Writer();
+                com.google.zxing.common.BitMatrix bitMatrix = writer.encode(
+                        barcodeVal,
+                        com.google.zxing.BarcodeFormat.CODE_128,
+                        width,
+                        height
+                );
+                
+                // Write to a temporary file in src/main/resources/barcode/pro
+                com.google.zxing.client.j2se.MatrixToImageWriter.writeToPath(bitMatrix, "PNG", outputFile.toPath());
+                
+                // Convert BitMatrix to BufferedImage
+                img = com.google.zxing.client.j2se.MatrixToImageWriter.toBufferedImage(bitMatrix);
+            }
+            
+            // Create custom panel to display the barcode & product info
+            JPanel panel = new JPanel(new java.awt.BorderLayout(10, 10));
+            panel.setBackground(java.awt.Color.WHITE);
+            panel.setBorder(javax.swing.BorderFactory.createEmptyBorder(15, 15, 15, 15));
+            
+            javax.swing.JLabel lblInfo = new javax.swing.JLabel(
+                    "<html><b>Sản phẩm:</b> " + productName + " (" + productIdStr + ")<br><b>Mã vạch:</b> " + barcodeVal + "</html>",
+                    javax.swing.SwingConstants.CENTER
+            );
+            lblInfo.setFont(new java.awt.Font("Segoe UI", java.awt.Font.PLAIN, 13));
+            lblInfo.setForeground(new java.awt.Color(30, 41, 59));
+            
+            javax.swing.JLabel lblImage = new javax.swing.JLabel(new javax.swing.ImageIcon(img));
+            lblImage.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+            
+            panel.add(lblInfo, java.awt.BorderLayout.NORTH);
+            panel.add(lblImage, java.awt.BorderLayout.CENTER);
+            
+            javax.swing.JOptionPane.showMessageDialog(
+                    this,
+                    panel,
+                    "Mã vạch sản phẩm - " + productIdStr,
+                    javax.swing.JOptionPane.PLAIN_MESSAGE
+            );
+            
+        } catch (Exception e) {
+            e.printStackTrace();
+            javax.swing.JOptionPane.showMessageDialog(this,
+                    "Lỗi khi tạo mã vạch: " + e.getMessage(),
+                    "Lỗi", javax.swing.JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -964,8 +1128,10 @@ public class DashBoardFrame extends javax.swing.JFrame {
                             row.imagePath,
                             row.productName,
                             row.categoryName,
+                            row.barcode,
                             String.format("%,.0f đ", row.price),
-                            row.quantity
+                            row.quantity,
+                            ""
                         });
                     }
 
@@ -1246,6 +1412,12 @@ public class DashBoardFrame extends javax.swing.JFrame {
             loadOverviewCardsData();
             refreshOrderHistory();
             initPaymentMethodFilter();
+            loadInventoryTableData();
+            loadProductGrid();
+            if (salesCounter != null) {
+                salesCounter.refreshTransactionHistory();
+                salesCounter.loadProductGrid();
+            }
             javax.swing.JOptionPane.showMessageDialog(this,
                     "Đã hủy hóa đơn " + orderCode + " thành công.",
                     "Thành công",
@@ -1307,9 +1479,9 @@ public class DashBoardFrame extends javax.swing.JFrame {
 
         tableProduct.setModel(new javax.swing.table.DefaultTableModel(
                 new Object[][]{},
-                new String[]{"PRODUCT ID", "IMAGE", "PRODUCT NAME", "CATEGORY", "PRICE", "STOCK", "ACTION"}
+                new String[]{"PRODUCT ID", "IMAGE", "PRODUCT NAME", "CATEGORY", "BARCODE", "PRICE", "STOCK", "ACTION"}
         ) {
-            boolean[] canEdit = new boolean[]{false, false, false, false, false, false, true};
+            boolean[] canEdit = new boolean[]{false, false, false, false, false, false, false, true};
 
             @Override
             public boolean isCellEditable(int rowIndex, int columnIndex) {
@@ -1339,18 +1511,20 @@ public class DashBoardFrame extends javax.swing.JFrame {
         tableProduct.getColumnModel().getColumn(1).setMaxWidth(70);
         tableProduct.getColumnModel().getColumn(2).setPreferredWidth(200);  // PRODUCT NAME
         tableProduct.getColumnModel().getColumn(3).setPreferredWidth(100);  // CATEGORY
-        tableProduct.getColumnModel().getColumn(4).setPreferredWidth(90);  // PRICE
-        tableProduct.getColumnModel().getColumn(5).setPreferredWidth(50);
+        tableProduct.getColumnModel().getColumn(4).setPreferredWidth(100);  // BARCODE
+        tableProduct.getColumnModel().getColumn(5).setPreferredWidth(90);   // PRICE
+        tableProduct.getColumnModel().getColumn(6).setPreferredWidth(50);   // STOCK
 
         ui.ProductActionCellRenderer actionRenderer = new ui.ProductActionCellRenderer();
         ui.ProductActionCellEditor actionEditor = new ui.ProductActionCellEditor(
                 this::onEditProduct,
-                this::onDeleteProduct
+                this::onDeleteProduct,
+                this::onShowBarcodeProduct
         );
-        tableProduct.getColumnModel().getColumn(6).setCellRenderer(actionRenderer);
-        tableProduct.getColumnModel().getColumn(6).setCellEditor(actionEditor);
-        tableProduct.getColumnModel().getColumn(6).setPreferredWidth(130);
-        tableProduct.getColumnModel().getColumn(6).setMaxWidth(150);
+        tableProduct.getColumnModel().getColumn(7).setCellRenderer(actionRenderer);
+        tableProduct.getColumnModel().getColumn(7).setCellEditor(actionEditor);
+        tableProduct.getColumnModel().getColumn(7).setPreferredWidth(210);
+        tableProduct.getColumnModel().getColumn(7).setMaxWidth(230);
 
         java.awt.Container parent = tableProduct.getParent();
         if (parent instanceof javax.swing.JViewport viewport) {
@@ -1482,7 +1656,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
         }
     }
 
-    private void loadAttendanceTableData() {
+    public void loadAttendanceTableData() {
         javax.swing.table.DefaultTableModel model
                 = (javax.swing.table.DefaultTableModel) tableAttendance.getModel();
         model.setRowCount(0);
@@ -1753,7 +1927,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
         }
     }
 
-    private void loadOverviewCardsData() {
+    public void loadOverviewCardsData() {
         repository.OrderRepository.DailyOrderStats stats = orderRepository.getDailyOrderStats();
         int presentEmployees = attendanceRepository.countTodayPresentEmployees();
 
@@ -3756,7 +3930,63 @@ public class DashBoardFrame extends javax.swing.JFrame {
     }//GEN-LAST:event_btnPOSPaymentActionPerformed
 
     private void btnScanActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnScanActionPerformed
-        // TODO add your handling code here:
+        util.BarcodeScannerUtil.startScan(this, rawBarcode -> {
+            if (rawBarcode == null || rawBarcode.trim().isEmpty()) {
+                return;
+            }
+            String empCode = util.BarcodeHashUtil.isEmpCode(rawBarcode)
+                    ? rawBarcode.trim()
+                    : util.BarcodeHashUtil.toEmpCode(rawBarcode);
+            
+            repository.EmployeeRepository empRepo = new repository.EmployeeRepository();
+            entity.Employee emp = empRepo.findByBarcode(empCode);
+            if (emp == null) {
+                emp = empRepo.findByBarcode(rawBarcode.trim());
+            }
+            
+            if (emp != null) {
+                if (emp.getStatus() == 0) {
+                    javax.swing.JOptionPane.showMessageDialog(this,
+                            "Tài khoản nhân viên này đang bị tạm dừng hoạt động!",
+                            "Lỗi đăng nhập", javax.swing.JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+                if (emp.getRoleId() == 1) {
+                    javax.swing.JOptionPane.showMessageDialog(this,
+                            "Không cho phép đăng nhập hoặc thao tác tài khoản Quản lý bằng mã vạch!",
+                            "Lỗi đăng nhập", javax.swing.JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+                
+                if (emp.getRoleId() != 1) {
+                    if (!attendanceRepository.hasActiveCheckIn(emp.getId())) {
+                        attendanceRepository.checkIn(emp.getId());
+                    }
+                    javax.swing.JOptionPane.showMessageDialog(this,
+                            "Điểm danh (Check-in) thành công cho nhân viên " + emp.getFullName() + ".",
+                            "Thành công", javax.swing.JOptionPane.INFORMATION_MESSAGE);
+                    
+                    // Reload local attendance in Dashboard
+                    loadCheckedInEmployees();
+                    loadAttendanceTableData();
+                    loadOverviewCardsData();
+                    
+                    // Synchronize POS sales counter attendance
+                    if (salesCounter != null) {
+                        salesCounter.loadCheckedInEmployees();
+                        salesCounter.refreshUserDropdown();
+                    }
+                } else {
+                    javax.swing.JOptionPane.showMessageDialog(this,
+                            "Tài khoản Quản lý không cần điểm danh!",
+                            "Thông báo", javax.swing.JOptionPane.INFORMATION_MESSAGE);
+                }
+            } else {
+                javax.swing.JOptionPane.showMessageDialog(this,
+                        "Mã thẻ không hợp lệ hoặc không tìm thấy nhân viên!",
+                        "Lỗi đăng nhập", javax.swing.JOptionPane.ERROR_MESSAGE);
+            }
+        });
     }//GEN-LAST:event_btnScanActionPerformed
 
     private void cashBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_cashBtnActionPerformed
@@ -3907,6 +4137,10 @@ public class DashBoardFrame extends javax.swing.JFrame {
                 if (txtCashReceived != null) {
                     txtCashReceived.setText("");
                 }
+                if (salesCounter != null) {
+                    salesCounter.refreshTransactionHistory();
+                    salesCounter.loadProductGrid();
+                }
                 orderSessions.remove(finishedIndex);
                 sessionOrderIds.remove(finishedIndex);
                 panelOrderSplit.remove(tabButtons.get(finishedIndex));
@@ -3930,6 +4164,10 @@ public class DashBoardFrame extends javax.swing.JFrame {
         refreshAfterNewOrder();
         if (txtCashReceived != null) {
             txtCashReceived.setText("");
+        }
+        if (salesCounter != null) {
+            salesCounter.refreshTransactionHistory();
+            salesCounter.loadProductGrid();
         }
         orderSessions.remove(activeIndex);
         sessionOrderIds.remove(activeIndex);
@@ -4307,6 +4545,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
         String panelStyle = "arc: 20; background: #FFFFFF;";
         panelBarcode.putClientProperty(FlatClientProperties.STYLE, panelStyle);
         panelCashier.putClientProperty(FlatClientProperties.STYLE, panelStyle);
+        updateCashierPanel();
         panelOrderSummary.putClientProperty(FlatClientProperties.STYLE, panelStyle);
         panelPopular.putClientProperty(FlatClientProperties.STYLE, "arc: 20; background: #F8F6F2;");
         panelCurrentOrder.putClientProperty(FlatClientProperties.STYLE, "arc: 20; background: #F8F6F2;");
@@ -4318,6 +4557,27 @@ public class DashBoardFrame extends javax.swing.JFrame {
         scrollPopular.getVerticalScrollBar().setUnitIncrement(16);
 
         txtBarcodeSearch.putClientProperty(FlatClientProperties.STYLE, "arc: 15;");
+        btnBarcode.addActionListener(e -> {
+            util.BarcodeScannerUtil.startScan(this, rawBarcode -> {
+                if (rawBarcode == null || rawBarcode.trim().isEmpty()) {
+                    return;
+                }
+                entity.Product p = productRepository.findByBarcode(rawBarcode.trim());
+                if (p != null) {
+                    if (!util.UserSession.getInstance().isLoggedIn()) {
+                        javax.swing.JOptionPane.showMessageDialog(this,
+                                "Vui lòng đăng nhập trước!", "Thông báo", javax.swing.JOptionPane.WARNING_MESSAGE);
+                        return;
+                    }
+                    ensureOrderPersisted(activeIndex);
+                    activeCart().addProduct(p);
+                } else {
+                    javax.swing.JOptionPane.showMessageDialog(this,
+                            "Không tìm thấy sản phẩm với mã vạch: " + rawBarcode,
+                            "Thông báo", javax.swing.JOptionPane.WARNING_MESSAGE);
+                }
+            });
+        });
 
         cashBtn.putClientProperty(FlatClientProperties.STYLE, ""
                 + "background: #E28743;"
@@ -4432,6 +4692,233 @@ public class DashBoardFrame extends javax.swing.JFrame {
         initProductManagementInSale();
         createNewOrder();
         loadProductGrid();
+    }
+
+    public void updateCashierPanel() {
+        panelCashier.removeAll();
+        
+        jLabel19.setText("STAFF CHECK-IN");
+        labelStatus.setText("Đang đợi quét thẻ...");
+        
+        if (btnLoginQuick == null) {
+            btnLoginQuick = new javax.swing.JButton("Đăng nhập");
+            btnLoginQuick.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 12));
+            btnLoginQuick.setBackground(new java.awt.Color(111, 59, 26)); // Meomeo theme brown
+            btnLoginQuick.setForeground(java.awt.Color.WHITE);
+            btnLoginQuick.setPreferredSize(new java.awt.Dimension(100, 35));
+            btnLoginQuick.setFocusPainted(false);
+            btnLoginQuick.setBorderPainted(false);
+            btnLoginQuick.putClientProperty(FlatClientProperties.STYLE, "background: #6F3B1A; foreground: #FFFFFF; arc: 10;");
+            btnLoginQuick.addActionListener(e -> {
+                LoginFrame loginFrame = new LoginFrame(salesCounter);
+                loginFrame.setVisible(true);
+            });
+        }
+        
+        javax.swing.GroupLayout panelCashierLayout = new javax.swing.GroupLayout(panelCashier);
+        panelCashier.setLayout(panelCashierLayout);
+        panelCashierLayout.setHorizontalGroup(
+            panelCashierLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelCashierLayout.createSequentialGroup()
+                .addGap(19, 19, 19)
+                .addGroup(panelCashierLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(jLabel19)
+                    .addComponent(labelStatus))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(btnLoginQuick, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(btnScan, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(16, 16, 16))
+        );
+        panelCashierLayout.setVerticalGroup(
+            panelCashierLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(panelCashierLayout.createSequentialGroup()
+                .addGap(10, 10, 10)
+                .addGroup(panelCashierLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addComponent(btnScan, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(btnLoginQuick, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addGroup(panelCashierLayout.createSequentialGroup()
+                        .addComponent(jLabel19)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(labelStatus)))
+                .addContainerGap(15, Short.MAX_VALUE))
+        );
+        
+        panelCashier.revalidate();
+        panelCashier.repaint();
+    }
+
+    private void initCheckedInEmployeesPanel() {
+        panelEmployeeCheckIn.removeAll();
+        panelEmployeeCheckIn.setLayout(new java.awt.BorderLayout());
+        panelEmployeeCheckIn.setPreferredSize(new java.awt.Dimension(250, 200));
+        panelEmployeeCheckIn.setMinimumSize(new java.awt.Dimension(200, 136));
+        panelEmployeeCheckIn.setOpaque(false);
+        
+        javax.swing.JLabel titleLabel = new javax.swing.JLabel("Nhân viên đã check-in", javax.swing.SwingConstants.LEFT);
+        titleLabel.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 14));
+        titleLabel.setForeground(new java.awt.Color(111, 59, 26)); // #6F3B1A
+        titleLabel.setIcon(ui.MenuIcons.humanResources());
+        titleLabel.setIconTextGap(8);
+        
+        JPanel listPanel = new JPanel();
+        listPanel.setLayout(new javax.swing.BoxLayout(listPanel, javax.swing.BoxLayout.Y_AXIS));
+        listPanel.setBackground(java.awt.Color.WHITE);
+        
+        JPanel mainPanel = new JPanel(new java.awt.BorderLayout(0, 10));
+        mainPanel.setBackground(java.awt.Color.WHITE);
+        mainPanel.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        mainPanel.putClientProperty(FlatClientProperties.STYLE, "arc: 20; background: #FFFFFF;");
+        
+        mainPanel.add(titleLabel, java.awt.BorderLayout.NORTH);
+        
+        javax.swing.JScrollPane scrollPane = new javax.swing.JScrollPane(listPanel);
+        scrollPane.setBorder(null);
+        scrollPane.setOpaque(false);
+        scrollPane.getViewport().setOpaque(false);
+        mainPanel.add(scrollPane, java.awt.BorderLayout.CENTER);
+        
+        panelEmployeeCheckIn.add(mainPanel, java.awt.BorderLayout.CENTER);
+        checkInListPanel = listPanel;
+    }
+
+    public void loadCheckedInEmployees() {
+        if (checkInListPanel == null) {
+            initCheckedInEmployeesPanel();
+        }
+        
+        checkInListPanel.removeAll();
+        java.util.List<repository.AttendanceRepository.CheckedInEmployee> list = attendanceRepository.getTodayCheckedInEmployees();
+        
+        if (list.isEmpty()) {
+            JPanel emptyPanel = new JPanel(new java.awt.GridBagLayout());
+            emptyPanel.setOpaque(false);
+            
+            javax.swing.JLabel noEmpLabel = new javax.swing.JLabel("Không có nhân viên check-in");
+            noEmpLabel.setFont(new java.awt.Font("Segoe UI", java.awt.Font.ITALIC, 12));
+            noEmpLabel.setForeground(new java.awt.Color(148, 163, 184)); // #94A3B8
+            emptyPanel.add(noEmpLabel);
+            
+            checkInListPanel.add(emptyPanel);
+        } else {
+            for (repository.AttendanceRepository.CheckedInEmployee emp : list) {
+                JPanel card = createEmployeeCard(emp);
+                checkInListPanel.add(card);
+                checkInListPanel.add(javax.swing.Box.createVerticalStrut(8));
+            }
+            checkInListPanel.add(javax.swing.Box.createVerticalGlue());
+        }
+        
+        checkInListPanel.revalidate();
+        checkInListPanel.repaint();
+        panelEmployeeCheckIn.revalidate();
+        panelEmployeeCheckIn.repaint();
+        if (panelEmployeeCheckIn.getParent() != null) {
+            panelEmployeeCheckIn.getParent().revalidate();
+            panelEmployeeCheckIn.getParent().repaint();
+        }
+    }
+
+    private JPanel createEmployeeCard(repository.AttendanceRepository.CheckedInEmployee emp) {
+        JPanel card = new JPanel(new java.awt.BorderLayout(8, 0));
+        card.setBackground(java.awt.Color.WHITE);
+        card.setMaximumSize(new java.awt.Dimension(Short.MAX_VALUE, 56));
+        card.setPreferredSize(new java.awt.Dimension(250, 56));
+        card.setMinimumSize(new java.awt.Dimension(200, 56));
+        card.putClientProperty(FlatClientProperties.STYLE,
+            "arc: 12; border: 1,1,1,1,#E2E8F0; background: #FFFFFF;");
+        card.setBorder(javax.swing.BorderFactory.createEmptyBorder(8, 12, 8, 10));
+
+        // --- Màu role ---
+        java.awt.Color roleColor = new java.awt.Color(160, 174, 192);
+        if (emp.roleColorHex != null) {
+            try { roleColor = java.awt.Color.decode(emp.roleColorHex); } catch (Exception ignored) {}
+        }
+        final java.awt.Color finalRoleColor = roleColor;
+
+        // --- Tên nhân viên ---
+        javax.swing.JLabel lblName = new javax.swing.JLabel(emp.fullName);
+        lblName.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 12));
+        lblName.setForeground(new java.awt.Color(30, 41, 59));
+        lblName.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
+
+        // --- Role badge (text có màu) ---
+        javax.swing.JLabel lblRole = new javax.swing.JLabel(emp.roleName != null ? emp.roleName : "");
+        lblRole.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 10));
+        lblRole.setForeground(finalRoleColor);
+        lblRole.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
+
+        JPanel infoPanel = new JPanel();
+        infoPanel.setLayout(new javax.swing.BoxLayout(infoPanel, javax.swing.BoxLayout.Y_AXIS));
+        infoPanel.setOpaque(false);
+        infoPanel.add(lblName);
+        infoPanel.add(javax.swing.Box.createVerticalStrut(2));
+        infoPanel.add(lblRole);
+
+        // --- Giờ vào ---
+        String timeStr = "—";
+        if (emp.checkInTime != null) {
+            timeStr = new java.text.SimpleDateFormat("HH:mm").format(emp.checkInTime);
+        }
+        javax.swing.JLabel lblTime = new javax.swing.JLabel(timeStr);
+        lblTime.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 11));
+        lblTime.setForeground(new java.awt.Color(100, 116, 139));
+
+        // --- Panel bên phải: giờ + nút kết thúc ---
+        JPanel eastPanel = new JPanel();
+        eastPanel.setLayout(new javax.swing.BoxLayout(eastPanel, javax.swing.BoxLayout.Y_AXIS));
+        eastPanel.setOpaque(false);
+
+        lblTime.setAlignmentX(java.awt.Component.RIGHT_ALIGNMENT);
+        eastPanel.add(lblTime);
+
+        if (emp.id >= 2) {
+            eastPanel.add(javax.swing.Box.createVerticalStrut(2));
+            javax.swing.JButton btnEndShift = new javax.swing.JButton("Kết thúc");
+            btnEndShift.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 9));
+            btnEndShift.setBackground(new java.awt.Color(239, 68, 68));
+            btnEndShift.setForeground(java.awt.Color.WHITE);
+            btnEndShift.setFocusPainted(false);
+            btnEndShift.setBorderPainted(false);
+            btnEndShift.setMargin(new java.awt.Insets(1, 6, 1, 6));
+            btnEndShift.putClientProperty(FlatClientProperties.STYLE, "background: #EF4444; foreground: #FFFFFF; arc: 8;");
+            btnEndShift.setAlignmentX(java.awt.Component.RIGHT_ALIGNMENT);
+            btnEndShift.addActionListener(e -> {
+                int confirm = javax.swing.JOptionPane.showConfirmDialog(this,
+                    "Xác nhận kết thúc phiên làm việc cho nhân viên " + emp.fullName + "?",
+                    "Kết thúc phiên",
+                    javax.swing.JOptionPane.YES_NO_OPTION,
+                    javax.swing.JOptionPane.QUESTION_MESSAGE);
+                if (confirm == javax.swing.JOptionPane.YES_OPTION) {
+                    attendanceRepository.checkOut(emp.id);
+                    entity.Employee currentUser = util.UserSession.getInstance().getCurrentUser();
+                    if (currentUser != null && currentUser.getId() == emp.id) {
+                        util.UserSession.getInstance().cleanUserSession();
+                    }
+                    
+                    // Reload local attendance in Dashboard
+                    loadCheckedInEmployees();
+                    loadAttendanceTableData();
+                    loadOverviewCardsData();
+                    
+                    // Synchronize POS sales counter attendance
+                    if (salesCounter != null) {
+                        salesCounter.loadCheckedInEmployees();
+                        salesCounter.refreshUserDropdown();
+                    }
+                    
+                    javax.swing.JOptionPane.showMessageDialog(this,
+                        "Đã kết thúc phiên làm việc thành công!",
+                        "Thông báo", javax.swing.JOptionPane.INFORMATION_MESSAGE);
+                }
+            });
+            eastPanel.add(btnEndShift);
+        }
+
+        card.add(infoPanel, java.awt.BorderLayout.CENTER);
+        card.add(eastPanel, java.awt.BorderLayout.EAST);
+
+        return card;
     }
 
     @Override
