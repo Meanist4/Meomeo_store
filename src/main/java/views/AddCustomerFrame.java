@@ -49,8 +49,16 @@ public class AddCustomerFrame extends javax.swing.JFrame {
             showError("Vui lòng nhập họ tên!");
             return;
         }
+        if (!fullName.matches("^[\\p{L}\\s]{2,50}$")) {
+            showError("Họ tên phải từ 2-50 ký tự và chỉ chứa chữ cái, khoảng trắng!");
+            return;
+        }
         if (phone.isEmpty()) {
             showError("Vui lòng nhập số điện thoại!");
+            return;
+        }
+        if (!phone.matches("^0[0-9]{9}$")) {
+            showError("Số điện thoại phải gồm 10 chữ số và bắt đầu bằng số 0!");
             return;
         }
 

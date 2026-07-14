@@ -14,6 +14,11 @@ public class LoginFrame extends javax.swing.JFrame {
     
     private static final java.util.logging.Logger logger = java.util.logging.Logger.getLogger(LoginFrame.class.getName());
     private final service.EmployeeService employeeService = new service.impl.EmployeeServiceImpl();
+    
+    private javax.swing.JButton btnResendOtp;
+    private javax.swing.Timer resendTimer;
+    private int resendSecondsLeft = 0;
+    private javax.swing.JPanel buttonPanel;
 
     private enum ScreenState {
         LOGIN,
@@ -77,6 +82,7 @@ public class LoginFrame extends javax.swing.JFrame {
         jLabel3.setText("MEOMEO STORE");
         jLabel3.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 26));
         jLabel3.setForeground(new java.awt.Color(227, 138, 69));
+        jLabel3.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         
         jLabel2.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 13));
         jLabel2.setForeground(new java.awt.Color(74, 85, 104));
@@ -85,12 +91,22 @@ public class LoginFrame extends javax.swing.JFrame {
         jLabel1.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 13));
         jLabel1.setForeground(new java.awt.Color(74, 85, 104));
         jLabel1.setText("Mật khẩu");
+
+        btnResendOtp.setText("Gửi lại mã OTP");
+        btnResendOtp.setBackground(new java.awt.Color(255, 255, 255));
+        btnResendOtp.setForeground(new java.awt.Color(74, 85, 104));
+        btnResendOtp.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 14));
+        btnResendOtp.setFocusPainted(false);
+        btnResendOtp.putClientProperty(FlatClientProperties.STYLE,
+                "background: #FFFFFF; foreground: #4A5568; arc: 12; borderWidth: 1; focusWidth: 0;");
+        btnResendOtp.setVisible(false);
     }
 
     private void setupEvents() {
         jButton1.addActionListener(e -> performAction());
         txtPassword.addActionListener(e -> performAction());
         txtUsername.addActionListener(e -> performAction());
+        btnResendOtp.addActionListener(e -> performResendOtp());
         
         jLabel4.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
@@ -124,8 +140,16 @@ public class LoginFrame extends javax.swing.JFrame {
             javax.swing.JOptionPane.showMessageDialog(this, "Vui lòng nhập Username!", "Lỗi", javax.swing.JOptionPane.ERROR_MESSAGE);
             return;
         }
+        if (!username.matches("^[a-zA-Z0-9_]{3,20}$")) {
+            javax.swing.JOptionPane.showMessageDialog(this, "Username phải từ 3-20 ký tự, chỉ gồm chữ cái, chữ số và dấu gạch dưới!", "Lỗi", javax.swing.JOptionPane.ERROR_MESSAGE);
+            return;
+        }
         if (password.isEmpty()) {
             javax.swing.JOptionPane.showMessageDialog(this, "Vui lòng nhập Password!", "Lỗi", javax.swing.JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        if (!password.matches("^[a-zA-Z0-9_!@#$%^&*()]{6,20}$")) {
+            javax.swing.JOptionPane.showMessageDialog(this, "Mật khẩu phải từ 6-20 ký tự, chỉ chứa chữ cái, chữ số hoặc ký tự đặc biệt thông dụng (_!@#$%^&*())!", "Lỗi", javax.swing.JOptionPane.ERROR_MESSAGE);
             return;
         }
 
@@ -285,10 +309,58 @@ public class LoginFrame extends javax.swing.JFrame {
         }
     }
 
+    private void performResendOtp() {
+        if (resendSecondsLeft > 0) {
+            return;
+        }
+        if (targetPhone == null || targetPhone.trim().isEmpty()) {
+            javax.swing.JOptionPane.showMessageDialog(this, "Không có số điện thoại đăng ký!", "Lỗi", javax.swing.JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        this.sentOtp = generateOtpCode();
+        boolean success = util.SmsService.sendOtp(targetPhone, sentOtp);
+        if (success) {
+            javax.swing.JOptionPane.showMessageDialog(this, 
+                    "Mã OTP mới đã được gửi tới số điện thoại: " + maskPhoneNumber(targetPhone) + "\nVui lòng kiểm tra tin nhắn!", 
+                    "Thành công", javax.swing.JOptionPane.INFORMATION_MESSAGE);
+            startResendTimer();
+        } else {
+            javax.swing.JOptionPane.showMessageDialog(this, "Gửi mã OTP thất bại! Vui lòng thử lại.", "Lỗi", javax.swing.JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void startResendTimer() {
+        resendSecondsLeft = 60;
+        btnResendOtp.setEnabled(false);
+        btnResendOtp.setText("Gửi lại OTP (60s)");
+
+        if (resendTimer != null && resendTimer.isRunning()) {
+            resendTimer.stop();
+        }
+
+        resendTimer = new javax.swing.Timer(1000, e -> {
+            resendSecondsLeft--;
+            if (resendSecondsLeft <= 0) {
+                resendTimer.stop();
+                btnResendOtp.setEnabled(true);
+                btnResendOtp.setText("Gửi lại mã OTP");
+            } else {
+                btnResendOtp.setText("Gửi lại OTP (" + resendSecondsLeft + "s)");
+            }
+        });
+        resendTimer.start();
+    }
+
     private void switchState(ScreenState state) {
         this.screenState = state;
         txtUsername.setText("");
         txtPassword.setText("");
+        
+        if (resendTimer != null) {
+            resendTimer.stop();
+        }
+        resendSecondsLeft = 0;
         
         if (state == ScreenState.LOGIN) {
             jLabel3.setText("MEOMEO STORE");
@@ -300,6 +372,7 @@ public class LoginFrame extends javax.swing.JFrame {
             jLabel4.setText("Forgot Password ?");
             txtUsername.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Nhập username của bạn");
             txtPassword.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Nhập mật khẩu của bạn");
+            btnResendOtp.setVisible(false);
         } 
         else if (state == ScreenState.FORGOT_REQUEST_OTP) {
             jLabel3.setText("QUÊN MẬT KHẨU");
@@ -309,6 +382,7 @@ public class LoginFrame extends javax.swing.JFrame {
             jButton1.setText("Gửi mã OTP");
             jLabel4.setText("Quay lại Đăng nhập");
             txtUsername.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Nhập username để lấy mã OTP");
+            btnResendOtp.setVisible(false);
         } 
         else if (state == ScreenState.FORGOT_RESET_PASSWORD) {
             jLabel3.setText("ĐẶT LẠI MẬT KHẨU");
@@ -317,9 +391,11 @@ public class LoginFrame extends javax.swing.JFrame {
             jLabel1.setVisible(true);
             txtPassword.setVisible(true);
             jButton1.setText("Xác nhận đổi mật khẩu");
-            jLabel4.setText("Gửi lại mã OTP");
+            jLabel4.setText("Quay lại");
             txtUsername.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Nhập mã OTP đã nhận");
             txtPassword.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Nhập mật khẩu mới");
+            btnResendOtp.setVisible(true);
+            startResendTimer();
         }
         
         getContentPane().revalidate();
@@ -352,6 +428,11 @@ public class LoginFrame extends javax.swing.JFrame {
         jLabel3 = new javax.swing.JLabel();
         jLabel4 = new javax.swing.JLabel();
         jButton1 = new javax.swing.JButton();
+        btnResendOtp = new javax.swing.JButton();
+        buttonPanel = new javax.swing.JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.CENTER, 10, 0));
+        buttonPanel.setOpaque(false);
+        buttonPanel.add(jButton1);
+        buttonPanel.add(btnResendOtp);
         txtPassword = new javax.swing.JPasswordField();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
@@ -376,6 +457,10 @@ public class LoginFrame extends javax.swing.JFrame {
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(layout.createSequentialGroup()
+                .addGap(20, 20, 20)
+                .addComponent(jLabel3, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addGap(20, 20, 20))
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
                 .addContainerGap(124, Short.MAX_VALUE)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -387,15 +472,12 @@ public class LoginFrame extends javax.swing.JFrame {
                         .addGap(28, 28, 28)
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                             .addComponent(txtUsername, javax.swing.GroupLayout.DEFAULT_SIZE, 301, Short.MAX_VALUE)
-                            .addComponent(txtPassword)
-                            .addGroup(layout.createSequentialGroup()
-                                .addGap(22, 22, 22)
-                                .addComponent(jLabel3, javax.swing.GroupLayout.PREFERRED_SIZE, 224, javax.swing.GroupLayout.PREFERRED_SIZE)))))
+                            .addComponent(txtPassword))))
                 .addGap(80, 80, 80))
             .addGroup(layout.createSequentialGroup()
-                .addGap(172, 172, 172)
-                .addComponent(jButton1, javax.swing.GroupLayout.PREFERRED_SIZE, 141, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addGap(20, 20, 20)
+                .addComponent(buttonPanel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addGap(20, 20, 20))
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -413,7 +495,7 @@ public class LoginFrame extends javax.swing.JFrame {
                 .addGap(18, 18, 18)
                 .addComponent(jLabel4)
                 .addGap(20, 20, 20)
-                .addComponent(jButton1, javax.swing.GroupLayout.PREFERRED_SIZE, 41, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(buttonPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addContainerGap(84, Short.MAX_VALUE))
         );
 

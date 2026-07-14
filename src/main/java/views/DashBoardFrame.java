@@ -279,6 +279,33 @@ public class DashBoardFrame extends javax.swing.JFrame {
         dateTo.setDate(new java.util.Date());
         refreshOrderHistory();
         loadInventoryTableData();
+
+        // Refresh charts (panelRevenueDate)
+        if (chartTuan != null) {
+            repository.OrderRepository.WeekRevenueResult weekData = orderRepository.getRevenueByWeek();
+            chartTuan.setData(weekData.labels, weekData.values);
+            chartTuan.repaint();
+        }
+        if (chartThang != null) {
+            String[] labelsThang = {"T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10", "T11", "T12"};
+            chartThang.setData(labelsThang, orderRepository.getRevenueByMonth());
+            chartThang.repaint();
+        }
+
+        // Refresh top selling products (panelTopSales)
+        if (topSalesNgay != null) {
+            topSalesNgay.setData(orderRepository.getTopProductsToday(5));
+            topSalesNgay.repaint();
+        }
+        if (topSalesThang != null) {
+            topSalesThang.setData(orderRepository.getTopProductsThisMonth(5));
+            topSalesThang.repaint();
+        }
+
+        panelRevenueDate.revalidate();
+        panelRevenueDate.repaint();
+        panelTopSales.revalidate();
+        panelTopSales.repaint();
     }
 
     private void setupScrollArea() {
@@ -851,6 +878,10 @@ public class DashBoardFrame extends javax.swing.JFrame {
             int empId = Integer.parseInt(empIdStr.replace("EMP", ""));
             if (employeeRepository.deleteEmployee(empId)) {
                 loadEmployeeManagementTableData();
+                if (salesCounter != null) {
+                    salesCounter.loadCheckedInEmployees();
+                    salesCounter.refreshUserDropdown();
+                }
                 javax.swing.JOptionPane.showMessageDialog(this, "Đã xóa nhân viên thành công.");
             } else {
                 javax.swing.JOptionPane.showMessageDialog(
@@ -1042,6 +1073,18 @@ public class DashBoardFrame extends javax.swing.JFrame {
             scrollPane.setViewport(new ui.EmptyTableViewport(jTable1, "No customers found!"));
             scrollPane.setViewportView(jTable1);
         }
+
+        // Apply FlatLaf styling to the Customer Tab elements
+        jTextField1.putClientProperty(FlatClientProperties.STYLE, "arc: 12; margin: 0,10,0,10;");
+        jTextField1.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Search by phone number...");
+
+        btnAddCustomer.putClientProperty(FlatClientProperties.STYLE,
+                "background: #E38A45; foreground: #FFFFFF; arc: 8; borderWidth: 0; focusWidth: 0;");
+        btnAddCustomer.setBackground(new java.awt.Color(227, 138, 69));
+        btnAddCustomer.setForeground(java.awt.Color.WHITE);
+        btnAddCustomer.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 13));
+
+        jPanel7.putClientProperty(FlatClientProperties.STYLE, "arc: 12;");
     }
 
 //    private javax.swing.Timer customerSearchTimer = null;
@@ -1061,12 +1104,17 @@ public class DashBoardFrame extends javax.swing.JFrame {
         );
 
         btnAddCustomer.addActionListener(e -> {
-            AddCustomerFrame addFrame = new AddCustomerFrame(this::loadCustomerTableData);
+            AddCustomerFrame addFrame = new AddCustomerFrame(() -> {
+                loadCustomerTableData();
+                if (salesCounter != null) {
+                    salesCounter.loadCustomerTableData();
+                }
+            });
             addFrame.setVisible(true);
         });
     }
 
-    private void loadCustomerTableData() {
+    public void loadCustomerTableData() {
         String keyword = (jTextField1 != null) ? jTextField1.getText().trim() : "";
 
         new javax.swing.SwingWorker<java.util.List<entity.Customer>, Void>() {
@@ -1548,7 +1596,12 @@ public class DashBoardFrame extends javax.swing.JFrame {
                     javax.swing.JOptionPane.ERROR_MESSAGE);
             return;
         }
-        views.AddProductFrame editFrame = new views.AddProductFrame(product, () -> loadInventoryTableData());
+        views.AddProductFrame editFrame = new views.AddProductFrame(product, () -> {
+            loadInventoryTableData();
+            if (salesCounter != null) {
+                salesCounter.loadProductGrid();
+            }
+        });
         editFrame.setVisible(true);
     }
 
@@ -1570,6 +1623,9 @@ public class DashBoardFrame extends javax.swing.JFrame {
             boolean deleted = productRepository.softDelete(productId);
             if (deleted) {
                 loadInventoryTableData();
+                if (salesCounter != null) {
+                    salesCounter.loadProductGrid();
+                }
             } else {
                 javax.swing.JOptionPane.showMessageDialog(this,
                         "Xóa thất bại! Vui lòng thử lại.", "Lỗi",
@@ -3852,6 +3908,9 @@ public class DashBoardFrame extends javax.swing.JFrame {
     private void btnAddProductActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnAddProductActionPerformed
         views.AddProductFrame addFrame = new views.AddProductFrame(() -> {
             loadInventoryTableData();
+            if (salesCounter != null) {
+                salesCounter.loadProductGrid();
+            }
         });
         addFrame.setVisible(true);
     }//GEN-LAST:event_btnAddProductActionPerformed
@@ -3913,6 +3972,10 @@ public class DashBoardFrame extends javax.swing.JFrame {
         btnHumanResources.doClick();
         btnEmployeeManagement.doClick();
         loadEmployeeManagementTableData();
+        if (salesCounter != null) {
+            salesCounter.loadCheckedInEmployees();
+            salesCounter.refreshUserDropdown();
+        }
     }
 
     private void btnAddScheduleActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnAddScheduleActionPerformed

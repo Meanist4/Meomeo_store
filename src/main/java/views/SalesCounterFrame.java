@@ -401,6 +401,7 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         initSearchInvoiceFilterInSale();
         initTransactionDateFilters();
         refreshTransactionHistory();
+        customCustomerTableAppearance();
         loadCustomerTableData();
         initCustomerFilterEvents();
         loadCheckedInEmployees();
@@ -986,6 +987,16 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         customerSuggestPopup = new javax.swing.JPopupMenu();
         customerSuggestPopup.setFocusable(false);
 
+        // Apply FlatLaf styles to inline Customer elements
+        txtSearchCustomer.putClientProperty(FlatClientProperties.STYLE, "arc: 12; margin: 0,10,0,10;");
+        txtSearchCustomer.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Search customer by name/phone...");
+
+        btnAddCustomer.putClientProperty(FlatClientProperties.STYLE,
+                "background: #E38A45; foreground: #FFFFFF; arc: 12; borderWidth: 0; focusWidth: 0;");
+        btnAddCustomer.setBackground(new java.awt.Color(227, 138, 69));
+        btnAddCustomer.setForeground(java.awt.Color.WHITE);
+        btnAddCustomer.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 13));
+
         txtSearchCustomer.getDocument().addDocumentListener(onDocumentChange(() -> {
             String keyword = txtSearchCustomer.getText().trim();
             if (customerSearchTimer != null && customerSearchTimer.isRunning()) {
@@ -1077,6 +1088,7 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         cachedProductList = listProduct != null ? listProduct : new ArrayList<>();
         cachedCategoryList = listCategory != null ? listCategory : new ArrayList<>();
         renderProductGrid(cachedProductList);
+        loadProductTableData();
     }
 
     private void renderProductGrid(java.util.List<entity.Product> listProduct) {
@@ -1147,7 +1159,42 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
         });
     }
 
-    private void loadCustomerTableData() {
+    private void customCustomerTableAppearance() {
+        jTable1.setModel(new javax.swing.table.DefaultTableModel(
+                new Object[][]{},
+                new String[]{"STT", "Customer ID", "Full Name", "Phone Number"}
+        ) {
+            boolean[] canEdit = new boolean[]{false, false, false, false};
+
+            @Override
+            public boolean isCellEditable(int rowIndex, int columnIndex) {
+                return canEdit[columnIndex];
+            }
+        });
+        jTable1.setRowHeight(48);
+        jTable1.setShowHorizontalLines(true);
+        jTable1.setShowVerticalLines(false);
+        jTable1.setSelectionBackground(new java.awt.Color(248, 246, 242));
+        jTable1.setSelectionForeground(new java.awt.Color(15, 23, 42));
+        jTable1.putClientProperty(FlatClientProperties.STYLE,
+                "rowSelectionBackground: #F8F6F2; rowSelectionForeground: #0F172A; lineColor: #F1F5F9;");
+
+        javax.swing.table.JTableHeader header = jTable1.getTableHeader();
+        header.setPreferredSize(new java.awt.Dimension(header.getPreferredSize().width, 38));
+        header.setDefaultRenderer(new ui.StandardTableHeaderRenderer(javax.swing.SwingConstants.LEFT, 12));
+
+        java.awt.Container parent = jTable1.getParent();
+        if (parent instanceof javax.swing.JViewport viewport) {
+            javax.swing.JScrollPane scrollPane = (javax.swing.JScrollPane) viewport.getParent();
+            scrollPane.setViewport(new ui.EmptyTableViewport(jTable1, "No customers found!"));
+            scrollPane.setViewportView(jTable1);
+        }
+
+        txtPhone.putClientProperty(FlatClientProperties.STYLE, "arc: 12; margin: 0,10,0,10;");
+        txtPhone.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Search by phone number...");
+    }
+
+    public void loadCustomerTableData() {
         String keyword = (txtPhone != null) ? txtPhone.getText().trim() : "";
 
         new javax.swing.SwingWorker<java.util.List<entity.Customer>, Void>() {
@@ -1199,7 +1246,12 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
 
         btnAddCustomer.addActionListener(e -> {
             if (!checkLoginAndWarn()) return;
-            AddCustomerFrame addFrame = new AddCustomerFrame(this::loadCustomerTableData);
+            AddCustomerFrame addFrame = new AddCustomerFrame(() -> {
+                loadCustomerTableData();
+                if (dashBoard != null) {
+                    dashBoard.loadCustomerTableData();
+                }
+            });
             addFrame.setVisible(true);
         });
     }

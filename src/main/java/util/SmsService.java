@@ -29,18 +29,44 @@ public final class SmsService {
             return false;
         }
 
+        // Kiểm tra định dạng số điện thoại Việt Nam hợp lệ
+        if (!phoneNumber.matches("^0[0-9]{9}$") && !phoneNumber.matches("^\\+84[0-9]{9}$")) {
+            logger.severe("❌ Số điện thoại không hợp lệ, không thể gửi OTP!");
+            return false;
+        }
+
+        // Kiểm tra tính hợp lệ sơ bộ của cấu hình Twilio nếu người dùng đã thay thế các chuỗi mặc định
+        if (!"TWILIO_ACCOUNT_SID".equals(TWILIO_ACCOUNT_SID) 
+                || !"TWILIO_AUTH_TOKEN".equals(TWILIO_AUTH_TOKEN)
+                || !"YOUR_TWILIO_PHONE_NUMBER".equals(TWILIO_PHONE_FROM)) {
+            
+            if (!TWILIO_ACCOUNT_SID.startsWith("AC") || TWILIO_ACCOUNT_SID.length() != 34) {
+                logger.severe("❌ Cấu hình Twilio thất bại: Account SID không hợp lệ (phải bắt đầu bằng 'AC' và dài 34 ký tự)!");
+                return false;
+            }
+            if (TWILIO_AUTH_TOKEN.length() != 32) {
+                logger.severe("❌ Cấu hình Twilio thất bại: Auth Token không hợp lệ (phải dài 32 ký tự)!");
+                return false;
+            }
+            if (TWILIO_PHONE_FROM == null || TWILIO_PHONE_FROM.trim().isEmpty()) {
+                logger.severe("❌ Cấu hình Twilio thất bại: Số điện thoại gửi (TWILIO_PHONE_FROM) trống!");
+                return false;
+            }
+        }
+
         String messageContent = "[Meomeo Store] Ma OTP khoi phuc mat khau cua ban la: " + otp + ". Co hieu luc trong 5 phut.";
 
         // Giả lập cuộc gọi thư viện gửi tin nhắn (Twilio SDK pattern)
         logger.info("--------------------------------------------------");
         logger.info("🔄 ĐANG GỬI TIN NHẮN SMS OTP QUA THƯ VIỆN...");
         logger.info("📱 Gửi tới SĐT: " + phoneNumber);
-        logger.info("💬 Nội dung: " + messageContent);
         logger.info("--------------------------------------------------");
 
         try {
             // Cấu trúc mô phỏng cuộc gọi thực tế từ thư viện Twilio (nếu cấu hình đầy đủ sẽ chạy)
-            if (!TWILIO_ACCOUNT_SID.startsWith("ACXXX") && !TWILIO_AUTH_TOKEN.equals("your_auth_token_here")) {
+            if (!"TWILIO_ACCOUNT_SID".equals(TWILIO_ACCOUNT_SID) 
+                    && !"TWILIO_AUTH_TOKEN".equals(TWILIO_AUTH_TOKEN)
+                    && !"YOUR_TWILIO_PHONE_NUMBER".equals(TWILIO_PHONE_FROM)) {
                 // com.twilio.Twilio.init(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
                 // com.twilio.rest.api.v2010.account.Message.creator(
                 //     new com.twilio.type.PhoneNumber(phoneNumber),
@@ -50,7 +76,7 @@ public final class SmsService {
                 logger.info("✅ Gửi SMS thành công qua API của Twilio!");
             } else {
                 // Fallback in ra màn hình console và hộp thoại debug cho nhà phát triển tiện sửa code offline
-                System.out.println("📬 [DEBUG OTP SMS] Đã gửi SMS tới " + phoneNumber + ": " + messageContent);
+                System.out.println("📬 [DEBUG OTP SMS] Đã gửi SMS tới " + phoneNumber + " (OTP value hidden)");
             }
             return true;
         } catch (Exception e) {

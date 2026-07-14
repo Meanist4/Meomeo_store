@@ -162,7 +162,15 @@ public class AddEmployeeFrame extends javax.swing.JFrame {
 
         // Kiểm tra các trường chung bắt buộc điền
         if (fullName.isEmpty()) { showError("Vui lòng nhập họ tên!"); return; }
+        if (!fullName.matches("^[\\p{L}\\s]{2,50}$")) {
+            showError("Họ tên phải từ 2-50 ký tự và chỉ chứa chữ cái, khoảng trắng!");
+            return;
+        }
         if (phone.isEmpty()) { showError("Vui lòng nhập số điện thoại!"); return; }
+        if (!phone.matches("^0[0-9]{9}$")) {
+            showError("Số điện thoại phải gồm 10 chữ số và bắt đầu bằng số 0!");
+            return;
+        }
         if (cbRole.getSelectedItem() == null) { showError("Vui lòng chọn vai trò!"); return; }
 
         Role selectedRole = (Role) cbRole.getSelectedItem();
@@ -186,7 +194,15 @@ public class AddEmployeeFrame extends javax.swing.JFrame {
         String confirmPassword = new String(txtConfirmPassword.getPassword());
 
         if (username.isEmpty()) { showError("Vui lòng nhập username!"); return; }
+        if (!username.matches("^[a-zA-Z0-9_]{3,20}$")) {
+            showError("Username phải từ 3-20 ký tự, chỉ gồm chữ cái, chữ số và dấu gạch dưới!");
+            return;
+        }
         if (password.isEmpty()) { showError("Vui lòng nhập mật khẩu!"); return; }
+        if (!password.matches("^[a-zA-Z0-9_!@#$%^&*()]{6,20}$")) {
+            showError("Mật khẩu phải từ 6-20 ký tự, chỉ chứa chữ cái, chữ số hoặc ký tự đặc biệt thông dụng (_!@#$%^&*())!");
+            return;
+        }
         if (!password.equals(confirmPassword)) { showError("Mật khẩu xác nhận không khớp!"); return; }
 
         boolean isAdded = empSrv.addEmployee(fullName, selectedRole.getId(), phone, username, password);
