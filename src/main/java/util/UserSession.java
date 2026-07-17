@@ -1,16 +1,20 @@
 package util;
 
 import entity.Employee;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 public class UserSession {
+
     private static UserSession instance;
     private Employee currentUser;
     private String token;
     private final Map<Integer, Employee> activeEmployees = new LinkedHashMap<>();
+    private LocalDateTime breakStart;
+    private long totalBreakMinutes;
 
     private UserSession() {
     }
@@ -20,6 +24,26 @@ public class UserSession {
             instance = new UserSession();
         }
         return instance;
+    }
+
+    public void addBreakMinutes(long minutes) {
+        totalBreakMinutes += minutes;
+    }
+
+    public LocalDateTime getBreakStart() {
+        return breakStart;
+    }
+
+    public void setBreakStart(LocalDateTime breakStart) {
+        this.breakStart = breakStart;
+    }
+
+    public long getTotalBreakMinutes() {
+        return totalBreakMinutes;
+    }
+
+    public void setTotalBreakMinutes(long totalBreakMinutes) {
+        this.totalBreakMinutes = totalBreakMinutes;
     }
 
     public Employee getCurrentUser() {

@@ -3033,8 +3033,10 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
                 util.UserSession.getInstance().removeActiveEmployee(emp.id);
                 entity.Employee currentUser = util.UserSession.getInstance().getCurrentUser();
                 if (currentUser != null && currentUser.getId() == emp.id) {
+                    util.UserSession.getInstance().setBreakStart(java.time.LocalDateTime.now());
                     util.UserSession.getInstance().cleanUserSession();
                 }
+
                 loadCheckedInEmployees();
                 refreshUserDropdown();
             });
@@ -3059,6 +3061,10 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
                         javax.swing.JOptionPane.QUESTION_MESSAGE);
                 if (confirm == javax.swing.JOptionPane.YES_OPTION) {
                     attendanceRepository.checkOut(emp.id);
+                    util.UserSession session = util.UserSession.getInstance();
+
+                    session.setBreakStart(null);
+                    session.setTotalBreakMinutes(0);
                     util.UserSession.getInstance().removeActiveEmployee(emp.id);
                     entity.Employee currentUser = util.UserSession.getInstance().getCurrentUser();
                     if (currentUser != null && currentUser.getId() == emp.id) {

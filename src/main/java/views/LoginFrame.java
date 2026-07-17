@@ -1,15 +1,7 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/GUIForms/JFrame.java to edit this template
- */
 package views;
 
 import com.formdev.flatlaf.FlatClientProperties;
 
-/**
- *
- * @author admin
- */
 public class LoginFrame extends javax.swing.JFrame {
 
     private static final java.util.logging.Logger logger = java.util.logging.Logger
@@ -198,6 +190,26 @@ public class LoginFrame extends javax.swing.JFrame {
             util.UserSession.getInstance().setToken(java.util.UUID.randomUUID().toString());
             util.UserSession.getInstance().addActiveEmployee(emp);
 
+            util.UserSession session = util.UserSession.getInstance();
+
+            if (session.getBreakStart() != null) {
+                java.time.Duration duration = java.time.Duration.between(
+                        session.getBreakStart(),
+                        java.time.LocalDateTime.now());
+
+                session.addBreakMinutes(duration.toMinutes());
+
+                session.setBreakStart(null);
+
+                javax.swing.JOptionPane.showMessageDialog(
+                        this,
+                        "Bạn đã nghỉ "
+                        + duration.toMinutes()
+                        + " phút. Tiếp tục ca làm việc.",
+                        "Thông báo",
+                        javax.swing.JOptionPane.INFORMATION_MESSAGE);
+            }
+
             if (!attRepo.hasActiveCheckIn(emp.getId())) {
                 boolean attendanceHandled = performAttendanceCheckIn(emp);
                 if (!attendanceHandled) {
@@ -252,7 +264,7 @@ public class LoginFrame extends javax.swing.JFrame {
         if (!attRepo.hasScheduleToday(emp.getId())) {
             int choice = javax.swing.JOptionPane.showConfirmDialog(this,
                     "Nhân viên " + emp.getFullName() + " không có lịch làm hôm nay.\n"
-                            + "Bạn có chắc chắn muốn chấm công không?",
+                    + "Bạn có chắc chắn muốn chấm công không?",
                     "Không có lịch làm",
                     javax.swing.JOptionPane.YES_NO_OPTION,
                     javax.swing.JOptionPane.WARNING_MESSAGE);
@@ -270,8 +282,7 @@ public class LoginFrame extends javax.swing.JFrame {
 
     private boolean hasTodayAttendanceRecord(int employeeId) {
         String sql = "SELECT 1 FROM attendance WHERE employee_id = ? AND work_date = CURDATE() LIMIT 1";
-        try (java.sql.Connection conn = util.DatabaseConnection.getConnection();
-                java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (java.sql.Connection conn = util.DatabaseConnection.getConnection(); java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, employeeId);
             try (java.sql.ResultSet rs = ps.executeQuery()) {
                 return rs.next();
@@ -284,8 +295,7 @@ public class LoginFrame extends javax.swing.JFrame {
 
     private boolean hasTodayEndedShift(int employeeId) {
         String sql = "SELECT 1 FROM attendance WHERE employee_id = ? AND work_date = CURDATE() AND check_out IS NOT NULL LIMIT 1";
-        try (java.sql.Connection conn = util.DatabaseConnection.getConnection();
-                java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (java.sql.Connection conn = util.DatabaseConnection.getConnection(); java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, employeeId);
             try (java.sql.ResultSet rs = ps.executeQuery()) {
                 return rs.next();
@@ -392,7 +402,7 @@ public class LoginFrame extends javax.swing.JFrame {
         if (success) {
             javax.swing.JOptionPane.showMessageDialog(this,
                     "Mã OTP mới đã được gửi tới số điện thoại: " + maskPhoneNumber(targetPhone)
-                            + "\nVui lòng kiểm tra tin nhắn!",
+                    + "\nVui lòng kiểm tra tin nhắn!",
                     "Thành công", javax.swing.JOptionPane.INFORMATION_MESSAGE);
             startResendTimer();
         } else {
@@ -478,8 +488,9 @@ public class LoginFrame extends javax.swing.JFrame {
     }
 
     private String maskPhoneNumber(String phone) {
-        if (phone == null || phone.length() <= 4)
+        if (phone == null || phone.length() <= 4) {
             return phone;
+        }
         return phone.substring(0, 3) + "****" + phone.substring(phone.length() - 3);
     }
 
