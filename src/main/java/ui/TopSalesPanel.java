@@ -13,7 +13,7 @@ public class TopSalesPanel extends JPanel {
     private static final Color BG_BAR_COLOR = new Color(226, 232, 240);
     private static final Color TEXT_COLOR = new Color(30, 41, 59);
     private static final Color SUB_COLOR = new Color(100, 116, 139);
-    
+
     // Tối ưu: Định nghĩa sẵn Font để tái sử dụng, tránh tạo mới trong hàm vẽ
     private static final Font FONT_NORMAL = new Font("Segoe UI", Font.PLAIN, 13);
     private static final Font FONT_BOLD = new Font("Segoe UI", Font.BOLD, 13);
@@ -28,11 +28,12 @@ public class TopSalesPanel extends JPanel {
 
     public void setData(List<TopProductRow> data) {
         this.data = data != null ? data : new java.util.ArrayList<>();
-        
-        // SỬA LỖI 1: Tính toán lại kích thước mong muốn dựa trên số lượng phần tử thực tế
+
+        // SỬA LỖI 1: Tính toán lại kích thước mong muốn dựa trên số lượng phần tử thực
+        // tế
         int totalHeight = START_Y + (this.data.size() * ROW_HEIGHT) + 10;
         setPreferredSize(new Dimension(200, totalHeight)); // Chiều rộng cho tự co giãn, chiều cao cố định theo data
-        
+
         revalidate(); // Báo cho Java Layout hay tin kích thước đã thay đổi
         repaint();
     }
@@ -40,11 +41,11 @@ public class TopSalesPanel extends JPanel {
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
-        
+
         if (data == null || data.isEmpty()) {
             g.setColor(SUB_COLOR);
             g.setFont(FONT_NORMAL);
-            String msg = "Chưa có dữ liệu";
+            String msg = "No data available";
             FontMetrics fm = g.getFontMetrics();
             g.drawString(msg,
                     (getWidth() - fm.stringWidth(msg)) / 2,

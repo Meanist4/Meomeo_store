@@ -25,13 +25,16 @@ public class OrderRepository {
                 + "WHERE DATE(o.order_date) = CURDATE() "
                 + "ORDER BY o.order_date DESC"; // Giữ ORDER BY để đơn hàng mới nhất lên đầu
 
-        try (Connection conn = DatabaseConnection.getConnection(); Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(sql)) {
+        try (Connection conn = DatabaseConnection.getConnection();
+                Statement st = conn.createStatement();
+                ResultSet rs = st.executeQuery(sql)) {
 
             while (rs.next()) {
                 OrderRow row = new OrderRow();
                 row.id = rs.getInt("id");
                 row.orderDate = rs.getTimestamp("order_date");
-                row.customerName = rs.getString("customer_name") != null ? rs.getString("customer_name") : "Khách vãng lai";
+                row.customerName = rs.getString("customer_name") != null ? rs.getString("customer_name")
+                        : "Khách vãng lai";
                 row.customerPhone = rs.getString("phone") != null ? rs.getString("phone") : "";
 
                 row.totalAmount = rs.getDouble("total_amount");
@@ -83,12 +86,12 @@ public class OrderRepository {
         List<OrderHistoryRow> result = new ArrayList<>();
         StringBuilder sql = new StringBuilder(
                 "SELECT o.id, o.order_date, e.full_name AS cashier_name, "
-                + "COALESCE(c.full_name, 'Walk-in customer') AS customer_name, "
-                + "o.payment_method, o.total_amount, o.status AS order_status "
-                + "FROM orders o "
-                + "JOIN employees e ON o.employee_id = e.id "
-                + "LEFT JOIN customers c ON o.customer_id = c.id "
-                + "WHERE 1=1 ");
+                        + "COALESCE(c.full_name, 'Walk-in customer') AS customer_name, "
+                        + "o.payment_method, o.total_amount, o.status AS order_status "
+                        + "FROM orders o "
+                        + "JOIN employees e ON o.employee_id = e.id "
+                        + "LEFT JOIN customers c ON o.customer_id = c.id "
+                        + "WHERE 1=1 ");
 
         String normalizedStatus = normalizeFilterStatus(status);
         if ("PAID".equals(normalizedStatus)) {
@@ -108,7 +111,8 @@ public class OrderRepository {
         }
         sql.append("ORDER BY o.order_date DESC");
 
-        try (Connection conn = DatabaseConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+        try (Connection conn = DatabaseConnection.getConnection();
+                PreparedStatement ps = conn.prepareStatement(sql.toString())) {
             int idx = 1;
             if (startDate != null) {
                 Calendar cal = Calendar.getInstance();
@@ -228,12 +232,14 @@ public class OrderRepository {
 
     public double getDailyRevenue() {
         String sql = """
-        SELECT COALESCE(SUM(total_amount), 0)
-        FROM orders
-        WHERE status = 'PAID'
-          AND DATE(order_date) = CURRENT_DATE
-        """;
-        try (var conn = DatabaseConnection.getConnection(); var ps = conn.prepareStatement(sql); var rs = ps.executeQuery()) {
+                SELECT COALESCE(SUM(total_amount), 0)
+                FROM orders
+                WHERE status = 'PAID'
+                  AND DATE(order_date) = CURRENT_DATE
+                """;
+        try (var conn = DatabaseConnection.getConnection();
+                var ps = conn.prepareStatement(sql);
+                var rs = ps.executeQuery()) {
             return rs.next() ? rs.getDouble(1) : 0;
         } catch (Exception e) {
             e.printStackTrace();
@@ -243,13 +249,15 @@ public class OrderRepository {
 
     public double getMonthlyRevenue() {
         String sql = """
-        SELECT COALESCE(SUM(total_amount), 0)
-        FROM orders
-        WHERE status = 'PAID'
-          AND MONTH(order_date) = MONTH(CURRENT_DATE)
-          AND YEAR(order_date)  = YEAR(CURRENT_DATE)
-        """;
-        try (var conn = DatabaseConnection.getConnection(); var ps = conn.prepareStatement(sql); var rs = ps.executeQuery()) {
+                SELECT COALESCE(SUM(total_amount), 0)
+                FROM orders
+                WHERE status = 'PAID'
+                  AND MONTH(order_date) = MONTH(CURRENT_DATE)
+                  AND YEAR(order_date)  = YEAR(CURRENT_DATE)
+                """;
+        try (var conn = DatabaseConnection.getConnection();
+                var ps = conn.prepareStatement(sql);
+                var rs = ps.executeQuery()) {
             return rs.next() ? rs.getDouble(1) : 0;
         } catch (Exception e) {
             e.printStackTrace();
@@ -264,7 +272,9 @@ public class OrderRepository {
                 + "COALESCE(SUM(CASE WHEN UPPER(COALESCE(status, 'PENDING')) IN ('PAID', 'PENDING') THEN 1 ELSE 0 END), 0) AS active_orders, "
                 + "COALESCE(SUM(CASE WHEN UPPER(COALESCE(status, 'PENDING')) IN ('CANCELED', 'CANCELLED') THEN 1 ELSE 0 END), 0) AS canceled_orders "
                 + "FROM orders WHERE DATE(order_date) = CURDATE()";
-        try (Connection conn = DatabaseConnection.getConnection(); Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(sql)) {
+        try (Connection conn = DatabaseConnection.getConnection();
+                Statement st = conn.createStatement();
+                ResultSet rs = st.executeQuery(sql)) {
             if (rs.next()) {
                 stats.revenue = rs.getDouble("revenue");
                 stats.activeOrders = rs.getInt("active_orders");
@@ -284,7 +294,9 @@ public class OrderRepository {
                 + "WHERE payment_method IS NOT NULL AND TRIM(payment_method) <> '' "
                 + "ORDER BY payment_method ASC";
 
-        try (Connection conn = DatabaseConnection.getConnection(); Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(sql)) {
+        try (Connection conn = DatabaseConnection.getConnection();
+                Statement st = conn.createStatement();
+                ResultSet rs = st.executeQuery(sql)) {
             while (rs.next()) {
                 result.add(rs.getString("payment_method"));
             }
@@ -407,48 +419,56 @@ public class OrderRepository {
 
     public static class WeekRevenueResult {
         public String[] labels;
-        public long[]   values;
+        public long[] values;
     }
 
     public WeekRevenueResult getRevenueByWeek() {
-        // Map các giá trị DAYOFWEEK MySQL (1=CN, 2=T2, ..., 7=T7) sang tên tiếng Việt
+        return getRevenueByWeek(java.time.LocalDate.now()
+                .with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY)));
+    }
+
+    public WeekRevenueResult getRevenueByWeek(java.time.LocalDate weekStart) {
+        // Map các giá trị DAYOFWEEK MySQL (1=CN, 2=T2, ..., 7=T7) sang tên tiếng Việt.
         java.util.LinkedHashMap<java.time.LocalDate, Long> map = new java.util.LinkedHashMap<>();
-        java.time.LocalDate today = java.time.LocalDate.now();
-        for (int i = 6; i >= 0; i--) {
-            map.put(today.minusDays(i), 0L);
+        java.time.LocalDate rangeStart = weekStart;
+        java.time.LocalDate rangeEnd = weekStart.plusDays(6);
+        for (java.time.LocalDate d = rangeStart; !d.isAfter(rangeEnd); d = d.plusDays(1)) {
+            map.put(d, 0L);
         }
 
         String sqlWeek = "SELECT DATE(order_date) AS ngay, "
                 + "COALESCE(SUM(total_amount), 0) AS doanh_thu "
                 + "FROM orders "
                 + "WHERE status = 'PAID' "
-                + "  AND DATE(order_date) >= CURDATE() - INTERVAL 6 DAY "
+                + "  AND DATE(order_date) >= ? "
+                + "  AND DATE(order_date) < ? "
                 + "GROUP BY DATE(order_date) "
                 + "ORDER BY ngay ASC";
 
         try (Connection conn = DatabaseConnection.getConnection();
-             Statement st = conn.createStatement();
-             ResultSet rs = st.executeQuery(sqlWeek)) {
-            while (rs.next()) {
-                java.time.LocalDate d = rs.getDate("ngay").toLocalDate();
-                if (map.containsKey(d)) {
-                    map.put(d, rs.getLong("doanh_thu"));
+                PreparedStatement ps = conn.prepareStatement(sqlWeek)) {
+            ps.setDate(1, java.sql.Date.valueOf(rangeStart));
+            ps.setDate(2, java.sql.Date.valueOf(rangeEnd.plusDays(1)));
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    java.time.LocalDate d = rs.getDate("ngay").toLocalDate();
+                    if (map.containsKey(d)) {
+                        map.put(d, rs.getLong("doanh_thu"));
+                    }
                 }
-        }
+            }
         } catch (SQLException e) {
-            System.err.println("Lỗi getRevenueByWeek: " + e.getMessage());
+            System.err.println("Lỗi getRevenueByWeek(weekStart): " + e.getMessage());
             e.printStackTrace();
         }
 
-        // Tạo labels từ ngày thực tế
-        String[] DOW_VI = {"", "CN", "T2", "T3", "T4", "T5", "T6", "T7"}; // index 1-7 theo Java DayOfWeek
+        // Tạo labels từ ngày thực tế.
         String[] labels = new String[7];
-        long[]   values = new long[7];
+        long[] values = new long[7];
         int idx = 0;
         for (java.util.Map.Entry<java.time.LocalDate, Long> e : map.entrySet()) {
             java.time.LocalDate d = e.getKey();
             int dow = d.getDayOfWeek().getValue(); // 1=Mon ... 7=Sun
-            // Chuyển sang tên: Mon=T2, Tue=T3, ..., Sat=T7, Sun=CN
             String dayName;
             if (dow == 7) {
                 dayName = "CN";
@@ -477,7 +497,9 @@ public class OrderRepository {
                 + "GROUP BY MONTH(order_date) "
                 + "ORDER BY thang ASC";
 
-        try (Connection conn = DatabaseConnection.getConnection(); Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(sql)) {
+        try (Connection conn = DatabaseConnection.getConnection();
+                Statement st = conn.createStatement();
+                ResultSet rs = st.executeQuery(sql)) {
             while (rs.next()) {
                 int thang = rs.getInt("thang");
                 if (thang >= 1 && thang <= 12) {
@@ -530,6 +552,11 @@ public class OrderRepository {
     }
 
     public List<TopProductRow> getTopProductsThisMonth(int limit) {
+        return getTopProductsByMonth(java.time.LocalDate.now().getMonthValue(), java.time.LocalDate.now().getYear(),
+                limit);
+    }
+
+    public List<TopProductRow> getTopProductsByMonth(int month, int year, int limit) {
         List<TopProductRow> result = new ArrayList<>();
         String sql = "SELECT p.product_name, "
                 + "  SUM(od.quantity) AS qty_sold, "
@@ -538,13 +565,15 @@ public class OrderRepository {
                 + "JOIN orders o  ON od.order_id  = o.id "
                 + "JOIN products p ON od.product_id = p.id "
                 + "WHERE o.status = 'PAID' "
-                + "  AND MONTH(o.order_date) = MONTH(CURDATE()) "
-                + "  AND YEAR(o.order_date)  = YEAR(CURDATE()) "
+                + "  AND MONTH(o.order_date) = ? "
+                + "  AND YEAR(o.order_date)  = ? "
                 + "GROUP BY p.id, p.product_name, p.quantity "
                 + "ORDER BY qty_sold DESC "
                 + "LIMIT ?";
         try (Connection conn = DatabaseConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setInt(1, limit);
+            ps.setInt(1, month);
+            ps.setInt(2, year);
+            ps.setInt(3, limit);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     TopProductRow row = new TopProductRow();
@@ -555,7 +584,7 @@ public class OrderRepository {
                 }
             }
         } catch (SQLException e) {
-            System.err.println("Lỗi getTopProductsThisMonth: " + e.getMessage());
+            System.err.println("Lỗi getTopProductsByMonth: " + e.getMessage());
             e.printStackTrace();
         }
         return result;
@@ -570,14 +599,14 @@ public class OrderRepository {
 
     public OrderHistoryRow findOrderById(int orderId) {
         String sql = """
-        SELECT o.id, o.order_date, o.total_amount, o.payment_method, o.status,
-               e.full_name  AS cashier_name,
-               COALESCE(c.full_name, '') AS customer_name
-        FROM orders o
-        JOIN employees e ON o.employee_id = e.id
-        LEFT JOIN customers c ON o.customer_id = c.id
-        WHERE o.id = ?
-        """;
+                SELECT o.id, o.order_date, o.total_amount, o.payment_method, o.status,
+                       e.full_name  AS cashier_name,
+                       COALESCE(c.full_name, '') AS customer_name
+                FROM orders o
+                JOIN employees e ON o.employee_id = e.id
+                LEFT JOIN customers c ON o.customer_id = c.id
+                WHERE o.id = ?
+                """;
         try (Connection conn = DatabaseConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, orderId);
             try (ResultSet rs = ps.executeQuery()) {
@@ -603,12 +632,12 @@ public class OrderRepository {
     public List<OrderDetailRow> findOrderDetails(int orderId) {
         List<OrderDetailRow> result = new ArrayList<>();
         String sql = """
-        SELECT p.product_name, od.price AS unit_price, od.quantity
-        FROM order_details od
-        JOIN products p ON od.product_id = p.id
-        WHERE od.order_id = ?
-        ORDER BY p.product_name ASC
-        """;
+                SELECT p.product_name, od.price AS unit_price, od.quantity
+                FROM order_details od
+                JOIN products p ON od.product_id = p.id
+                WHERE od.order_id = ?
+                ORDER BY p.product_name ASC
+                """;
         try (Connection conn = DatabaseConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, orderId);
             try (ResultSet rs = ps.executeQuery()) {
@@ -634,7 +663,8 @@ public class OrderRepository {
 
     public int createPendingOrder(int employeeId, Integer customerId) {
         String sql = "INSERT INTO orders (employee_id, customer_id, total_amount, status) VALUES (?, ?, 0, 'PENDING')";
-        try (Connection conn = DatabaseConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+        try (Connection conn = DatabaseConnection.getConnection();
+                PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setInt(1, employeeId);
             if (customerId != null) {
                 ps.setInt(2, customerId);
@@ -671,7 +701,7 @@ public class OrderRepository {
     public void syncPendingOrderDetails(int orderId, List<NewOrderItem> items) {
         String deleteSql = "DELETE FROM order_details WHERE order_id = ?";
         String insertSql = "INSERT INTO order_details (order_id, product_id, quantity, price) VALUES (?, ?, ?, ?)";
-        
+
         try (Connection conn = DatabaseConnection.getConnection()) {
             conn.setAutoCommit(false);
             try {
@@ -679,7 +709,7 @@ public class OrderRepository {
                     ps.setInt(1, orderId);
                     ps.executeUpdate();
                 }
-                
+
                 if (items != null && !items.isEmpty()) {
                     try (PreparedStatement ps = conn.prepareStatement(insertSql)) {
                         for (NewOrderItem item : items) {
@@ -702,7 +732,7 @@ public class OrderRepository {
         }
     }
 
-// Cập nhật đơn từ PENDING → PAID/CANCELLED + ghi items
+    // Cập nhật đơn từ PENDING → PAID/CANCELLED + ghi items
     public boolean finalizeOrder(int orderId, Integer customerId, String paymentMethod,
             double totalAmount, String status, List<NewOrderItem> items) {
 
@@ -767,18 +797,20 @@ public class OrderRepository {
             conn.commit();
             return true;
         } catch (SQLException e) {
-            if (conn != null) try {
-                conn.rollback();
-            } catch (SQLException ignored) {
-            }
+            if (conn != null)
+                try {
+                    conn.rollback();
+                } catch (SQLException ignored) {
+                }
             System.err.println("Lỗi finalize đơn hàng: " + e.getMessage());
             return false;
         } finally {
-            if (conn != null) try {
-                conn.setAutoCommit(true);
-                conn.close();
-            } catch (SQLException ignored) {
-            }
+            if (conn != null)
+                try {
+                    conn.setAutoCommit(true);
+                    conn.close();
+                } catch (SQLException ignored) {
+                }
         }
     }
 

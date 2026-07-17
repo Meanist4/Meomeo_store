@@ -407,10 +407,10 @@ public class OrderCartController {
 
     private static double parseMoney(String text) {
         String clean = text.replace("đ", "")
-                           .replace("Thiếu:", "")
-                           .replace(",", "")
-                           .replace(".", "")
-                           .trim();
+                .replace("Thiếu:", "")
+                .replace(",", "")
+                .replace(".", "")
+                .trim();
         return Double.parseDouble(clean);
     }
 }

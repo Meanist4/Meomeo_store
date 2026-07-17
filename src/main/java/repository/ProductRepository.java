@@ -25,7 +25,9 @@ public class ProductRepository {
         List<Product> list = new ArrayList<>();
         String sql = "SELECT * FROM products WHERE status = 1 AND is_deleted = 0";
 
-        try (Connection conn = DatabaseConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql); ResultSet rs = ps.executeQuery()) {
+        try (Connection conn = DatabaseConnection.getConnection();
+                PreparedStatement ps = conn.prepareStatement(sql);
+                ResultSet rs = ps.executeQuery()) {
 
             while (rs.next()) {
                 list.add(mapProduct(rs));
@@ -44,7 +46,9 @@ public class ProductRepository {
                 + "WHERE p.is_deleted = 0 AND p.status = 1 "
                 + "ORDER BY p.id ASC";
 
-        try (Connection conn = DatabaseConnection.getConnection(); Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(sql)) {
+        try (Connection conn = DatabaseConnection.getConnection();
+                Statement st = conn.createStatement();
+                ResultSet rs = st.executeQuery(sql)) {
 
             while (rs.next()) {
                 InventoryRow row = new InventoryRow();
@@ -105,6 +109,18 @@ public class ProductRepository {
         }
     }
 
+    public boolean updateQuantity(int id, int newQuantity) {
+        String sql = "UPDATE products SET quantity = ? WHERE id = ? AND is_deleted = 0";
+        try (Connection conn = DatabaseConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, newQuantity);
+            ps.setInt(2, id);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
     public List<Product> searchProducts(String keyword) {
         List<Product> list = new ArrayList<>();
         String sql = "SELECT * FROM products "
@@ -115,7 +131,7 @@ public class ProductRepository {
 
             String like = "%" + keyword + "%";
             ps.setString(1, like);
-            ps.setString(2, like);          // tìm theo barcode luôn
+            ps.setString(2, like); // tìm theo barcode luôn
 
             int idSearch = -1;
             try {
