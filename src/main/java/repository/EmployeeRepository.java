@@ -245,17 +245,4 @@ public class EmployeeRepository {
         }
         return false;
     }
-    // CREATE TABLE IF NOT EXISTS employees (
-    // id INT AUTO_INCREMENT PRIMARY KEY,
-    // role_id INT NOT NULL,
-    // username VARCHAR(50) NOT NULL,
-    // password VARCHAR(255) NOT NULL,
-    // full_name VARCHAR(100) NOT NULL,
-    // phone VARCHAR(15),
-    // barcode VARCHAR(50) NOT NULL,
-    // status TINYINT NOT NULL DEFAULT 1, -- 1: Đang làm, 0: Nghỉ tạm thời
-    // is_deleted TINYINT(1) NOT NULL DEFAULT 0, -- SOFT DELETE: 1 là đã xóa tài
-    // khoản (nghỉ hẳn)
-    // FOREIGN KEY (role_id) REFERENCES roles(id)
-    // );
 }

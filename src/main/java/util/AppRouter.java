@@ -9,7 +9,7 @@ import javax.swing.JOptionPane;
 
 public class AppRouter {
 
-    public static void showLogin() {
+    public static void showSalesCounterFrame() {
         java.awt.EventQueue.invokeLater(() -> {
             new SalesCounterFrame().setVisible(true);
         });
@@ -29,7 +29,7 @@ public class AppRouter {
             if (currentFrame != null) {
                 currentFrame.dispose();
             }
-            showLogin();
+            showSalesCounterFrame();
             return;
         }
         
@@ -37,6 +37,25 @@ public class AppRouter {
 
         if (currentFrame instanceof LoginFrame loginFrame && loginFrame.getCallerFrame() != null) {
             SalesCounterFrame salesFrame = loginFrame.getCallerFrame();
+
+            // Trường hợp: Login từ nút "Đăng nhập" bên TRONG Dashboard (quick-login)
+            // → KHÔNG tạo thêm DashBoardFrame mới, chỉ dispose LoginFrame và reload Dashboard
+            views.DashBoardFrame existingDash = loginFrame.getCallerDashBoard();
+            if (existingDash != null) {
+                loginFrame.dispose();
+                java.awt.EventQueue.invokeLater(() -> {
+                    existingDash.loadCheckedInEmployees();
+                    existingDash.loadAttendanceTableData();
+                    existingDash.updateCashierPanel();
+                    if (salesFrame != null) {
+                        salesFrame.loadCheckedInEmployees();
+                        salesFrame.refreshUserDropdown();
+                    }
+                });
+                return;
+            }
+
+            // Trường hợp: Login từ SalesCounterFrame (không có Dashboard hiện tại)
             loginFrame.dispose();
             if (user != null && user.getRoleId() == 1) {
                 java.awt.EventQueue.invokeLater(() -> {
@@ -77,7 +96,7 @@ public class AppRouter {
         if (!session.isLoggedIn()) {
             JOptionPane.showMessageDialog(frame, "Bạn chưa đăng nhập! Vui lòng đăng nhập để tiếp tục.", "Lỗi truy cập", JOptionPane.ERROR_MESSAGE);
             frame.dispose();
-            showLogin();
+            showSalesCounterFrame();
             return false;
         }
 

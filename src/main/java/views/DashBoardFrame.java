@@ -272,13 +272,13 @@ public class DashBoardFrame extends javax.swing.JFrame {
                         javax.swing.JOptionPane.QUESTION_MESSAGE);
                 if (confirm == javax.swing.JOptionPane.YES_OPTION) {
                     util.UserSession.getInstance().cleanUserSession();
-                    util.AppRouter.showLogin();
+                    util.AppRouter.showSalesCounterFrame();
                     this.dispose();
                 } else {
                     cbbLogOut.setSelectedIndex(0);
                 }
             } else if ("Đăng nhập".equals(selected)) {
-                util.AppRouter.showLogin();
+                util.AppRouter.showSalesCounterFrame();
                 this.dispose();
             }
         });
@@ -4626,14 +4626,19 @@ public class DashBoardFrame extends javax.swing.JFrame {
                     if (!attendanceRepository.hasActiveCheckIn(emp.getId())) {
                         attendanceRepository.checkIn(emp.getId());
                     }
+                    // Thêm emp vào UserSession để SalesCounter cũng đồng bộ được
+                    util.UserSession.getInstance().addActiveEmployee(emp);
+
                     javax.swing.JOptionPane.showMessageDialog(this,
                             "Điểm danh (Check-in) thành công cho nhân viên " + emp.getFullName() + ".",
                             "Thành công", javax.swing.JOptionPane.INFORMATION_MESSAGE);
 
-                    // Reload local attendance in Dashboard
-                    loadCheckedInEmployees();
-                    loadAttendanceTableData();
-                    loadOverviewCardsData();
+                    // Reload local attendance in Dashboard (on EDT để đảm bảo Swing cập nhật)
+                    javax.swing.SwingUtilities.invokeLater(() -> {
+                        loadCheckedInEmployees();
+                        loadAttendanceTableData();
+                        loadOverviewCardsData();
+                    });
 
                     // Synchronize POS sales counter attendance
                     if (salesCounter != null) {
@@ -5179,7 +5184,8 @@ public class DashBoardFrame extends javax.swing.JFrame {
             btnLoginQuick.putClientProperty(FlatClientProperties.STYLE,
                     "background: #6F3B1A; foreground: #FFFFFF; arc: 10;");
             btnLoginQuick.addActionListener(e -> {
-                LoginFrame loginFrame = new LoginFrame(salesCounter);
+                // Truyền this (DashBoardFrame) để AppRouter không tạo thêm Dashboard mới sau login
+                LoginFrame loginFrame = new LoginFrame(DashBoardFrame.this, salesCounter);
                 loginFrame.setVisible(true);
             });
         }
@@ -5287,6 +5293,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
             checkInListPanel.add(javax.swing.Box.createVerticalGlue());
         }
 
+        // Revalidate từ trong ra ngoài để GroupLayout cha tính lại kích thước
         checkInListPanel.revalidate();
         checkInListPanel.repaint();
         panelEmployeeCheckIn.revalidate();
@@ -5295,6 +5302,9 @@ public class DashBoardFrame extends javax.swing.JFrame {
             panelEmployeeCheckIn.getParent().revalidate();
             panelEmployeeCheckIn.getParent().repaint();
         }
+        // Force repaint toàn frame để đảm bảo hiển thị đúng
+        this.revalidate();
+        this.repaint();
     }
 
     private JPanel createEmployeeCard(repository.AttendanceRepository.CheckedInEmployee emp) {
@@ -5410,7 +5420,7 @@ public class DashBoardFrame extends javax.swing.JFrame {
                 javax.swing.JOptionPane.showMessageDialog(this,
                         "Bạn chưa đăng nhập! Vui lòng đăng nhập để tiếp tục.",
                         "Lỗi truy cập", javax.swing.JOptionPane.ERROR_MESSAGE);
-                util.AppRouter.showLogin();
+                util.AppRouter.showSalesCounterFrame();
                 this.dispose();
                 return;
             }

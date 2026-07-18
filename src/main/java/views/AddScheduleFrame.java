@@ -558,7 +558,7 @@ public class AddScheduleFrame extends javax.swing.JFrame {
         if (b) {
             if (!util.UserSession.getInstance().isLoggedIn()) {
                 super.setVisible(false);
-                util.AppRouter.showLogin();
+                util.AppRouter.showSalesCounterFrame();
                 this.dispose();
                 return;
             }

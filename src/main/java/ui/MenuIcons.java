@@ -54,16 +54,18 @@ public class MenuIcons {
     }
 
     public static Icon inventory() {
-        return new SimpleIcon(16, 16) {
+        return new SimpleIcon(18, 18) {
             @Override
             protected void draw(Graphics2D g2, int x, int y) {
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setStroke(new BasicStroke(1.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                // Hộp lập phương - thu nhỏ vào trong 18x18
                 g2.drawPolygon(
-                        new int[]{x + 8, x + 16, x + 16, x + 8, x, x},
-                        new int[]{y + 1, y + 5, y + 12, y + 15, y + 12, y + 5}, 6);
-                g2.drawLine(x + 8, y + 1, x + 8, y + 15);
-                g2.drawLine(x, y + 5, x + 8, y + 8);
-                g2.drawLine(x + 16, y + 5, x + 8, y + 8);
+                        new int[]{x + 9, x + 17, x + 17, x + 9, x + 1, x + 1},
+                        new int[]{y + 1, y + 5, y + 13, y + 16, y + 13, y + 5}, 6);
+                g2.drawLine(x + 9, y + 1, x + 9, y + 16);
+                g2.drawLine(x + 1, y + 5, x + 9, y + 9);
+                g2.drawLine(x + 17, y + 5, x + 9, y + 9);
             }
         };
     }
@@ -82,14 +84,17 @@ public class MenuIcons {
     }
 
     public static Icon humanResources() {
-        return new SimpleIcon(16, 16) {
+        return new SimpleIcon(18, 18) {
             @Override
             protected void draw(Graphics2D g2, int x, int y) {
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setStroke(new BasicStroke(1.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-                g2.drawOval(x + 3, y + 1, 6, 6);
-                g2.drawArc(x, y + 9, 12, 8, 0, 180);
-                g2.drawLine(x + 11, y + 12, x + 13, y + 14);
-                g2.drawLine(x + 13, y + 14, x + 16, y + 9);
+                // Người - điều chỉnh tọa độ vào trong 18x18
+                g2.drawOval(x + 3, y + 1, 7, 7);
+                g2.drawArc(x + 1, y + 9, 12, 8, 0, 180);
+                // Checkmark bên phải
+                g2.drawLine(x + 12, y + 13, x + 14, y + 15);
+                g2.drawLine(x + 14, y + 15, x + 17, y + 10);
             }
         };
     }

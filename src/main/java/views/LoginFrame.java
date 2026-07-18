@@ -25,14 +25,30 @@ public class LoginFrame extends javax.swing.JFrame {
     private String targetPhone;
 
     private SalesCounterFrame callerFrame;
+    private views.DashBoardFrame callerDashBoard;
 
+    /** Mở từ SalesCounterFrame (nhân viên quét thẻ) */
     public LoginFrame(SalesCounterFrame caller) {
         this();
         this.callerFrame = caller;
+        // Khi mở từ Dashboard, đóng form chỉ dispose chứ không thoát toàn bộ app
+        setDefaultCloseOperation(javax.swing.JFrame.DISPOSE_ON_CLOSE);
+    }
+
+    /** Mở từ DashBoardFrame (quick-login bên trong Dashboard) */
+    public LoginFrame(views.DashBoardFrame dashBoard, SalesCounterFrame salesCounter) {
+        this();
+        this.callerDashBoard = dashBoard;
+        this.callerFrame = salesCounter;
+        setDefaultCloseOperation(javax.swing.JFrame.DISPOSE_ON_CLOSE);
     }
 
     public SalesCounterFrame getCallerFrame() {
         return this.callerFrame;
+    }
+
+    public views.DashBoardFrame getCallerDashBoard() {
+        return this.callerDashBoard;
     }
 
     /**
@@ -334,13 +350,24 @@ public class LoginFrame extends javax.swing.JFrame {
         this.targetPhone = phone;
         this.sentOtp = generateOtpCode();
 
+        // --- LOG GỬI OTP ---
+        logger.info("========================================");
+        logger.info("[OTP REQUEST] Yêu cầu đặt lại mật khẩu");
+        logger.info("[OTP REQUEST] Username   : " + username);
+        logger.info("[OTP REQUEST] SĐT (masked): " + maskPhoneNumber(phone));
+        logger.info("[OTP REQUEST] Thời gian  : " + java.time.LocalDateTime.now());
+
         boolean success = util.SmsService.sendOtp(phone, sentOtp);
         if (success) {
+            logger.info("[OTP REQUEST] ✅ Gửi OTP thành công tới " + maskPhoneNumber(phone));
+            logger.info("========================================");
             javax.swing.JOptionPane.showMessageDialog(this,
                     "Mã OTP đã được gửi tới số điện thoại: " + maskPhoneNumber(phone) + "\nVui lòng kiểm tra tin nhắn!",
                     "Thành công", javax.swing.JOptionPane.INFORMATION_MESSAGE);
             switchState(ScreenState.FORGOT_RESET_PASSWORD);
         } else {
+            logger.warning("[OTP REQUEST] ❌ Gửi OTP thất bại tới " + maskPhoneNumber(phone));
+            logger.info("========================================");
             javax.swing.JOptionPane.showMessageDialog(this, "Gửi mã OTP thất bại! Vui lòng thử lại.", "Lỗi",
                     javax.swing.JOptionPane.ERROR_MESSAGE);
         }
@@ -398,14 +425,26 @@ public class LoginFrame extends javax.swing.JFrame {
         }
 
         this.sentOtp = generateOtpCode();
+
+        // --- LOG GỬI LẠI OTP ---
+        logger.info("========================================");
+        logger.info("[OTP RESEND] Gửi lại mã OTP");
+        logger.info("[OTP RESEND] Username   : " + (targetUsername != null ? targetUsername : "N/A"));
+        logger.info("[OTP RESEND] SĐT (masked): " + maskPhoneNumber(targetPhone));
+        logger.info("[OTP RESEND] Thời gian  : " + java.time.LocalDateTime.now());
+
         boolean success = util.SmsService.sendOtp(targetPhone, sentOtp);
         if (success) {
+            logger.info("[OTP RESEND] ✅ Gửi lại OTP thành công tới " + maskPhoneNumber(targetPhone));
+            logger.info("========================================");
             javax.swing.JOptionPane.showMessageDialog(this,
                     "Mã OTP mới đã được gửi tới số điện thoại: " + maskPhoneNumber(targetPhone)
                     + "\nVui lòng kiểm tra tin nhắn!",
                     "Thành công", javax.swing.JOptionPane.INFORMATION_MESSAGE);
             startResendTimer();
         } else {
+            logger.warning("[OTP RESEND] ❌ Gửi lại OTP thất bại tới " + maskPhoneNumber(targetPhone));
+            logger.info("========================================");
             javax.swing.JOptionPane.showMessageDialog(this, "Gửi mã OTP thất bại! Vui lòng thử lại.", "Lỗi",
                     javax.swing.JOptionPane.ERROR_MESSAGE);
         }

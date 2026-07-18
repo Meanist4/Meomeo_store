@@ -689,7 +689,7 @@ public class AddProductFrame extends javax.swing.JFrame {
                     "Thêm sản phẩm \"" + productName + "\" thành công!",
                     "Thành công",
                     javax.swing.JOptionPane.INFORMATION_MESSAGE);
-            resetForm();
+            this.dispose(); // Đóng frame và kích hoạt onClose callback để load lại bảng
         } else {
             showError("Lưu sản phẩm thất bại! Vui lòng thử lại.");
         }
@@ -946,7 +946,7 @@ public class AddProductFrame extends javax.swing.JFrame {
         if (b) {
             if (!util.UserSession.getInstance().isLoggedIn()) {
                 super.setVisible(false);
-                util.AppRouter.showLogin();
+                util.AppRouter.showSalesCounterFrame();
                 this.dispose();
                 return;
             }

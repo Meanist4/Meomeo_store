@@ -1,87 +1,127 @@
 package util;
 
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.util.logging.Logger;
 
 /**
- * Thư viện / Dịch vụ gửi OTP qua SMS.
- * Tích hợp cấu trúc Twilio API và có fallback ghi log console / popup để nhà phát triển kiểm tra offline.
+ * Dịch vụ gửi OTP qua SMS tích hợp eSMS.vn REST API.
  */
 public final class SmsService {
+
     private static final Logger logger = Logger.getLogger(SmsService.class.getName());
 
-    // Cấu hình Twilio (dành cho môi trường Production, thay thế khi deploy thực tế)
-    private static final String TWILIO_ACCOUNT_SID = "TWILIO_ACCOUNT_SID";
-    private static final String TWILIO_AUTH_TOKEN = "TWILIO_AUTH_TOKEN";
-    private static final String TWILIO_PHONE_FROM = "YOUR_TWILIO_PHONE_NUMBER";
+    // ── Cấu hình eSMS ──────────────────────────────────────────────────────────
+    private static final String ESMS_API_KEY    = "";    
+    private static final String ESMS_SECRET_KEY = ""; 
+    private static final int    ESMS_SMS_TYPE   = 8; // Đang dùng cổng 8 (Đầu số cố định OTP)
+
+    private static final String ESMS_ENDPOINT =
+            "https://rest.esms.vn/MainService.svc/json/SendMultipleMessage_V4_post_json/";
 
     private SmsService() {}
 
     /**
-     * Gửi mã OTP SMS tới số điện thoại của nhân viên.
-     *
-     * @param phoneNumber Số điện thoại nhận
-     * @param otp Mã OTP gồm 6 chữ số
-     * @return true nếu gửi thành công (hoặc in ra console kiểm thử thành công)
+     * Gửi mã OTP SMS tới số điện thoại của nhân viên thông qua eSMS API.
      */
     public static boolean sendOtp(String phoneNumber, String otp) {
+
+        // ── 1. Validate và chuẩn hóa số điện thoại ─────────────────────────────
         if (phoneNumber == null || phoneNumber.trim().isEmpty()) {
             logger.severe("Số điện thoại trống, không thể gửi OTP!");
             return false;
         }
 
-        // Kiểm tra định dạng số điện thoại Việt Nam hợp lệ
         if (!phoneNumber.matches("^0[0-9]{9}$") && !phoneNumber.matches("^\\+84[0-9]{9}$")) {
-            logger.severe("❌ Số điện thoại không hợp lệ, không thể gửi OTP!");
+            logger.severe("❌ Số điện thoại không hợp lệ: " + phoneNumber);
             return false;
         }
 
-        // Kiểm tra tính hợp lệ sơ bộ của cấu hình Twilio nếu người dùng đã thay thế các chuỗi mặc định
-        if (!"TWILIO_ACCOUNT_SID".equals(TWILIO_ACCOUNT_SID) 
-                || !"TWILIO_AUTH_TOKEN".equals(TWILIO_AUTH_TOKEN)
-                || !"YOUR_TWILIO_PHONE_NUMBER".equals(TWILIO_PHONE_FROM)) {
-            
-            if (!TWILIO_ACCOUNT_SID.startsWith("AC") || TWILIO_ACCOUNT_SID.length() != 34) {
-                logger.severe("❌ Cấu hình Twilio thất bại: Account SID không hợp lệ (phải bắt đầu bằng 'AC' và dài 34 ký tự)!");
-                return false;
-            }
-            if (TWILIO_AUTH_TOKEN.length() != 32) {
-                logger.severe("❌ Cấu hình Twilio thất bại: Auth Token không hợp lệ (phải dài 32 ký tự)!");
-                return false;
-            }
-            if (TWILIO_PHONE_FROM == null || TWILIO_PHONE_FROM.trim().isEmpty()) {
-                logger.severe("❌ Cấu hình Twilio thất bại: Số điện thoại gửi (TWILIO_PHONE_FROM) trống!");
-                return false;
-            }
+        if (phoneNumber.startsWith("+84")) {
+            phoneNumber = "84" + phoneNumber.substring(3);
+        }
+        phoneNumber = phoneNumber.trim().replaceAll("\\s+", "");
+
+        // ── 2. Kiểm tra cấu hình eSMS ─────────────────────────────────────────
+        boolean isConfigured = !"ESMS_API_KEY".equals(ESMS_API_KEY)
+                && !"ESMS_SECRET_KEY".equals(ESMS_SECRET_KEY);
+
+
+        String messageContent = "Ma OTP cua ban la " + otp;
+
+        // ── 3. Fallback (chạy offline / chưa cấu hình) ────────────────────────
+        if (!isConfigured) {
+            logger.warning("⚠️  Cấu hình eSMS chưa được thiết lập. Chạy ở chế độ DEBUG.");
+            System.out.println("📬 [DEBUG OTP SMS] Đã gửi SMS tới " + phoneNumber + " (OTP value hidden)");
+            return true;
         }
 
-        String messageContent = "[Meomeo Store] Ma OTP khoi phuc mat khau cua ban la: " + otp + ". Co hieu luc trong 5 phut.";
-
-        // Giả lập cuộc gọi thư viện gửi tin nhắn (Twilio SDK pattern)
+        // ── 4. Gọi eSMS REST API ───────────────────────────────────────────────
         logger.info("--------------------------------------------------");
-        logger.info("🔄 ĐANG GỬI TIN NHẮN SMS OTP QUA THƯ VIỆN...");
-        logger.info("📱 Gửi tới SĐT: " + phoneNumber);
+        logger.info("🔄 ĐANG GỬI TIN NHẮN SMS OTP QUA ESMS.VN...");
+        logger.info("📱 Gửi tới SĐT chuẩn hóa: " + phoneNumber);
+        logger.info("🔑 MÃ OTP CỦA BẠN LÀ: " + otp);
         logger.info("--------------------------------------------------");
 
         try {
-            // Cấu trúc mô phỏng cuộc gọi thực tế từ thư viện Twilio (nếu cấu hình đầy đủ sẽ chạy)
-            if (!"TWILIO_ACCOUNT_SID".equals(TWILIO_ACCOUNT_SID) 
-                    && !"TWILIO_AUTH_TOKEN".equals(TWILIO_AUTH_TOKEN)
-                    && !"YOUR_TWILIO_PHONE_NUMBER".equals(TWILIO_PHONE_FROM)) {
-                // com.twilio.Twilio.init(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
-                // com.twilio.rest.api.v2010.account.Message.creator(
-                //     new com.twilio.type.PhoneNumber(phoneNumber),
-                //     new com.twilio.type.PhoneNumber(TWILIO_PHONE_FROM),
-                //     messageContent
-                // ).create();
-                logger.info("✅ Gửi SMS thành công qua API của Twilio!");
+            String requestBody = buildJsonBody(phoneNumber, messageContent);
+
+            HttpClient client = HttpClient.newHttpClient();
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(ESMS_ENDPOINT))
+                    .header("Content-Type", "application/json; charset=utf-8")
+                    .POST(HttpRequest.BodyPublishers.ofString(requestBody, StandardCharsets.UTF_8))
+                    .build();
+
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+            int statusCode = response.statusCode();
+            String body    = response.body();
+
+            logger.info("📡 eSMS HTTP Status: " + statusCode);
+            logger.info("📄 eSMS Response: " + body);
+
+            if (statusCode == 200 && body != null && body.contains("\"CodeResult\":\"100\"")) {
+                logger.info("✅ Gửi SMS OTP thành công qua eSMS!");
+                return true;
             } else {
-                // Fallback in ra màn hình console và hộp thoại debug cho nhà phát triển tiện sửa code offline
-                System.out.println("📬 [DEBUG OTP SMS] Đã gửi SMS tới " + phoneNumber + " (OTP value hidden)");
+                logger.severe("❌ eSMS trả về lỗi. HTTP " + statusCode + " | Body: " + body);
+                return false;
             }
-            return true;
+
         } catch (Exception e) {
-            logger.severe("❌ Lỗi khi gọi thư viện gửi tin nhắn SMS: " + e.getMessage());
+            logger.severe("❌ Lỗi khi gọi eSMS API: " + e.getMessage());
             return false;
         }
+    }
+
+    // ── Helpers ────────────────────────────────────────────────────────────────
+
+    /**
+     * Xây dựng JSON body cho eSMS API (không dùng thư viện JSON bên ngoài).
+     */
+    private static String buildJsonBody(String phone, String content) {
+        return "{"
+                + "\"ApiKey\":"    + jsonString(ESMS_API_KEY)    + ","
+                + "\"SecretKey\":" + jsonString(ESMS_SECRET_KEY) + ","
+                + "\"Phone\":"     + jsonString(phone)           + ","
+                + "\"Content\":"   + jsonString(content)         + ","
+                + "\"SmsType\":"   + ESMS_SMS_TYPE
+                + "}";
+    }
+
+    /** Bao một chuỗi trong dấu ngoặc kép JSON và escape các ký tự đặc biệt. */
+    private static String jsonString(String value) {
+        if (value == null) return "null";
+        return "\"" + value
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+                .replace("\t", "\\t")
+                + "\"";
     }
 }

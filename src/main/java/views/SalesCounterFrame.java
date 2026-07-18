@@ -2433,6 +2433,8 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
                         if (!attendanceRepository.hasActiveCheckIn(emp.getId())) {
                             attendanceRepository.checkIn(emp.getId());
                         }
+                        // Đồng bộ vào UserSession in-memory
+                        util.UserSession.getInstance().addActiveEmployee(emp);
                         javax.swing.JOptionPane.showMessageDialog(this,
                                 "Điểm danh (Check-in) thành công cho nhân viên " + emp.getFullName() + ".",
                                 "Thành công", javax.swing.JOptionPane.INFORMATION_MESSAGE);
@@ -2460,6 +2462,8 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
                         if (!attendanceRepository.hasActiveCheckIn(emp.getId())) {
                             attendanceRepository.checkIn(emp.getId());
                         }
+                        // Đồng bộ vào UserSession in-memory
+                        util.UserSession.getInstance().addActiveEmployee(emp);
                         loadCheckedInEmployees();
                         refreshUserDropdown();
                     }
@@ -2951,6 +2955,9 @@ public final class SalesCounterFrame extends javax.swing.JFrame {
             panelEmployeeCheckIn.getParent().revalidate();
             panelEmployeeCheckIn.getParent().repaint();
         }
+        // Force repaint toàn frame
+        this.revalidate();
+        this.repaint();
 
         // Synchronize with dashboard if active
         if (dashBoard != null) {
