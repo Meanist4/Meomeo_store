@@ -1,0 +1,34 @@
+name: Java Automated Testing
+
+on:
+  push:
+    branches: [ "main", "side-branch" ]
+  pull_request:
+    branches: [ "main", "side-branch" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 1. Checkout source code
+        uses: actions/checkout@v4
+
+      - name: 2. Setup Java JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: 3. Grant execute permission for Maven Wrapper (neu co)
+        run: |
+          if [ -f "./mvnw" ]; then chmod +x ./mvnw; fi
+
+      - name: 4. Build and Run Tests
+        run: |
+          if [ -f "./mvnw" ]; then
+            ./mvnw clean test
+          else
+            mvn clean test
+          fi
